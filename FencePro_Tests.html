@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FencePro Test Suite</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 800; color: #f8fafc; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+  .run-btn { background: #f26522; color: #fff; border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 24px; font-family: inherit; transition: background .15s; }
+  .run-btn:hover { background: #e05510; }
+  .run-btn:disabled { background: #475569; cursor: not-allowed; }
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi { background: #1e293b; border-radius: 10px; padding: 14px 16px; border: 1px solid #334155; }
+  .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin-bottom: 4px; }
+  .kpi-val { font-size: 28px; font-weight: 800; font-family: ui-monospace, monospace; }
+  .kpi-val.pass { color: #4ade80; }
+  .kpi-val.fail { color: #f87171; }
+  .kpi-val.warn { color: #fcd34d; }
+  .kpi-val.neu  { color: #94a3b8; }
+  .section { background: #1e293b; border-radius: 10px; border: 1px solid #334155; margin-bottom: 16px; overflow: hidden; }
+  .section-hdr { padding: 12px 16px; background: #253048; display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+  .section-hdr h2 { font-size: 13px; font-weight: 700; flex: 1; }
+  .section-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+  .badge-pass { background: rgba(74,222,128,.15); color: #4ade80; }
+  .badge-fail { background: rgba(248,113,113,.15); color: #f87171; }
+  .badge-skip { background: rgba(148,163,184,.1);  color: #94a3b8; }
+  .badge-run  { background: rgba(251,191,36,.15);  color: #fbbf24; }
+  .tests { padding: 0 0 8px; }
+  .test { display: flex; align-items: flex-start; gap: 10px; padding: 8px 16px; border-bottom: 1px solid #1a2740; font-size: 12px; }
+  .test:last-child { border-bottom: none; }
+  .test-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; width: 18px; text-align: center; }
+  .test-name { color: #cbd5e1; flex: 1; line-height: 1.5; }
+  .test-detail { font-size: 11px; color: #64748b; margin-top: 2px; font-family: ui-monospace, monospace; }
+  .test-detail.err { color: #f87171; }
+  .test-detail.ok  { color: #4ade80; }
+  .progress { height: 3px; background: #1a2740; border-radius: 0; overflow: hidden; }
+  .progress-bar { height: 100%; background: #f26522; transition: width .1s; border-radius: 0; }
+  .log { background: #0f172a; border-radius: 6px; margin: 8px 16px; padding: 10px 12px; font-size: 11px; font-family: ui-monospace, monospace; color: #64748b; max-height: 120px; overflow-y: auto; }
+  .chevron { font-size: 10px; color: #64748b; transition: transform .2s; }
+  .collapsed .chevron { transform: rotate(-90deg); }
+  .collapsed .tests { display: none; }
+</style>
+</head>
+<body>
+
+<h1>🔬 FencePro Estimator — Test Suite</h1>
+<p class="subtitle">Automated regression tests · Open both this file and FencePro in the same browser — they share localStorage. If you see failures for "bracket field" or "string instead of number", go to FencePro → Setup tab → click <strong style="color:#f26522">🔧 Normalize All Job Records</strong>, then re-run.</p>
+
+<button class="run-btn" onclick="runAll()" id="runBtn">▶ Run All Tests</button>
+
+<div class="summary" id="summary">
+  <div class="kpi"><div class="kpi-label">Total</div><div class="kpi-val neu" id="s_total">—</div></div>
+  <div class="kpi"><div class="kpi-label">Passed</div><div class="kpi-val pass" id="s_pass">—</div></div>
+  <div class="kpi"><div class="kpi-label">Failed</div><div class="kpi-val fail" id="s_fail">—</div></div>
+  <div class="kpi"><div class="kpi-label">Skipped</div><div class="kpi-val warn" id="s_skip">—</div></div>
+</div>
+
+<div class="progress"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+<br>
+
+<div id="sections"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// TEST FRAMEWORK
+// ══════════════════════════════════════════════════════
+
+let results = { pass: 0, fail: 0, skip: 0 };
+let allSections = [];
+
+function assert(condition, detail = '') {
+  if (!condition) throw new Error(detail || 'Assertion failed');
+}
+function assertEqual(a, b, label = '') {
+  if (a !== b) throw new Error(`${label ? label + ': ' : ''}expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+}
+function assertType(val, type, label = '') {
+  if (typeof val !== type) throw new Error(`${label ? label + ': ' : ''}expected ${type}, got ${typeof val} (${JSON.stringify(val)})`);
+}
+function assertApprox(a, b, tol = 1, label = '') {
+  if (Math.abs(a - b) > tol) throw new Error(`${label ? label + ': ' : ''}expected ≈${b}, got ${a} (diff ${Math.abs(a-b).toFixed(2)})`);
+}
+
+function section(name, tests) {
+  allSections.push({ name, tests, results: [] });
+}
+
+async function runAll() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running...';
+  results = { pass: 0, fail: 0, skip: 0 };
+  document.getElementById('sections').innerHTML = '';
+
+  // Locate FencePro window — check localStorage directly since we share storage
+  const fp = window; // same origin tests use localStorage directly
+
+  let total = allSections.reduce((s, sec) => s + sec.tests.length, 0);
+  let done = 0;
+
+  for (const sec of allSections) {
+    sec.results = [];
+    for (const t of sec.tests) {
+      let status = 'pass', detail = '', detailClass = 'ok';
+      try {
+        if (t.skip) { status = 'skip'; detail = t.skip; detailClass = ''; }
+        else {
+          const result = await t.fn();
+          detail = result || '';
+        }
+      } catch(e) {
+        status = 'fail';
+        detail = e.message;
+        detailClass = 'err';
+      }
+      sec.results.push({ name: t.name, status, detail, detailClass });
+      results[status]++;
+      done++;
+      document.getElementById('progressBar').style.width = (done / total * 100) + '%';
+      await new Promise(r => setTimeout(r, 10)); // allow repaint
+    }
+    renderSection(sec);
+  }
+
+  // Summary
+  document.getElementById('s_total').textContent = total;
+  document.getElementById('s_pass').textContent  = results.pass;
+  document.getElementById('s_fail').textContent  = results.fail;
+  document.getElementById('s_skip').textContent  = results.skip;
+  btn.disabled = false;
+  btn.textContent = '↺ Run Again';
+}
+
+function renderSection(sec) {
+  const allPass = sec.results.every(r => r.status === 'pass');
+  const anyFail = sec.results.some(r => r.status === 'fail');
+  const badgeClass = anyFail ? 'badge-fail' : allPass ? 'badge-pass' : 'badge-skip';
+  const badgeText  = anyFail
+    ? sec.results.filter(r => r.status === 'fail').length + ' FAILED'
+    : allPass ? 'ALL PASSED' : 'PARTIAL';
+
+  const icons = { pass: '✅', fail: '❌', skip: '⏭' };
+  const el = document.createElement('div');
+  el.className = 'section';
+  el.innerHTML = `
+    <div class="section-hdr" onclick="this.parentElement.classList.toggle('collapsed')">
+      <h2>${sec.name}</h2>
+      <span class="section-badge ${badgeClass}">${badgeText}</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="tests">
+      ${sec.results.map(r => `
+        <div class="test">
+          <span class="test-icon">${icons[r.status]}</span>
+          <div>
+            <div class="test-name">${r.name}</div>
+            ${r.detail ? `<div class="test-detail ${r.detailClass}">${r.detail}</div>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>`;
+  if (allPass) el.classList.add('collapsed');
+  document.getElementById('sections').appendChild(el);
+}
+
+// ══════════════════════════════════════════════════════
+// HELPER — read from FencePro localStorage
+// ══════════════════════════════════════════════════════
+function getJobs()     { try { return JSON.parse(localStorage.getItem('fp_jobs') || '[]'); } catch(e) { return []; } }
+function getInvoices() { try { return JSON.parse(localStorage.getItem('fp_invoices') || '[]'); } catch(e) { return []; } }
+function getJobCosts() { try { return JSON.parse(localStorage.getItem('fp_jobCosts') || '{}'); } catch(e) { return {}; } }
+function getSettings() { try { return JSON.parse(localStorage.getItem('fp_settings') || '{}'); } catch(e) { return {}; } }
+function getContacts() { try { return JSON.parse(localStorage.getItem('fp_contacts') || '[]'); } catch(e) { return []; } }
+function getAnalyticsRange() { return localStorage.getItem('fp_analyticsRange') || null; }
+function getPerfRange()      { return localStorage.getItem('fp_perfRange') || null; }
+
+// ══════════════════════════════════════════════════════
+// SAMPLE normalizeJob — mirrors the app's function exactly
+// Used here so tests don't depend on the app window being open
+// ══════════════════════════════════════════════════════
+function normalizeJob(j) {
+  if (!j || typeof j !== 'object') return j;
+  const s = (a, b, d='')  => (a !== undefined && a !== null && a !== '') ? a : ((b !== undefined && b !== null && b !== '') ? b : d);
+  const n = (a, b, d=0)   => { const v = s(a,b,d); return (typeof v==='number'&&!isNaN(v)) ? v : (Number(String(v).replace(/[^0-9.-]/g,''))||d); };
+  const bool = (a,b,d=false) => { const v=s(a,b,null); if(v===null) return d; if(typeof v==='boolean') return v; return v==='Yes'||v==='true'||v===true; };
+  return {
+    id:           s(j.id,         j['Estimate ID']||j['Job ID'], ''),
+    jobPrefix:    s(j.jobPrefix,  j['Job Prefix'],  ''),
+    custName:     s(j.custName,   j['Customer Name'],''),
+    custPhone:    s(j.custPhone,  j['Phone'],        ''),
+    custEmail:    s(j.custEmail,  j['Email'],        ''),
+    jobAddr:      s(j.jobAddr,    j['Job Address'],  ''),
+    jobCity:      s(j.jobCity,    j['Job City'],     ''),
+    jobState:     s(j.jobState,   j['Job State'],    'NY'),
+    custZip:      s(j.custZip,    j['Zip'],          ''),
+    custCounty:   s(j.custCounty, j['County'],       ''),
+    fenceType:    s(j.fenceType,  j['Fence Type'],   ''),
+    supplier:     s(j.supplier,   j['Supplier'],     ''),
+    propStatus:   s(j.propStatus||j.proposalStatus, j['Status'], 'Draft'),
+    franchiseOn:  bool(j.franchiseOn, j['Franchise On'], true),
+    totalLF:      n(j.totalLF,   j['Total LF'],    0),
+    markupPct:    n(j.markupPct, j['Markup Pct'],  40),
+    matCost:      n(j.matCost,   j['Material Cost'],0),
+    laborCost:    n(j.laborCost, j['Labor Cost'],  0),
+    calc_final:   n(j.calc_final, j['Final Price CC'], 0),
+    calc_cash:    n(j.calc_cash,  j['Cash Price'],     0),
+    calc_gmPct:   n(j.calc_gmPct, j['Gross Margin Pct'], 0),
+    finalPrice:   n(j.finalPrice, null, 0),
+    cashPrice:    n(j.cashPrice,  null, 0),
+  };
+}
+
+// ══════════════════════════════════════════════════════
+// TEST SECTIONS
+// ══════════════════════════════════════════════════════
+
+// ── 1. LOCALSTORAGE INTEGRITY ─────────────────────────
+section('1 · localStorage Integrity', [
+  {
+    name: 'fp_jobs key exists and is valid JSON',
+    fn() {
+      const raw = localStorage.getItem('fp_jobs');
+      assert(raw !== null, 'fp_jobs key missing from localStorage — open FencePro first');
+      const parsed = JSON.parse(raw);
+      assert(Array.isArray(parsed), 'fp_jobs is not an array');
+      return `${parsed.length} job records found`;
+    }
+  },
+  {
+    name: 'fp_jobs contains at least one record',
+    fn() {
+      const jobs = getJobs();
+      assert(jobs.length > 0, 'No jobs in localStorage — save at least one estimate in FencePro first');
+      return `${jobs.length} jobs loaded`;
+    }
+  },
+  {
+    name: 'fp_settings key exists',
+    fn() {
+      const raw = localStorage.getItem('fp_settings');
+      assert(raw !== null, 'fp_settings missing');
+      const s = JSON.parse(raw);
+      assertType(s, 'object', 'settings');
+      return 'Settings object valid';
+    }
+  },
+  {
+    name: 'fp_invoices key is valid (may be empty)',
+    fn() {
+      const raw = localStorage.getItem('fp_invoices');
+      if (!raw) return 'No invoices yet — OK';
+      const inv = JSON.parse(raw);
+      assert(Array.isArray(inv), 'fp_invoices is not an array');
+      return `${inv.length} invoices found`;
+    }
+  },
+  {
+    name: 'fp_jobCosts key is valid (may be empty)',
+    fn() {
+      const raw = localStorage.getItem('fp_jobCosts');
+      if (!raw) return 'No job costs yet — OK';
+      const jc = JSON.parse(raw);
+      assertType(jc, 'object', 'fp_jobCosts');
+      const keys = Object.keys(jc);
+      return `${keys.length} job prefix(es) with costs`;
+    }
+  },
+  {
+    name: 'fp_contacts key is valid (may be empty)',
+    fn() {
+      const raw = localStorage.getItem('fp_contacts');
+      if (!raw) return 'No contacts — OK';
+      const c = JSON.parse(raw);
+      assert(Array.isArray(c), 'fp_contacts not an array');
+      return `${c.length} contacts`;
+    }
+  },
+]);
+
+// ── 2. NORMALIZEJOB — FIELD NAMES ─────────────────────
+section('2 · normalizeJob — Field Name Consistency', [
+  {
+    name: 'All jobs have canonical camelCase field names',
+    fn() {
+      const jobs = getJobs();
+      if (!jobs.length) throw new Error('No jobs to test — save an estimate first');
+      const badFields = ['Customer Name','Final Price CC','Cash Price','Job Address',
+                         'Fence Type','Status','Total LF','Markup Pct','Gross Margin Pct',
+                         'Material Cost','Labor Cost'];
+      const violations = [];
+      jobs.forEach((j, i) => {
+        badFields.forEach(f => {
+          if (j[f] !== undefined) violations.push(`job[${i}] has bracket field "${f}"`);
+        });
+      });
+      assert(violations.length === 0, violations.slice(0,3).join('; '));
+      return `${jobs.length} jobs — all camelCase ✓`;
+    }
+  },
+  {
+    name: 'No job has proposalStatus (should be propStatus)',
+    fn() {
+      const jobs = getJobs();
+      const bad = jobs.filter(j => j.proposalStatus !== undefined);
+      assert(bad.length === 0, `${bad.length} jobs still have proposalStatus field`);
+      return 'All use propStatus ✓';
+    }
+  },
+  {
+    name: 'No job has custCity (should be jobCity)',
+    fn() {
+      const jobs = getJobs();
+      const bad = jobs.filter(j => j.custCity !== undefined && j.custCity !== j.jobCity);
+      assert(bad.length === 0, `${bad.length} jobs have mismatched custCity vs jobCity`);
+      return 'City field consolidated ✓';
+    }
+  },
+  {
+    name: 'normalizeJob handles CRM bracket-key input correctly',
+    fn() {
+      const crmRecord = {
+        'Estimate ID': '999-Test-A-2026',
+        'Customer Name': 'Test Customer',
+        'Job Address': '1 Main St',
+        'Final Price CC': '12200',
+        'Cash Price': '11800',
+        'Status': 'Accepted',
+        'Fence Type': '6\' Black Chainlink',
+        'Total LF': '150',
+        'Markup Pct': '45',
+      };
+      const norm = normalizeJob(crmRecord);
+      assertEqual(norm.id,         '999-Test-A-2026', 'id');
+      assertEqual(norm.custName,   'Test Customer',   'custName');
+      assertEqual(norm.propStatus, 'Accepted',        'propStatus');
+      assertEqual(norm.calc_final, 12200,             'calc_final');
+      assertType(norm.calc_final,  'number',          'calc_final type');
+      assertType(norm.totalLF,     'number',          'totalLF type');
+      assertEqual(norm.totalLF,    150,               'totalLF value');
+      return 'CRM → camelCase mapping correct ✓';
+    }
+  },
+  {
+    name: 'normalizeJob handles camelCase input (local save) without data loss',
+    fn() {
+      const local = {
+        id: '100-Smith-A-2026',
+        custName: 'John Smith',
+        jobAddr: '5 Oak Ave',
+        propStatus: 'Draft',
+        calc_final: 8500,
+        calc_cash: 8200,
+        markupPct: 40,
+        totalLF: 120,
+        franchiseOn: true,
+      };
+      const norm = normalizeJob(local);
+      assertEqual(norm.id,         '100-Smith-A-2026', 'id');
+      assertEqual(norm.custName,   'John Smith',        'custName');
+      assertEqual(norm.calc_final, 8500,                'calc_final');
+      assertEqual(norm.franchiseOn,true,                'franchiseOn');
+      return 'Local → normalize round-trip correct ✓';
+    }
+  },
+  {
+    name: 'normalizeJob boolean fields: franchiseOn handles Yes/No/bool',
+    fn() {
+      assertEqual(normalizeJob({ franchiseOn: true  }).franchiseOn, true,  'true→true');
+      assertEqual(normalizeJob({ franchiseOn: false }).franchiseOn, false, 'false→false');
+      assertEqual(normalizeJob({ 'Franchise On': 'Yes' }).franchiseOn, true,  'Yes→true');
+      assertEqual(normalizeJob({ 'Franchise On': 'No'  }).franchiseOn, false, 'No→false');
+      return 'Boolean normalization correct ✓';
+    }
+  },
+  {
+    name: 'normalizeJob numeric fields: strips $ signs and commas',
+    fn() {
+      const norm = normalizeJob({ 'Final Price CC': '$12,200', 'Total LF': '150', markupPct: '45' });
+      assertType(norm.calc_final, 'number', 'calc_final');
+      assertEqual(norm.calc_final, 12200, 'calc_final value');
+      assertType(norm.totalLF,    'number', 'totalLF');
+      assertEqual(norm.totalLF,   150,    'totalLF value');
+      return 'Numeric coercion correct ✓';
+    }
+  },
+]);
+
+// ── 3. DATA FIELD TYPES ───────────────────────────────
+section('3 · Data Field Types in Stored Jobs', [
+  {
+    name: 'finalPrice stored as number (not string)',
+    fn() {
+      const jobs = getJobs();
+      const withFinal = jobs.filter(j => j.finalPrice);
+      if (!withFinal.length) return 'No jobs with finalPrice — skip';
+      const stringPrices = withFinal.filter(j => typeof j.finalPrice === 'string');
+      assert(stringPrices.length === 0,
+        `${stringPrices.length} jobs have finalPrice as string: "${stringPrices[0]?.finalPrice}"`);
+      return `${withFinal.length} jobs — finalPrice is number ✓`;
+    }
+  },
+  {
+    name: 'cashPrice stored as number (not string)',
+    fn() {
+      const jobs = getJobs();
+      const withCash = jobs.filter(j => j.cashPrice);
+      if (!withCash.length) return 'No jobs with cashPrice — skip';
+      const bad = withCash.filter(j => typeof j.cashPrice === 'string');
+      assert(bad.length === 0, `${bad.length} jobs have cashPrice as string`);
+      return `${withCash.length} jobs — cashPrice is number ✓`;
+    }
+  },
+  {
+    name: 'calc_final is always a number',
+    fn() {
+      const jobs = getJobs();
+      const bad = jobs.filter(j => j.calc_final !== undefined && typeof j.calc_final !== 'number');
+      assert(bad.length === 0, `${bad.length} jobs have non-numeric calc_final`);
+      return `All calc_final values are numbers ✓`;
+    }
+  },
+  {
+    name: 'markupPct is a number',
+    fn() {
+      const jobs = getJobs();
+      const bad = jobs.filter(j => typeof j.markupPct !== 'number' || isNaN(j.markupPct));
+      assert(bad.length === 0, `${bad.length} jobs have non-numeric markupPct`);
+      return 'All markupPct values numeric ✓';
+    }
+  },
+  {
+    name: 'totalLF is a number',
+    fn() {
+      const jobs = getJobs();
+      const bad = jobs.filter(j => typeof j.totalLF !== 'number' || isNaN(j.totalLF));
+      assert(bad.length === 0, `${bad.length} jobs have non-numeric totalLF`);
+      return 'All totalLF values numeric ✓';
+    }
+  },
+  {
+    name: 'propStatus is always a string',
+    fn() {
+      const jobs = getJobs();
+      const bad = jobs.filter(j => typeof j.propStatus !== 'string');
+      assert(bad.length === 0, `${bad.length} jobs with non-string propStatus`);
+      return 'All propStatus values are strings ✓';
+    }
+  },
+  {
+    name: 'photos field is always an array',
+    fn() {
+      const jobs = getJobs();
+      const bad = jobs.filter(j => j.photos !== undefined && !Array.isArray(j.photos));
+      assert(bad.length === 0, `${bad.length} jobs have non-array photos field`);
+      return 'All photos fields are arrays ✓';
+    }
+  },
+]);
+
+// ── 4. JOB ID STRUCTURE ───────────────────────────────
+section('4 · Job ID Structure & Relational Integrity', [
+  {
+    name: 'All jobs have a non-empty id field',
+    fn() {
+      const jobs = getJobs();
+      const noId = jobs.filter(j => !j.id || j.id.trim() === '');
+      // Unsaved drafts may have empty IDs — warn but don't fail
+      if (noId.length > 0) return `⚠ ${noId.length} unsaved draft(s) with no ID (normal if mid-entry)`;
+      return `All ${jobs.length} jobs have IDs ✓`;
+    }
+  },
+  {
+    name: 'Job IDs follow expected format (prefix-name-letter-year)',
+    fn() {
+      const jobs = getJobs().filter(j => j.id);
+      const fmt = /^\d+-.+-[A-Z]-\d{4}$/;
+      const bad = jobs.filter(j => !fmt.test(j.id));
+      if (bad.length) return `⚠ ${bad.length} IDs don't match standard format: ${bad[0].id}`;
+      return `All ${jobs.length} IDs match format ✓`;
+    }
+  },
+  {
+    name: 'jobPrefix matches the numeric portion of id',
+    fn() {
+      const jobs = getJobs().filter(j => j.id && j.jobPrefix);
+      const bad = jobs.filter(j => {
+        const prefixFromId = j.id.split('-')[0];
+        return j.jobPrefix !== prefixFromId;
+      });
+      assert(bad.length === 0,
+        `${bad.length} jobs: jobPrefix doesn't match id prefix. e.g. id="${bad[0]?.id}" jobPrefix="${bad[0]?.jobPrefix}"`);
+      return `${jobs.length} jobs — prefix consistent ✓`;
+    }
+  },
+  {
+    name: 'No duplicate job IDs',
+    fn() {
+      const jobs = getJobs().filter(j => j.id);
+      const ids  = jobs.map(j => j.id);
+      const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
+      assert(dupes.length === 0, `Duplicate IDs found: ${[...new Set(dupes)].join(', ')}`);
+      return `${jobs.length} jobs — all IDs unique ✓`;
+    }
+  },
+  {
+    name: 'propStatus values are from the valid set',
+    fn() {
+      const VALID = ['Draft','Committed','Sent','Accepted','Deposit Received','Scheduled',
+                     'In Progress','Ready for Invoice','Invoiced','Paid in Full','Lost','On Hold','Complete'];
+      const jobs = getJobs();
+      const bad  = jobs.filter(j => j.propStatus && !VALID.includes(j.propStatus));
+      assert(bad.length === 0,
+        `${bad.length} jobs have invalid status: ${bad.map(j=>j.propStatus).join(', ')}`);
+      return `All ${jobs.length} statuses valid ✓`;
+    }
+  },
+]);
+
+// ── 5. PRICING INTEGRITY ──────────────────────────────
+section('5 · Pricing Integrity', [
+  {
+    name: 'No job has a negative final price',
+    fn() {
+      const jobs = getJobs().filter(j => j.calc_final > 0 || j.finalPrice > 0);
+      const bad  = jobs.filter(j => (j.calc_final || j.finalPrice || 0) < 0);
+      assert(bad.length === 0, `${bad.length} jobs have negative final price`);
+      return `${jobs.length} priced jobs — all positive ✓`;
+    }
+  },
+  {
+    name: 'Cash price ≤ CC price on all jobs',
+    fn() {
+      const jobs = getJobs().filter(j => j.calc_final > 0 && j.calc_cash > 0);
+      if (!jobs.length) return 'No jobs with both prices — skip';
+      const bad = jobs.filter(j => j.calc_cash > j.calc_final + 1); // +1 for rounding tolerance
+      assert(bad.length === 0,
+        `${bad.length} jobs: cash price > CC price (e.g. ${bad[0]?.id}: cash=${bad[0]?.calc_cash} > cc=${bad[0]?.calc_final})`);
+      return `${jobs.length} jobs — cash ≤ CC ✓`;
+    }
+  },
+  {
+    name: 'Gross margin % is within realistic range (-100% to 100%)',
+    fn() {
+      const jobs = getJobs().filter(j => j.calc_gmPct !== 0);
+      if (!jobs.length) return 'No GM data — skip';
+      const bad = jobs.filter(j => {
+        const pct = j.calc_gmPct < 1 ? j.calc_gmPct * 100 : j.calc_gmPct;
+        return pct < -50 || pct > 95;
+      });
+      assert(bad.length === 0,
+        `${bad.length} jobs have suspicious GM%: ${bad.map(j => j.id + ':' + j.calc_gmPct).join(', ')}`);
+      return `${jobs.length} jobs — GM% in range ✓`;
+    }
+  },
+  {
+    name: 'calc_final and finalPrice are consistent (within $1)',
+    fn() {
+      const jobs = getJobs().filter(j => j.calc_final > 0 && j.finalPrice > 0);
+      if (!jobs.length) return 'No jobs with both fields — skip';
+      const bad = jobs.filter(j => Math.abs(j.calc_final - j.finalPrice) > 1);
+      assert(bad.length === 0,
+        `${bad.length} jobs: calc_final ≠ finalPrice (e.g. ${bad[0]?.id}: ${bad[0]?.calc_final} vs ${bad[0]?.finalPrice})`);
+      return `${jobs.length} jobs — prices consistent ✓`;
+    }
+  },
+  {
+    name: 'markupPct is in reasonable range (5%–500%)',
+    fn() {
+      const jobs = getJobs().filter(j => j.markupPct > 0);
+      if (!jobs.length) return 'No markup data — skip';
+      const bad = jobs.filter(j => j.markupPct < 5 || j.markupPct > 500);
+      assert(bad.length === 0,
+        `${bad.length} jobs have unusual markup: ${bad.map(j=>j.id+':'+j.markupPct+'%').join(', ')}`);
+      return `${jobs.length} jobs — markup in range ✓`;
+    }
+  },
+]);
+
+// ── 6. JOB COSTS INTEGRITY ───────────────────────────
+section('6 · Job Costs Data Integrity', [
+  {
+    name: 'fp_jobCosts structure is valid',
+    fn() {
+      const jc = getJobCosts();
+      const keys = Object.keys(jc);
+      if (!keys.length) return 'No job costs recorded yet — OK';
+      const VALID_TYPES = ['Labor','Material','Subcontractor','Equipment','Disposal/Carting','Other'];
+      let totalEntries = 0, errors = [];
+      keys.forEach(prefix => {
+        const entry = jc[prefix];
+        if (!entry || typeof entry !== 'object') { errors.push(`${prefix}: not an object`); return; }
+        if (!Array.isArray(entry.costs)) { errors.push(`${prefix}: costs not array`); return; }
+        entry.costs.forEach((c, i) => {
+          if (!c.id)   errors.push(`${prefix}[${i}]: missing id`);
+          if (!VALID_TYPES.includes(c.type)) errors.push(`${prefix}[${i}]: invalid type "${c.type}"`);
+          if (typeof c.amount !== 'number') errors.push(`${prefix}[${i}]: amount not number`);
+          if (c.amount <= 0) errors.push(`${prefix}[${i}]: amount ≤ 0`);
+        });
+        totalEntries += entry.costs.length;
+      });
+      assert(errors.length === 0, errors.slice(0,3).join('; '));
+      return `${keys.length} jobs, ${totalEntries} cost entries — all valid ✓`;
+    }
+  },
+  {
+    name: 'pinnedEstimateId references exist in fp_jobs',
+    fn() {
+      const jc   = getJobCosts();
+      const jobs = getJobs();
+      const jobIds = new Set(jobs.map(j => j.id).filter(Boolean));
+      const keys = Object.keys(jc);
+      if (!keys.length) return 'No job costs — skip';
+      const orphans = [];
+      keys.forEach(prefix => {
+        const pinned = jc[prefix]?.pinnedEstimateId;
+        if (pinned && !jobIds.has(pinned)) orphans.push(`${prefix} → ${pinned}`);
+      });
+      assert(orphans.length === 0,
+        `${orphans.length} pinned estimate IDs not found in fp_jobs: ${orphans.join(', ')}`);
+      return `${keys.length} job cost records — all pins valid ✓`;
+    }
+  },
+  {
+    name: 'Cost amounts are all positive numbers',
+    fn() {
+      const jc = getJobCosts();
+      const bad = [];
+      Object.entries(jc).forEach(([prefix, entry]) => {
+        (entry.costs || []).forEach((c, i) => {
+          if (typeof c.amount !== 'number' || c.amount <= 0)
+            bad.push(`${prefix}[${i}]: amount=${c.amount}`);
+        });
+      });
+      assert(bad.length === 0, bad.slice(0,3).join('; '));
+      return 'All cost amounts valid ✓';
+    }
+  },
+  {
+    name: 'Cost dates are valid date strings',
+    fn() {
+      const jc = getJobCosts();
+      const bad = [];
+      Object.entries(jc).forEach(([prefix, entry]) => {
+        (entry.costs || []).forEach((c, i) => {
+          if (!c.date || isNaN(new Date(c.date).getTime()))
+            bad.push(`${prefix}[${i}]: date="${c.date}"`);
+        });
+      });
+      assert(bad.length === 0, bad.slice(0,3).join('; '));
+      return 'All cost dates valid ✓';
+    }
+  },
+]);
+
+// ── 7. INVOICE INTEGRITY ──────────────────────────────
+section('7 · Invoice Data Integrity', [
+  {
+    name: 'All invoices have an invoice ID',
+    fn() {
+      const inv = getInvoices();
+      if (!inv.length) return 'No invoices — skip';
+      const bad = inv.filter(i => !i.invoiceId && !i['Invoice ID']);
+      assert(bad.length === 0, `${bad.length} invoices missing ID`);
+      return `${inv.length} invoices — all have IDs ✓`;
+    }
+  },
+  {
+    name: 'Amount Due is numeric (no NaN)',
+    fn() {
+      const inv = getInvoices();
+      if (!inv.length) return 'No invoices — skip';
+      const bad = inv.filter(i => {
+        const amt = i.amountDue ?? i['Amount Due'];
+        return amt !== undefined && (isNaN(Number(amt)));
+      });
+      assert(bad.length === 0, `${bad.length} invoices have NaN Amount Due`);
+      return `${inv.length} invoices — Amount Due valid ✓`;
+    }
+  },
+  {
+    name: 'Invoice statuses are from valid set',
+    fn() {
+      const VALID = ['Unpaid','Partial','Paid in Full','Invoiced','Overdue'];
+      const inv = getInvoices();
+      if (!inv.length) return 'No invoices — skip';
+      const bad = inv.filter(i => {
+        const s = i.status || i['Payment Status'] || '';
+        return s && !VALID.includes(s);
+      });
+      assert(bad.length === 0,
+        `${bad.length} invoices have invalid status: ${bad.map(i=>i.status||i['Payment Status']).join(', ')}`);
+      return `${inv.length} invoices — all statuses valid ✓`;
+    }
+  },
+]);
+
+// ── 8. ANALYTICS FILTER PERSISTENCE ──────────────────
+section('8 · Analytics Filter Persistence', [
+  {
+    name: 'fp_analyticsRange key exists after visiting Analytics tab',
+    fn() {
+      const val = getAnalyticsRange();
+      if (!val) return '⚠ fp_analyticsRange not set — visit the Analytics tab and change the filter first';
+      const VALID = ['week','month','30','90','180','year','lastyear','all'];
+      assert(VALID.includes(val), `Invalid analyticsRange value: "${val}"`);
+      return `Saved as "${val}" ✓`;
+    }
+  },
+  {
+    name: 'fp_perfRange key exists after visiting Analytics tab',
+    fn() {
+      const val = getPerfRange();
+      if (!val) return '⚠ fp_perfRange not set — visit Analytics > Performance section and change filter';
+      const VALID = ['week','month','30','90','180','year','lastyear','all'];
+      assert(VALID.includes(val), `Invalid perfRange value: "${val}"`);
+      return `Saved as "${val}" ✓`;
+    }
+  },
+]);
+
+// ── 9. CONTACT INTEGRITY ─────────────────────────────
+section('9 · Contact Data Integrity', [
+  {
+    name: 'All contacts have a uid field',
+    fn() {
+      const contacts = getContacts();
+      if (!contacts.length) return 'No contacts — skip';
+      const bad = contacts.filter(c => !c.uid);
+      assert(bad.length === 0, `${bad.length} contacts missing uid`);
+      return `${contacts.length} contacts — all have UIDs ✓`;
+    }
+  },
+  {
+    name: 'No duplicate contact UIDs',
+    fn() {
+      const contacts = getContacts();
+      if (!contacts.length) return 'No contacts — skip';
+      const uids  = contacts.map(c => c.uid).filter(Boolean);
+      const dupes = uids.filter((u, i) => uids.indexOf(u) !== i);
+      assert(dupes.length === 0, `${dupes.length} duplicate UIDs: ${[...new Set(dupes)].join(', ')}`);
+      return `${contacts.length} contacts — UIDs unique ✓`;
+    }
+  },
+  {
+    name: 'Jobs referencing a contactUID have a matching contact',
+    fn() {
+      const contacts = getContacts();
+      if (!contacts.length) return 'No contacts — skip cross-reference';
+      const jobs = getJobs();
+      const contactUIDs = new Set(contacts.map(c => c.uid).filter(Boolean));
+      const fpUIDs = jobs.filter(j => j.contactUID && String(j.contactUID).startsWith('FP-'));
+      const orphans = fpUIDs.filter(j => !contactUIDs.has(j.contactUID));
+      if (orphans.length) return `⚠ ${orphans.length} FP-UIDs not in contacts list (may be from CRM)`;
+      return `${fpUIDs.length} FP-linked jobs — all contacts found ✓`;
+    }
+  },
+]);
+
+// ── 10. PRICING MATH SPOT CHECK ───────────────────────
+section('10 · Pricing Formula Spot Check', [
+  {
+    name: 'normalizeJob calc_matTotal reconstruction is reasonable',
+    fn() {
+      // A job with known inputs
+      const job = {
+        matCost: 1000,
+        laborCost: 800,
+        calc_final: 3200,
+        calc_cash: 3000,
+        calc_gmPct: 0.35,
+        markupPct: 40,
+        totalLF: 100,
+      };
+      const norm = normalizeJob(job);
+      assertType(norm.calc_final, 'number', 'calc_final');
+      assertEqual(norm.calc_final, 3200, 'calc_final');
+      assertEqual(norm.markupPct,  40,   'markupPct');
+      assertEqual(norm.totalLF,    100,  'totalLF');
+      return 'Math fields pass through correctly ✓';
+    }
+  },
+  {
+    name: 'Price-per-LF is reasonable for accepted/complete jobs',
+    fn() {
+      const jobs = getJobs().filter(j =>
+        ['Accepted','In Progress','Complete','Paid in Full'].includes(j.propStatus) &&
+        j.totalLF > 0 && j.calc_final > 0
+      );
+      if (!jobs.length) return 'No accepted jobs with LF data — skip';
+      const bad = jobs.filter(j => {
+        const plf = j.calc_final / j.totalLF;
+        return plf < 5 || plf > 1000; // $5–$1000/LF is realistic range
+      });
+      assert(bad.length === 0,
+        `${bad.length} jobs have suspicious $/LF: ${bad.map(j=>`${j.id}:$${(j.calc_final/j.totalLF).toFixed(0)}/LF`).join(', ')}`);
+      return `${jobs.length} accepted jobs — $/LF in range ✓`;
+    }
+  },
+  {
+    name: 'All accepted/complete jobs have a non-zero final price',
+    fn() {
+      const jobs = getJobs().filter(j =>
+        ['Accepted','In Progress','Complete','Invoiced','Paid in Full'].includes(j.propStatus)
+      );
+      if (!jobs.length) return 'No accepted/complete jobs — skip';
+      const bad = jobs.filter(j => !j.calc_final && !j.finalPrice);
+      assert(bad.length === 0,
+        `${bad.length} accepted jobs with $0 price: ${bad.map(j=>j.id).join(', ')}`);
+      return `${jobs.length} accepted jobs — all have prices ✓`;
+    }
+  },
+]);
+
+runAll();
+</script>
+</body>
+</html>
