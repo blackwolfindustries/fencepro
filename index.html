@@ -1746,6 +1746,22 @@
       </div>
     </div>
 
+    <!-- Full System Backup -->
+    <div class="card" style="margin-bottom:12px;border:2px solid var(--orange)">
+      <div class="card-title">☁️ Full System Backup / Restore</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+        Exports <strong>everything</strong> — estimates, contacts, invoices, job costs, settings, and all app data — into a single file. Use this to move your data to a new device or the hosted version of FencePro.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="exportFullSystem()" style="flex:1;justify-content:center;background:var(--orange);color:#fff;border-color:var(--orange)">⬇ Export Everything</button>
+        <label class="btn" style="flex:1;justify-content:center;cursor:pointer;margin:0;background:var(--green);color:#fff;border-color:var(--green)">
+          ⬆ Import Everything
+          <input type="file" accept=".json" style="display:none" onchange="importFullSystem(this.files[0]);this.value=''">
+        </label>
+      </div>
+      <div id="fullSystemResult" style="font-size:12px;min-height:16px;color:var(--text3);margin-top:8px"></div>
+    </div>
+
     <!-- Data Migration -->
     <div class="card" style="margin-bottom:12px">
       <div class="card-title">🔧 Data Migration</div>
@@ -4306,6 +4322,73 @@ function clearAllLocalEstimates() {
   renderJobsList();
   status('Local cache cleared — click Refresh to reload from Sheets');
   alert('✓ Local cache cleared.\n\nClick the ↻ Refresh button or reopen the app to reload your estimates from Google Sheets.');
+}
+
+function exportFullSystem() {
+  const snapshot = {};
+  const fpKeys = Object.keys(localStorage).filter(k => k.startsWith('fp_'));
+  fpKeys.forEach(k => {
+    try { snapshot[k] = JSON.parse(localStorage.getItem(k)); }
+    catch { snapshot[k] = localStorage.getItem(k); }
+  });
+  const payload = {
+    version: 2,
+    exported: new Date().toISOString(),
+    exportedFrom: window.location.hostname,
+    keyCount: fpKeys.length,
+    data: snapshot
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'FencePro_FULL_Backup_' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  const el = document.getElementById('fullSystemResult');
+  if (el) el.textContent = '✅ Exported ' + fpKeys.length + ' data keys — ' + new Date().toLocaleTimeString();
+  status('Full system exported — ' + fpKeys.length + ' data keys');
+}
+
+function importFullSystem(file) {
+  if (!file) return;
+  if (!confirm('⚠️ This will merge imported data into your current app.\n\nExisting records with matching IDs will be overwritten.\n\nContinue?')) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const payload = JSON.parse(e.target.result);
+      if (!payload.data) { alert('Invalid backup file — missing data block'); return; }
+      const data = payload.data;
+      let count = 0;
+      Object.keys(data).forEach(k => {
+        try {
+          const existing = localStorage.getItem(k);
+          if (existing && Array.isArray(data[k]) && Array.isArray(JSON.parse(existing))) {
+            // Merge arrays by id/uid
+            const existArr = JSON.parse(existing);
+            const importArr = data[k];
+            const merged = {};
+            existArr.forEach(r => { const key = r.id || r.uid; if (key) merged[key] = r; });
+            importArr.forEach(r => { const key = r.id || r.uid; if (key) merged[key] = r; else existArr.push(r); });
+            localStorage.setItem(k, JSON.stringify(Object.values(merged)));
+          } else {
+            localStorage.setItem(k, typeof data[k] === 'string' ? data[k] : JSON.stringify(data[k]));
+          }
+          count++;
+        } catch(err) {
+          localStorage.setItem(k, String(data[k]));
+        }
+      });
+      const el = document.getElementById('fullSystemResult');
+      if (el) el.textContent = '✅ Imported ' + count + ' data keys successfully';
+      alert('✅ Import complete!\n\n' + count + ' data keys restored.\n\nThe page will now reload to apply all changes.');
+      location.reload();
+    } catch(err) {
+      alert('Could not read backup file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
 }
 
 function exportJobsBackup() {
