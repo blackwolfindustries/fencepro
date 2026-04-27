@@ -6276,12 +6276,18 @@ async function testConnection() {
   if (!url) { el.textContent = '✗ No URL entered'; el.style.color='var(--red)'; return; }
   el.textContent = 'Testing...'; el.style.color='var(--text3)';
   try {
-    const res  = await fetch(url);
+    const res  = await fetch(url + '?key=' + encodeURIComponent(settings.apiKey || ''));
     const data = await res.json();
     if (data.status) {
       el.textContent = '✓ Connected: ' + data.status;
       el.style.color = 'var(--green)';
       setCloud('connected','Connected');
+    } else if (data.error === 'Unauthorized') {
+      el.textContent = '✗ API key mismatch — check Setup';
+      el.style.color = 'var(--red)';
+    } else {
+      el.textContent = '✗ Unexpected response';
+      el.style.color = 'var(--red)';
     }
   } catch(e) {
     el.textContent = '✗ Failed: ' + e.message;
