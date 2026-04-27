@@ -991,13 +991,13 @@
 
   <!-- ── PHOTOS ── -->
   <div class="card" style="padding:14px 16px">
-    <div class="card-title">Site Photos &amp; Documents</div>
+    <div class="card-title">Site Photos</div>
     <div class="pdrop" id="pdrop" onclick="document.getElementById('pInput').click()"
       ondragover="event.preventDefault();this.classList.add('over')"
       ondragleave="this.classList.remove('over')"
       ondrop="onDrop(event)">
-      ↑ drag & drop or tap to upload photos or PDFs
-      <input type="file" id="pInput" multiple accept="image/*,application/pdf,.pdf" style="display:none" onchange="onFiles(event)">
+      ↑ drag & drop or tap to upload site photos
+      <input type="file" id="pInput" multiple accept="image/*" style="display:none" onchange="onFiles(event)">
     </div>
     <div class="pgrid" id="pgrid"></div>
     <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:6px" id="photoNote"></div>
@@ -5248,7 +5248,7 @@ function collectData() {
     internalNotes:   val('internalNotes'),
     completionNotes: curIdx >= 0 ? (jobs[curIdx]?.completionNotes || '') : '',
     franchiseOn: document.getElementById('franchTog').checked,
-    photos:      photos.map(p => p.name),  // store names only; full data uploaded separately
+    photos:      photos.filter(p => !p.deleted).map(p => p.name),  // store names only; full data uploaded separately
     // Calculated fields (for Sheets analysis)
     calc_delivery:  lastCalc.delivery   || 0,
     calc_suppCCRate:lastCalc.suppCCRate || 0,
@@ -5370,6 +5370,7 @@ async function saveJob() {
   try {
     // Upload any new photos first (fire sequentially but don't block UI)
     for (let i = 0; i < photos.length; i++) {
+      if (photos[i].deleted) continue; // skip files marked for removal
       if (!photos[i].uploaded && photos[i].dataUrl) {
         await cloudCall({ action:'uploadPhoto', data:{
           jobId:      data.id,
@@ -5382,6 +5383,9 @@ async function saveJob() {
         photos[i].uploaded = true;
       }
     }
+    // Strip deleted entries now that save is committing
+    photos = photos.filter(p => !p.deleted);
+    renderPhotos();
 
     // Save to Sheets
     const res = await cloudCall({ action:'saveJob', data });
@@ -6374,7 +6378,7 @@ function renderJobsList() {
 function onDrop(e) {
   e.preventDefault();
   document.getElementById('pdrop').classList.remove('over');
-  [...e.dataTransfer.files].filter(f => f.type.startsWith('image/') || f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')).forEach(addPhoto);
+  [...e.dataTransfer.files].filter(f=>f.type.startsWith('image/')).forEach(addPhoto);
 }
 function onFiles(e) { [...e.target.files].forEach(addPhoto); }
 function addPhoto(file) {
@@ -6393,16 +6397,56 @@ function renderPhotos() {
     d.className = 'pthumb';
     const isPdf = p.name && p.name.toLowerCase().endsWith('.pdf');
     const src = p.dataUrl || '';
+    const statusLabel = p.deleted ? '🗑 Removed on save' : (p.uploaded ? '✓ Uploaded' : 'pending');
+    const statusColor = p.deleted ? 'var(--red)' : (p.uploaded ? 'var(--green)' : 'var(--text3)');
+    const overlay = p.deleted ? 'position:absolute;inset:0;background:rgba(220,38,38,.35);border-radius:4px;pointer-events:none' : 'display:none';
     if (isPdf) {
-      d.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px;padding:6px"><div style="font-size:22px">📄</div><div style="font-size:9px;color:var(--text2);font-family:var(--mono);text-align:center;word-break:break-all">${p.name}</div><div style="font-size:9px;color:${p.uploaded?'var(--green)':'var(--text3)'}">${p.uploaded?'✓ Uploaded':'pending'}</div></div><button class="xbtn" onclick="rmPhoto(${i})">✕</button>`;
+      d.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px;padding:6px">
+          <div style="font-size:22px">📄</div>
+          <div style="font-size:9px;color:var(--text2);font-family:var(--mono);text-align:center;word-break:break-all">${p.name}</div>
+          <div style="font-size:9px;color:${statusColor}">${statusLabel}</div>
+        </div>
+        <div style="${overlay}"></div>
+        <button class="xbtn" style="display:block" onclick="rmPhoto(${i})" title="${p.deleted ? 'Undo remove' : 'Remove'}">${p.deleted ? '↩' : '✕'}</button>`;
+    } else if (src) {
+      d.innerHTML = `
+        <img src="${src}" style="${p.deleted ? 'opacity:.4' : ''}">
+        <div style="${overlay}"></div>
+        <button class="xbtn" style="display:block" onclick="rmPhoto(${i})" title="${p.deleted ? 'Undo remove' : 'Remove'}">${p.deleted ? '↩' : '✕'}</button>`;
     } else {
-      d.innerHTML = src ? `<img src="${src}"><button class="xbtn" onclick="rmPhoto(${i})">✕</button>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px;text-align:center">${p.name}<br>${p.uploaded?'✓ Uploaded':'pending'}</div>`;
+      d.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px;padding:6px">
+          <div style="font-size:22px">🖼</div>
+          <div style="font-size:9px;color:var(--text2);font-family:var(--mono);text-align:center;word-break:break-all">${p.name}</div>
+          <div style="font-size:9px;color:${statusColor}">${statusLabel}</div>
+        </div>
+        <div style="${overlay}"></div>
+        <button class="xbtn" style="display:block" onclick="rmPhoto(${i})" title="${p.deleted ? 'Undo remove' : 'Remove'}">${p.deleted ? '↩' : '✕'}</button>`;
     }
     g.appendChild(d);
   });
-  document.getElementById('photoNote').textContent = photos.length > 0 ? `${photos.length} file(s) — saved to Drive job folder on sync` : '';
+  const active  = photos.filter(p => !p.deleted);
+  const pending = photos.filter(p => !p.uploaded && !p.deleted);
+  const removed = photos.filter(p => p.deleted);
+  let note = '';
+  if (active.length > 0)  note += `${active.length} file(s)`;
+  if (pending.length > 0) note += ` · ${pending.length} pending upload`;
+  if (removed.length > 0) note += ` · ${removed.length} marked for removal on save`;
+  document.getElementById('photoNote').textContent = note;
 }
-function rmPhoto(i) { photos.splice(i,1); renderPhotos(); }
+function rmPhoto(i) {
+  const p = photos[i];
+  if (!p) return;
+  if (!p.uploaded) {
+    // Not yet in Drive — just remove from array immediately
+    photos.splice(i, 1);
+  } else {
+    // Already in Drive — toggle deleted flag (undo is possible until save)
+    photos[i].deleted = !photos[i].deleted;
+  }
+  renderPhotos();
+}
 
 // ════════════════════════════════════════════════
 // SHARE / EMAIL
