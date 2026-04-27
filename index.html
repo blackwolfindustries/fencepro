@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FencePro Estimator</title>
+<link id="favicon" rel="icon" type="image/jpeg" href="">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -4105,7 +4106,8 @@ function showApp() {
 document.addEventListener('DOMContentLoaded', () => {
   const sbDate = document.getElementById('sbDate');
   if (sbDate) sbDate.textContent = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  showApp(); // checkAuth() commented out — re-enable for cloud deployment
+  showApp();
+  setFavicon(activeCompany); // Set favicon and title on load
   // Populate dynamic dropdowns from stored lists
   populateFenceTypes();
   populateSuppliers();
@@ -5592,6 +5594,18 @@ const COMPANIES = {
   BWI: 'Black Wolf Industries LLC',
   TRF: 'Top Rail Fence Huntington'
 };
+function setFavicon(co) {
+  const logo = (typeof COMPANY_LOGOS !== 'undefined' && COMPANY_LOGOS[co || 'BWI']) || {};
+  const favicon = document.getElementById('favicon');
+  if (favicon && logo.src) {
+    favicon.href = logo.src;
+    favicon.type = 'image/jpeg';
+  }
+  // Also update the page title
+  const coName = co === 'TRF' ? 'Top Rail Fence' : 'Black Wolf Industries';
+  document.title = `FencePro — ${coName}`;
+}
+
 let activeCompany = 'BWI';
 
 function selectCompany(co) {
@@ -5606,6 +5620,7 @@ function selectCompany(co) {
   const proceedTRF = tmplVal('proceed_trf');
   const proceedText = co === 'BWI' ? proceedBWI : proceedTRF;
   document.getElementById('prop_proceed').innerHTML = proceedText;
+  setFavicon(co);
 }
 
 function openProposal() {
