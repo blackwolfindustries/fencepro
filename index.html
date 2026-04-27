@@ -719,6 +719,11 @@
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Cash / Check Price</div>
         <div style="font-size:18px;font-weight:700;color:#4ADE80;font-family:var(--mono)" id="s_cash">$0</div>
       </div>
+      <div id="s_accepted_banner" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1);display:none;background:rgba(22,163,74,.15);border-top:2px solid #16A34A">
+        <div style="font-size:9px;font-weight:700;color:#4ADE80;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">✅ Accepted Price</div>
+        <div style="font-size:18px;font-weight:800;color:#4ADE80;font-family:var(--mono)" id="s_accepted_price">—</div>
+        <div style="font-size:10px;font-weight:700;color:#4ADE80;opacity:.8" id="s_accepted_type">—</div>
+      </div>
       <div style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Price per LF</div>
         <div style="font-size:16px;font-weight:700;color:rgba(255,255,255,.9);font-family:var(--mono)" id="s_plf">—</div>
@@ -5162,6 +5167,23 @@ function recalc() {
   setText('s_emu',  effMu.toFixed(1)+'%');
   setText('s_final','$'+Math.round(finalRnd).toLocaleString());
   setText('s_cash', '$'+Math.round(cashPrc).toLocaleString());
+
+  // Accepted price banner — show if this estimate has been accepted with a price type
+  const curJob = curIdx >= 0 ? jobs[curIdx] : null;
+  const accBanner = document.getElementById('s_accepted_banner');
+  if (accBanner) {
+    const accType  = curJob?.contractPriceType || '';
+    const accPrice = curJob?.contractPrice     || 0;
+    const accStatus = curJob?.propStatus || '';
+    const isAccepted = ['Accepted','In Progress','Complete','Deposit Received'].includes(accStatus);
+    if (isAccepted && accType && accPrice > 0) {
+      accBanner.style.display = 'block';
+      setText('s_accepted_price', '$' + Math.round(accPrice).toLocaleString());
+      setText('s_accepted_type',  accType === 'Cash' ? '💵 Cash / Check' : '💳 CC / Finance');
+    } else {
+      accBanner.style.display = 'none';
+    }
+  }
   setText('s_gm',   gmPct.toFixed(1)+'%');
   setText('s_gmd_banner', '$'+Math.round(gmDol).toLocaleString());
   setText('s_ff_banner',  '$'+Math.round(franFeeDol).toLocaleString());
@@ -5500,6 +5522,17 @@ function loadJobLocal(idx) {
   updateBadge();
   renderSiblingPills();
   show('est');
+
+  // Auto-prompt if job is Accepted but payment type not captured yet
+  const accStatus = d.propStatus || '';
+  const needsType = ['Accepted','In Progress','Complete','Deposit Received'].includes(accStatus);
+  if (needsType && !d.contractPriceType) {
+    setTimeout(() => {
+      if (confirm(`⚠️ This estimate is marked "${accStatus}" but no payment type (Cash vs CC) has been recorded.\n\nWould you like to set it now?`)) {
+        openAcceptProposal();
+      }
+    }, 400);
+  }
 }
 
 function setVal(id, val) {
@@ -6793,6 +6826,16 @@ function lookupJobSummary(prefixArg) {
         <span style="background:${sc};padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">${status}</span>
       </div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fence}</div>
+      ${(status === 'Accepted' || status === 'In Progress' || status === 'Complete') && j.contractPrice ? `
+      <div style="background:var(--green-bg);border:1.5px solid var(--green);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:9px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">✅ Accepted Contract Price</div>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <div style="font-size:22px;font-weight:900;color:var(--green);font-family:var(--mono)">$${Math.round(j.contractPrice).toLocaleString()}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--green);background:rgba(22,163,74,.15);padding:2px 7px;border-radius:99px">${j.contractPriceType === 'Cash' ? '💵 Cash / Check' : '💳 CC / Finance'}</div>
+        </div>
+        ${j.depositRequired > 0 ? `<div style="font-size:11px;color:var(--green);margin-top:3px">Deposit: $${Math.round(j.depositRequired).toLocaleString()} · Balance: $${Math.round(j.balanceDue || 0).toLocaleString()}</div>` : ''}
+        ${!j.contractPriceType ? `<div style="font-size:11px;color:var(--amber);margin-top:4px">⚠️ Payment type not set — open estimate and use ✅ Accept Proposal</div>` : ''}
+      </div>` : `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
         <div>
           <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">CC Price</div>
@@ -6802,6 +6845,8 @@ function lookupJobSummary(prefixArg) {
           <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Cash Price</div>
           <div style="font-size:14px;font-weight:700;color:var(--green);font-family:var(--mono)">$${Math.round(cash).toLocaleString()}</div>
         </div>
+      </div>`}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
         <div>
           <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">LF / $/LF</div>
           <div style="font-size:13px;font-weight:600;font-family:var(--mono)">${lf} LF · $${plf}</div>
