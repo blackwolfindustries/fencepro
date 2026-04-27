@@ -1943,15 +1943,43 @@
       <!-- EMAIL TEMPLATE -->
       <div id="tmpl_panel_email" style="display:none">
         <div style="font-size:10px;color:var(--text3);margin-bottom:10px;padding:8px 10px;background:var(--surface2);border-radius:var(--r);line-height:1.7">
-          Available tokens: <code style="color:var(--orange)">{{firstName}}</code> <code style="color:var(--orange)">{{fullName}}</code> <code style="color:var(--orange)">{{ccPrice}}</code> <code style="color:var(--orange)">{{cashPrice}}</code> <code style="color:var(--orange)">{{proposalLink}}</code> <code style="color:var(--orange)">{{company}}</code> <code style="color:var(--orange)">{{phone}}</code>
+          Available tokens: <code style="color:var(--orange)">{{firstName}}</code> <code style="color:var(--orange)">{{fullName}}</code> <code style="color:var(--orange)">{{ccPrice}}</code> <code style="color:var(--orange)">{{cashPrice}}</code> <code style="color:var(--orange)">{{company}}</code> <code style="color:var(--orange)">{{phone}}</code>
         </div>
         <div class="f" style="margin-bottom:10px">
-          <label>EMAIL SUBJECT LINE</label>
-          <input id="tmpl_email_subject" placeholder="Your Fence Estimate — {{company}}" style="font-size:12px">
+          <label>SUBJECT LINE</label>
+          <input id="etmpl_subject" placeholder="Your Fence Estimate — {{company}}" style="font-size:12px">
         </div>
         <div class="f" style="margin-bottom:10px">
-          <label>EMAIL BODY</label>
-          <textarea id="tmpl_email_body" rows="12" style="font-size:12px;line-height:1.7;resize:vertical"></textarea>
+          <label>OPENING / GREETING</label>
+          <textarea id="etmpl_greeting" rows="3" style="font-size:12px;line-height:1.6;resize:vertical" placeholder="Hi {{firstName}}, ..."></textarea>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--text3);line-height:1.7">
+          <div style="font-weight:700;color:var(--text2);margin-bottom:4px">⚡ Auto-generated (not editable here)</div>
+          CC / Finance Price: $X,XXX &nbsp;·&nbsp; Cash / Check Price: $X,XXX<br>
+          <span style="background:var(--orange);color:#fff;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700">VIEW MY PROPOSAL →</span> &nbsp;← branded button with live link
+        </div>
+        <div class="f" style="margin-bottom:10px">
+          <label>CLOSING MESSAGE</label>
+          <textarea id="etmpl_closing" rows="3" style="font-size:12px;line-height:1.6;resize:vertical" placeholder="This link expires in 30 days..."></textarea>
+        </div>
+        <div class="f" style="margin-bottom:10px">
+          <label>SIGNATURE</label>
+          <textarea id="etmpl_signature" rows="3" style="font-size:12px;line-height:1.6;resize:vertical" placeholder="Thank you,&#10;{{company}}&#10;{{phone}}"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+          <button class="btn btn-a btn-sm" onclick="saveEmailTemplates()">💾 Save Email Templates</button>
+          <button class="btn btn-sm" onclick="resetEmailTemplates()">↺ Reset</button>
+        </div>
+        <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Legacy Plain Text (fallback)</div>
+          <div class="f" style="margin-bottom:10px">
+            <label>SUBJECT LINE</label>
+            <input id="tmpl_email_subject" placeholder="Your Fence Estimate — {{company}}" style="font-size:12px">
+          </div>
+          <div class="f" style="margin-bottom:10px">
+            <label>PLAIN TEXT BODY</label>
+            <textarea id="tmpl_email_body" rows="8" style="font-size:12px;line-height:1.7;resize:vertical"></textarea>
+          </div>
         </div>
       </div>
 
@@ -3038,13 +3066,31 @@
 
       <!-- EMAIL panel -->
       <div id="plink_panel_email">
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:12px">
-          <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Draft Email</div>
-          <div style="font-size:12px;color:var(--text2);line-height:1.7" id="plink_draft"></div>
+        <!-- HTML Email Preview -->
+        <div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px">
+          <div style="background:var(--surface2);padding:6px 12px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Email Preview</span>
+            <span style="font-size:10px;color:var(--text3)">Rendered HTML</span>
+          </div>
+          <iframe id="plink_email_preview" style="width:100%;height:320px;border:none;background:#fff" scrolling="yes"></iframe>
+        </div>
+        <!-- To field display -->
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;font-size:12px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;white-space:nowrap">To:</span>
+          <span id="plink_to_display" style="color:var(--text1);flex:1"></span>
+        </div>
+        <!-- Action buttons -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <button class="btn btn-sm" style="justify-content:center" onclick="copyHtmlEmail()">📋 Copy HTML</button>
+          <button class="btn btn-sm btn-a" style="justify-content:center" id="plink_btn_gmail" onclick="sendViaGmail()">📨 Send via Gmail</button>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-sm" style="flex:1;justify-content:center" onclick="copyEmailDraft()">📋 Copy Email Text</button>
-          <button class="btn btn-sm btn-a" style="flex:1;justify-content:center" onclick="openMailto()">📬 Open in Mail</button>
+          <button class="btn btn-sm" style="flex:1;justify-content:center" onclick="copyEmailDraft()">📄 Copy Plain Text</button>
+          <button class="btn btn-sm" style="flex:1;justify-content:center" onclick="openMailto()">📬 Open in Mail App</button>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6;text-align:center">
+          <strong>Copy HTML</strong> → paste into Gmail/Outlook compose window to preserve formatting &amp; button<br>
+          <strong>Send via Gmail</strong> → fires directly from your connected Google account
         </div>
       </div>
 
@@ -5248,7 +5294,7 @@ function collectData() {
     internalNotes:   val('internalNotes'),
     completionNotes: curIdx >= 0 ? (jobs[curIdx]?.completionNotes || '') : '',
     franchiseOn: document.getElementById('franchTog').checked,
-    photos:      photos.filter(p => !p.deleted).map(p => p.name),  // store names only; full data uploaded separately
+    photos:      photos.map(p => p.name),  // store names only; full data uploaded separately
     // Calculated fields (for Sheets analysis)
     calc_delivery:  lastCalc.delivery   || 0,
     calc_suppCCRate:lastCalc.suppCCRate || 0,
@@ -5370,12 +5416,9 @@ async function saveJob() {
   try {
     // Upload any new photos first (fire sequentially but don't block UI)
     for (let i = 0; i < photos.length; i++) {
-      if (photos[i].deleted) continue; // skip files marked for removal
       if (!photos[i].uploaded && photos[i].dataUrl) {
         await cloudCall({ action:'uploadPhoto', data:{
           jobId:      data.id,
-          custName:   data.custName || '',
-          subFolder:  'Job Pictures',
           fileName:   photos[i].name,
           base64Data: photos[i].dataUrl.split(',')[1],
           mimeType:   photos[i].mimeType || 'image/jpeg'
@@ -5383,9 +5426,6 @@ async function saveJob() {
         photos[i].uploaded = true;
       }
     }
-    // Strip deleted entries now that save is committing
-    photos = photos.filter(p => !p.deleted);
-    renderPhotos();
 
     // Save to Sheets
     const res = await cloudCall({ action:'saveJob', data });
@@ -5859,25 +5899,51 @@ Customer Obligations:
   invoice_notes:     `Check payable to {{company}} · Zelle/Venmo {{phone}}`,
   invoice_footer:    `Thank you for your business.`,
   email_subject:     `Your Fence Estimate — {{company}}`,
-  email_body: `Hi {{firstName}},
-
-Thank you for the opportunity to earn your business. Please find your estimate below.
-
-CC / Finance Price: {{ccPrice}}
-Cash / Check Price: {{cashPrice}}
-
-Click the link below to view your full proposal and accept or decline:
-
-View My Proposal: {{proposalLink}}
-
-This link is secure and will expire in 30 days. Once you accept, we'll be in touch to collect the deposit and get you scheduled.
-
-Please don't hesitate to call or text with any questions.
-
-Thank you,
-{{company}}
-{{phone}}`
+  email_body: `Hi {{firstName}},\n\nThank you for the opportunity to earn your business. Please find your estimate details below.\n\nCC / Finance Price: {{ccPrice}}\nCash / Check Price: {{cashPrice}}\n\n{{proposalLink}}\n\nThis link is secure and will expire in 30 days. Once you accept, we will be in touch to collect the deposit and get you scheduled.\n\nPlease don't hesitate to call or text with any questions.\n\nThank you,\n{{company}}\n{{phone}}`
 };
+
+// ── New structured email template fields (used by HTML email builder) ──
+const EMAIL_TEMPLATE_DEFAULTS = {
+  email_subject:  `Your Fence Estimate — {{company}}`,
+  email_greeting: `Hi {{firstName}},\n\nThank you for the opportunity to earn your business. Please find your estimate details below.`,
+  email_closing:  `This link is secure and will expire in 30 days. Once you accept, we will be in touch to collect the deposit and get you scheduled.\n\nPlease don't hesitate to call or text with any questions.`,
+  email_signature:`Thank you,\n{{company}}\n{{phone}}`
+};
+
+function getEmailTemplates() {
+  try {
+    const t = JSON.parse(localStorage.getItem('fp_email_templates') || '{}');
+    return { ...EMAIL_TEMPLATE_DEFAULTS, ...t };
+  } catch(e) { return { ...EMAIL_TEMPLATE_DEFAULTS }; }
+}
+function emailTmplVal(key) { return getEmailTemplates()[key] || EMAIL_TEMPLATE_DEFAULTS[key] || ''; }
+function saveEmailTemplates() {
+  const g = id => (document.getElementById(id)||{}).value || '';
+  const t = {
+    email_subject:   g('etmpl_subject'),
+    email_greeting:  g('etmpl_greeting'),
+    email_closing:   g('etmpl_closing'),
+    email_signature: g('etmpl_signature')
+  };
+  localStorage.setItem('fp_email_templates', JSON.stringify(t));
+  if (settings.scriptUrl) cloudCall({ action:'saveSettings', data:{ ...settings, emailTemplates: JSON.stringify(t) } }).catch(()=>{});
+  showToast('✓ Email templates saved');
+  const msg = document.getElementById('tmpl_saved_msg');
+  if (msg) { msg.textContent = '✓ Saved'; setTimeout(()=>{ msg.textContent=''; }, 2500); }
+}
+function loadEmailTemplateFields() {
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  set('etmpl_subject',   emailTmplVal('email_subject'));
+  set('etmpl_greeting',  emailTmplVal('email_greeting'));
+  set('etmpl_closing',   emailTmplVal('email_closing'));
+  set('etmpl_signature', emailTmplVal('email_signature'));
+}
+function resetEmailTemplates() {
+  if (!confirm('Reset email templates to defaults?')) return;
+  localStorage.removeItem('fp_email_templates');
+  loadEmailTemplateFields();
+  showToast('Email templates reset to defaults');
+}
 
 function getTemplates() {
   try {
@@ -5902,6 +5968,7 @@ function loadTemplateFields() {
   el('tmpl_invoice_footer').value  = tmplVal('invoice_footer');
   el('tmpl_email_subject').value   = tmplVal('email_subject');
   el('tmpl_email_body').value      = tmplVal('email_body');
+  loadEmailTemplateFields();
 }
 
 function saveTemplates() {
@@ -6395,58 +6462,13 @@ function renderPhotos() {
   photos.forEach((p,i) => {
     const d = document.createElement('div');
     d.className = 'pthumb';
-    const isPdf = p.name && p.name.toLowerCase().endsWith('.pdf');
     const src = p.dataUrl || '';
-    const statusLabel = p.deleted ? '🗑 Removed on save' : (p.uploaded ? '✓ Uploaded' : 'pending');
-    const statusColor = p.deleted ? 'var(--red)' : (p.uploaded ? 'var(--green)' : 'var(--text3)');
-    const overlay = p.deleted ? 'position:absolute;inset:0;background:rgba(220,38,38,.35);border-radius:4px;pointer-events:none' : 'display:none';
-    if (isPdf) {
-      d.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px;padding:6px">
-          <div style="font-size:22px">📄</div>
-          <div style="font-size:9px;color:var(--text2);font-family:var(--mono);text-align:center;word-break:break-all">${p.name}</div>
-          <div style="font-size:9px;color:${statusColor}">${statusLabel}</div>
-        </div>
-        <div style="${overlay}"></div>
-        <button class="xbtn" style="display:block" onclick="rmPhoto(${i})" title="${p.deleted ? 'Undo remove' : 'Remove'}">${p.deleted ? '↩' : '✕'}</button>`;
-    } else if (src) {
-      d.innerHTML = `
-        <img src="${src}" style="${p.deleted ? 'opacity:.4' : ''}">
-        <div style="${overlay}"></div>
-        <button class="xbtn" style="display:block" onclick="rmPhoto(${i})" title="${p.deleted ? 'Undo remove' : 'Remove'}">${p.deleted ? '↩' : '✕'}</button>`;
-    } else {
-      d.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px;padding:6px">
-          <div style="font-size:22px">🖼</div>
-          <div style="font-size:9px;color:var(--text2);font-family:var(--mono);text-align:center;word-break:break-all">${p.name}</div>
-          <div style="font-size:9px;color:${statusColor}">${statusLabel}</div>
-        </div>
-        <div style="${overlay}"></div>
-        <button class="xbtn" style="display:block" onclick="rmPhoto(${i})" title="${p.deleted ? 'Undo remove' : 'Remove'}">${p.deleted ? '↩' : '✕'}</button>`;
-    }
+    d.innerHTML = src ? `<img src="${src}"><button class="xbtn" onclick="rmPhoto(${i})">✕</button>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px;text-align:center">${p.name}<br>${p.uploaded?'✓ Uploaded':'pending'}</div>`;
     g.appendChild(d);
   });
-  const active  = photos.filter(p => !p.deleted);
-  const pending = photos.filter(p => !p.uploaded && !p.deleted);
-  const removed = photos.filter(p => p.deleted);
-  let note = '';
-  if (active.length > 0)  note += `${active.length} file(s)`;
-  if (pending.length > 0) note += ` · ${pending.length} pending upload`;
-  if (removed.length > 0) note += ` · ${removed.length} marked for removal on save`;
-  document.getElementById('photoNote').textContent = note;
+  document.getElementById('photoNote').textContent = photos.length > 0 ? `${photos.length} photo(s) — saved to Drive job folder on sync` : '';
 }
-function rmPhoto(i) {
-  const p = photos[i];
-  if (!p) return;
-  if (!p.uploaded) {
-    // Not yet in Drive — just remove from array immediately
-    photos.splice(i, 1);
-  } else {
-    // Already in Drive — toggle deleted flag (undo is possible until save)
-    photos[i].deleted = !photos[i].deleted;
-  }
-  renderPhotos();
-}
+function rmPhoto(i) { photos.splice(i,1); renderPhotos(); }
 
 // ════════════════════════════════════════════════
 // SHARE / EMAIL
@@ -8997,6 +9019,11 @@ function showPropCombinedView() {
   scrollArea.appendChild(container);
 }
 let _proposalSmsDraft  = '';
+let _proposalEmailHtml = '';
+let _proposalEmailText = '';
+let _proposalEmailOpts = null;
+let _proposalLinkUrl   = '';
+let _proposalLinkDraft = '';
 let _plinkTab          = 'email';
 
 function switchPlinkTab(tab) {
@@ -9056,27 +9083,43 @@ async function generateProposalLink() {
     const co        = activeCompany === 'TRF' ? 'Top Rail Fence Huntington' : 'Black Wolf Industries LLC';
     const finalCC   = '$' + Math.round(job.calc_final || lastCalc.final || 0).toLocaleString();
     const finalCash = '$' + Math.round(job.calc_cash  || lastCalc.cash  || 0).toLocaleString();
+    const phone     = settings.companyPhone || '631-275-2020';
 
-    _proposalLinkDraft = resolveTokens(tmplVal('email_body'), {
-      firstName:    custFirst,
-      fullName:     custName,
-      ccPrice:      finalCC,
-      cashPrice:    finalCash,
-      proposalLink: _proposalLinkUrl,
-      company:      co,
-      phone:        settings.companyPhone || '631-275-2020'
-    });
+    // Build HTML email
+    _proposalEmailOpts = {
+      custFirst, custName, ccPrice: finalCC, cashPrice: finalCash,
+      proposalUrl: _proposalLinkUrl, company: co, phone,
+      fenceType:  job.fenceType  || val('fenceType')  || '',
+      jobAddr:    job.jobAddr    || val('jobAddr')    || '',
+      scopeNotes: job.scopeNotes || val('scopeNotes') || ''
+    };
+    _proposalEmailHtml = buildProposalEmailHtml(_proposalEmailOpts);
+    _proposalEmailText = buildProposalEmailText(_proposalEmailOpts);
 
-    document.getElementById('plink_url').value              = _proposalLinkUrl;
-    // Email draft
-    const draftHtml = escHtml(_proposalLinkDraft)
-      .replace(escHtml(_proposalLinkUrl), `<a href="${_proposalLinkUrl}" target="_blank" style="color:var(--orange);font-weight:700">View Proposal →</a>`);
-    document.getElementById('plink_draft').innerHTML = draftHtml.replace(/\n/g,'<br>');
-    // SMS draft — short and punchy
+    // Legacy plain text draft (for mailto fallback)
+    _proposalLinkDraft = _proposalEmailText;
+
+    document.getElementById('plink_url').value = _proposalLinkUrl;
+
+    // Populate To: field display
+    const toDisplay = document.getElementById('plink_to_display');
+    if (toDisplay) {
+      const custEmail = job?.custEmail || val('custEmail') || '';
+      toDisplay.textContent = custEmail || '⚠️ No email on file — add in Estimator or CRM';
+      toDisplay.style.color = custEmail ? 'var(--text1)' : 'var(--red)';
+    }
+
+    // Show HTML preview in modal
+    const previewFrame = document.getElementById('plink_email_preview');
+    if (previewFrame) {
+      const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+      doc.open(); doc.write(_proposalEmailHtml); doc.close();
+    }
+
+    // SMS draft
     _proposalSmsDraft = `Hi ${custFirst}, your fence estimate from ${co} is ready! Tap to view and accept or decline: ${_proposalLinkUrl}`;
-    // Display SMS with named link
     document.getElementById('plink_sms').innerHTML = escHtml(`Hi ${custFirst}, your fence estimate from ${co} is ready! Tap to view and accept or decline: `) + `<a href="${_proposalLinkUrl}" target="_blank" style="color:var(--orange);font-weight:700">Proposal →</a>`;
-    // plink_sms innerHTML set above with named link
+
     document.getElementById('plink_generating').style.display = 'none';
     document.getElementById('plink_ready').style.display      = 'block';
 
@@ -9094,12 +9137,170 @@ async function generateProposalLink() {
   }
 }
 
+// ══════════════════════════════════════════════════════════
+// HTML EMAIL BUILDER
+// ══════════════════════════════════════════════════════════
+function buildProposalEmailHtml(opts) {
+  // opts: { custFirst, custName, ccPrice, cashPrice, proposalUrl, company, phone, fenceType, jobAddr, scopeNotes }
+  const tokens = {
+    firstName: opts.custFirst || '',
+    fullName:  opts.custName  || '',
+    ccPrice:   opts.ccPrice   || '',
+    cashPrice: opts.cashPrice || '',
+    company:   opts.company   || '',
+    phone:     opts.phone     || ''
+  };
+  const greeting  = resolveTokens(emailTmplVal('email_greeting'),  tokens).replace(/\n/g,'<br>');
+  const closing   = resolveTokens(emailTmplVal('email_closing'),   tokens).replace(/\n/g,'<br>');
+  const signature = resolveTokens(emailTmplVal('email_signature'), tokens).replace(/\n/g,'<br>');
+  const scopeLine = opts.scopeNotes ? `<p style="margin:0 0 16px;font-size:13px;color:#555;line-height:1.7;white-space:pre-wrap">${escHtml(opts.scopeNotes)}</p>` : '';
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Fence Estimate</title></head>
+<body style="margin:0;padding:0;background:#f0f0f0;font-family:'Helvetica Neue',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0f0;padding:32px 16px">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.10)">
+
+  <!-- Header -->
+  <tr><td style="background:#1B2B4B;padding:28px 40px">
+    <p style="margin:0;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-.4px">${escHtml(opts.company)}</p>
+    <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,.55)">169 Commack Rd #1009, Commack NY 11725 &nbsp;·&nbsp; ${escHtml(opts.phone)}</p>
+  </td></tr>
+
+  <!-- Body -->
+  <tr><td style="padding:36px 40px 24px">
+    <p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.7">${greeting}</p>
+
+    ${opts.fenceType ? `<p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:.08em">Project</p>
+    <p style="margin:0 0 20px;font-size:14px;font-weight:600;color:#333">${escHtml(opts.fenceType)}${opts.jobAddr ? ' &nbsp;·&nbsp; ' + escHtml(opts.jobAddr) : ''}</p>` : ''}
+
+    ${scopeLine}
+
+    <!-- Price box -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f8fa;border:1px solid #e2e5ea;border-radius:8px;overflow:hidden;margin-bottom:28px">
+      <tr>
+        <td width="50%" style="padding:18px 20px;border-right:1px solid #e2e5ea">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.08em">CC / Finance Price</p>
+          <p style="margin:0;font-size:24px;font-weight:900;color:#F26522;font-family:monospace">${escHtml(opts.ccPrice)}</p>
+        </td>
+        <td width="50%" style="padding:18px 20px">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.08em">Cash / Check Price</p>
+          <p style="margin:0;font-size:20px;font-weight:800;color:#16A34A;font-family:monospace">${escHtml(opts.cashPrice)}</p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- CTA Button -->
+    <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px">
+      <tr><td align="center" style="background:#F26522;border-radius:8px;padding:0">
+        <a href="${opts.proposalUrl}" target="_blank"
+           style="display:inline-block;padding:16px 40px;font-size:16px;font-weight:800;color:#ffffff;text-decoration:none;letter-spacing:-.2px;font-family:'Helvetica Neue',Arial,sans-serif">
+          View My Proposal &rarr;
+        </a>
+      </td></tr>
+    </table>
+
+    <!-- Fallback URL -->
+    <p style="margin:0 0 24px;font-size:11px;color:#aaa;text-align:center;word-break:break-all">
+      Or copy this link: <a href="${opts.proposalUrl}" style="color:#F26522">${opts.proposalUrl}</a>
+    </p>
+
+    <p style="margin:0 0 24px;font-size:13px;color:#555;line-height:1.7">${closing}</p>
+    <p style="margin:0;font-size:13px;color:#333;line-height:1.8">${signature}</p>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="background:#f7f8fa;border-top:1px solid #e2e5ea;padding:16px 40px;text-align:center">
+    <p style="margin:0;font-size:11px;color:#aaa">© ${new Date().getFullYear()} ${escHtml(opts.company)} &nbsp;·&nbsp; This estimate expires in 30 days</p>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
+// Build plain text version for fallback
+function buildProposalEmailText(opts) {
+  const tokens = { firstName:opts.custFirst||'', fullName:opts.custName||'', ccPrice:opts.ccPrice||'', cashPrice:opts.cashPrice||'', company:opts.company||'', phone:opts.phone||'' };
+  const greeting  = resolveTokens(emailTmplVal('email_greeting'),  tokens);
+  const closing   = resolveTokens(emailTmplVal('email_closing'),   tokens);
+  const signature = resolveTokens(emailTmplVal('email_signature'), tokens);
+  return [
+    greeting, '',
+    `CC / Finance Price: ${opts.ccPrice}`,
+    `Cash / Check Price: ${opts.cashPrice}`, '',
+    `View My Proposal:`,
+    opts.proposalUrl, '',
+    closing, '',
+    signature
+  ].join('\n');
+}
+
+async function sendViaGmail() {
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  const email = job?.custEmail || val('custEmail') || '';
+  if (!email) { alert('No email address found for this customer.\n\nPlease add their email before sending.'); return; }
+  if (!settings.scriptUrl) { alert('Cloud not connected — configure in Setup first'); return; }
+
+  const btn = document.getElementById('plink_btn_gmail');
+  if (btn) { btn.textContent = '⏳ Sending...'; btn.disabled = true; }
+
+  try {
+    const subject  = resolveTokens(emailTmplVal('email_subject'), {
+      firstName: _proposalEmailOpts?.custFirst||'', company: _proposalEmailOpts?.company||'', phone: _proposalEmailOpts?.phone||''
+    });
+    const res = await cloudCall({
+      action: 'sendProposalEmail',
+      data: {
+        to:          email,
+        subject:     subject,
+        htmlBody:    _proposalEmailHtml,
+        textBody:    _proposalEmailText,
+        custName:    job?.custName || val('custName') || ''
+      }
+    });
+    if (res.success) {
+      showToast('✅ Email sent to ' + email);
+      if (btn) { btn.textContent = '✅ Sent!'; btn.style.background = 'var(--green)'; }
+    } else {
+      throw new Error(res.error || 'Send failed');
+    }
+  } catch(e) {
+    alert('Send failed: ' + e.message);
+    if (btn) { btn.textContent = '📨 Send via Gmail'; btn.disabled = false; }
+  }
+}
+
 function copyProposalLink() {
   navigator.clipboard.writeText(_proposalLinkUrl).then(() => showToast('✓ Link copied'));
 }
 
+function copyHtmlEmail() {
+  // Copy HTML to clipboard — pastes with formatting in Gmail/Outlook
+  const blob = new Blob([_proposalEmailHtml], { type: 'text/html' });
+  const textBlob = new Blob([_proposalEmailText], { type: 'text/plain' });
+  try {
+    navigator.clipboard.write([
+      new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob })
+    ]).then(() => {
+      showToast('✅ HTML email copied — paste into Gmail or Outlook compose window');
+    }).catch(() => {
+      // Fallback: copy plain text
+      navigator.clipboard.writeText(_proposalEmailText).then(() => {
+        showToast('📋 Plain text copied (HTML not supported in this browser)');
+      });
+    });
+  } catch(e) {
+    navigator.clipboard.writeText(_proposalEmailText).then(() => {
+      showToast('📋 Plain text copied');
+    });
+  }
+}
+
 function copyEmailDraft() {
-  navigator.clipboard.writeText(_proposalLinkDraft).then(() => showToast('✓ Email draft copied'));
+  navigator.clipboard.writeText(_proposalEmailText).then(() => showToast('✓ Plain text email copied'));
 }
 
 function openMailto() {
