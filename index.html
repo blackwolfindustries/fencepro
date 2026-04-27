@@ -1740,6 +1740,11 @@
           <label>YOUR ADDRESS</label>
           <input id="companyAddr" placeholder="123 Main St, Commack NY 11725" oninput="saveSettings()">
         </div>
+        <div class="f s2">
+          <label>🔑 API SECURITY KEY</label>
+          <input id="apiKey" type="password" placeholder="API key" oninput="saveSettings()"
+            style="font-family:var(--mono);font-size:12px">
+        </div>
       </div>
       <div class="fr mt6">
         <button class="btn btn-a" onclick="testConnection()">Test Connection</button>
@@ -3764,7 +3769,7 @@ let jobs = (() => {
   }
 })();
 let parts    = JSON.parse(localStorage.getItem('fp_parts')    || '[]');
-let settings = JSON.parse(localStorage.getItem('fp_settings') || '{}');
+let settings = { apiKey: 'fp_bwi_2026_xK9mQpLvNzRtWjYd', ...JSON.parse(localStorage.getItem('fp_settings') || '{}') };
 let curIdx = -1;
 let photos = [];  // [{dataUrl, name, uploaded}]
 let editPartIdx = -1;
@@ -6210,24 +6215,21 @@ async function cloudCall(payload) {
   const url = settings.scriptUrl;
   if (!url) throw new Error('No script URL configured');
 
-  // Apps Script web apps support CORS when deployed as "Anyone can access".
-  // We must NOT use no-cors (it strips Content-Type and makes the response opaque).
-  // We send as text/plain to avoid a preflight — Apps Script reads it via e.postData.contents.
+  // Inject API key into every request
+  const securePayload = { ...payload, key: settings.apiKey || '' };
+
   const res = await fetch(url, {
     method:  'POST',
-    headers: { 'Content-Type': 'text/plain' },  // avoids CORS preflight, Apps Script still gets the body
-    body:    JSON.stringify(payload)
+    headers: { 'Content-Type': 'text/plain' },
+    body:    JSON.stringify(securePayload)
   });
 
   if (!res.ok) throw new Error('HTTP ' + res.status);
 
-  // Parse the JSON response from Apps Script
   const text = await res.text();
   try {
     return JSON.parse(text);
   } catch(e) {
-    // If Apps Script returned a redirect (302), we got HTML — means deployment is set to redirect
-    // In that case the write likely still happened; return success
     console.warn('Non-JSON response from Apps Script:', text.substring(0, 200));
     return { success: true, warning: 'Response was not JSON — check Apps Script logs' };
   }
@@ -6238,7 +6240,7 @@ async function loadCloud() {
   if (!url) { status('Not connected — configure in Setup tab'); return; }
   setCloud('saving','Loading from cloud...');
   try {
-    const res = await fetch(url + '?action=getJobs');
+    const res = await fetch(url + '?action=getJobs&key=' + encodeURIComponent(settings.apiKey || ''));
     const data = await res.json();
     if (data.jobs) {
       // Cloud is source of truth — always replace local with cloud data
@@ -6321,14 +6323,14 @@ function saveSettings() {
   settings.companyPhone = val('companyPhone');
   settings.companyEmail = val('companyEmail');
   settings.companyAddr  = val('companyAddr');
+  settings.apiKey       = val('apiKey') || settings.apiKey || 'fp_bwi_2026_xK9mQpLvNzRtWjYd';
   localStorage.setItem('fp_settings', JSON.stringify(settings));
   updateCloudStatus();
-  // Push to cloud if connected — debounced so it doesn't fire on every keystroke
   clearTimeout(window._settingsSyncTimer);
   window._settingsSyncTimer = setTimeout(() => {
     if (settings.scriptUrl) {
       cloudCall({ action: 'saveSettings', data: settings })
-        .catch(() => {}); // silent fail — settings are saved locally regardless
+        .catch(() => {});
     }
   }, 1500);
 }
@@ -6338,6 +6340,8 @@ function loadSettings() {
   if (settings.companyPhone) document.getElementById('companyPhone').value = settings.companyPhone;
   if (settings.companyEmail) document.getElementById('companyEmail').value = settings.companyEmail;
   if (settings.companyAddr)  document.getElementById('companyAddr').value  = settings.companyAddr;
+  const apiKeyEl = document.getElementById('apiKey');
+  if (apiKeyEl) apiKeyEl.value = settings.apiKey || 'fp_bwi_2026_xK9mQpLvNzRtWjYd';
 }
 
 // Pull settings from Google Sheet — called on startup
@@ -9375,7 +9379,7 @@ async function loadInvoicesTab() {
   // 2. Backfill Contract Price from fp_jobs where missing
   if (settings.scriptUrl) {
     try {
-      const res  = await fetch(settings.scriptUrl + '?action=getInvoices');
+      const res  = await fetch(settings.scriptUrl + '?action=getInvoices&key=' + encodeURIComponent(settings.apiKey || ''));
       const data = await res.json();
       if (data.invoices && Array.isArray(data.invoices)) {
         // Build set of locally-known invoice IDs so we can detect deletions
