@@ -1803,6 +1803,22 @@
       </div>
     </div>
 
+    <!-- Access Control -->
+    <div class="card" style="margin-bottom:12px;border:2px solid var(--accent)">
+      <div class="card-title">🔐 Access Control</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+        Only Google accounts listed here can log into FencePro. Your owner account is always allowed and cannot be removed.
+      </div>
+      <div id="access_list" style="margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px">
+        <input id="access_new_email" type="email" placeholder="newuser@gmail.com"
+          style="flex:1;font-size:12px;font-family:var(--mono)"
+          onkeydown="if(event.key==='Enter')addAllowedEmail()">
+        <button class="btn btn-a btn-sm" onclick="addAllowedEmail()">+ Add</button>
+      </div>
+      <div id="access_msg" style="font-size:11px;color:var(--text3);margin-top:8px;min-height:16px"></div>
+    </div>
+
     <!-- Full System Backup -->
     <div class="card" style="margin-bottom:12px;border:2px solid var(--orange)">
       <div class="card-title">☁️ Full System Backup / Restore</div>
@@ -4166,12 +4182,71 @@ function showApp() {
 // ══════════════════════════════════════════════════════════
 // GOOGLE OAUTH AUTH SYSTEM
 // ══════════════════════════════════════════════════════════
-const ALLOWED_EMAILS = [
-  'anthonyd@blackwolfindustriesli.com',
-  'anthonyd@blackwolfindustriesllc.com',
-  'anthonyd@batpigindustries.com'
-  // Add more emails here to grant access
-];
+// ── Owner email — permanently allowed, cannot be removed ──
+const OWNER_EMAIL = 'anthonyd@blackwolfindustriesli.com';
+
+function getAllowedEmails() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('fp_allowed_emails') || '[]');
+    // Always include owner
+    const all = [OWNER_EMAIL, ...stored.filter(e => e !== OWNER_EMAIL)];
+    return all.map(e => e.toLowerCase().trim());
+  } catch(e) {
+    return [OWNER_EMAIL];
+  }
+}
+
+function renderAccessList() {
+  const el = document.getElementById('access_list');
+  if (!el) return;
+  const emails = getAllowedEmails();
+  if (emails.length === 0) { el.innerHTML = '<div style="font-size:12px;color:var(--text3)">No users added yet.</div>'; return; }
+  el.innerHTML = emails.map(email => {
+    const isOwner = email.toLowerCase() === OWNER_EMAIL.toLowerCase();
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:var(--r);margin-bottom:6px">
+      <span style="font-size:11px;font-family:var(--mono);color:var(--text1);flex:1">${email}</span>
+      ${isOwner
+        ? `<span style="font-size:10px;color:var(--orange);font-weight:700;padding:2px 8px;background:rgba(242,101,34,.15);border-radius:99px">Owner</span>`
+        : `<button onclick="removeAllowedEmail('${email}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px" title="Remove">🗑</button>`
+      }
+    </div>`;
+  }).join('');
+}
+
+function addAllowedEmail() {
+  const input = document.getElementById('access_new_email');
+  const msg   = document.getElementById('access_msg');
+  const email = (input.value || '').trim().toLowerCase();
+  if (!email) { msg.textContent = 'Please enter an email address'; msg.style.color = 'var(--red)'; return; }
+  if (!email.includes('@')) { msg.textContent = 'Invalid email address'; msg.style.color = 'var(--red)'; return; }
+  const current = getAllowedEmails();
+  if (current.includes(email)) { msg.textContent = 'That email is already on the list'; msg.style.color = 'var(--amber)'; return; }
+  const stored = JSON.parse(localStorage.getItem('fp_allowed_emails') || '[]');
+  stored.push(email);
+  saveAllowedEmails(stored);
+  input.value = '';
+  msg.textContent = `✓ ${email} added`;
+  msg.style.color = 'var(--green)';
+  setTimeout(() => { msg.textContent = ''; }, 3000);
+  renderAccessList();
+}
+
+function removeAllowedEmail(email) {
+  if (email.toLowerCase() === OWNER_EMAIL.toLowerCase()) return;
+  if (!confirm(`Remove ${email} from access list?`)) return;
+  const stored = JSON.parse(localStorage.getItem('fp_allowed_emails') || '[]');
+  const updated = stored.filter(e => e.toLowerCase() !== email.toLowerCase());
+  saveAllowedEmails(updated);
+  renderAccessList();
+  const msg = document.getElementById('access_msg');
+  if (msg) { msg.textContent = `${email} removed`; msg.style.color = 'var(--text3)'; setTimeout(() => { msg.textContent = ''; }, 3000); }
+}
+
+function saveAllowedEmails(emails) {
+  // Never save the owner email to the list — it's always injected at runtime
+  const filtered = emails.filter(e => e.toLowerCase().trim() !== OWNER_EMAIL.toLowerCase());
+  localStorage.setItem('fp_allowed_emails', JSON.stringify(filtered));
+}
 
 const AUTH_SESSION_KEY = 'fp_auth_session';
 const AUTH_SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
@@ -4184,7 +4259,7 @@ function checkAuthSession() {
       localStorage.removeItem(AUTH_SESSION_KEY);
       return false;
     }
-    if (!ALLOWED_EMAILS.includes(session.email)) return false;
+    if (!getAllowedEmails().includes(session.email.toLowerCase())) return false;
     return true;
   } catch(e) { return false; }
 }
@@ -4208,7 +4283,7 @@ function handleGoogleLogin(response) {
 
     document.getElementById('auth_msg').textContent = 'Verifying access...';
 
-    if (ALLOWED_EMAILS.includes(email.toLowerCase()) || ALLOWED_EMAILS.includes(email)) {
+    if (getAllowedEmails().includes(email.toLowerCase())) {
       saveAuthSession(email, name);
       launchApp();
     } else {
@@ -4300,7 +4375,7 @@ function show(id) {
   if (id === 'board')     { renderBoard(); renderEstList(); }
   if (id === 'jobs')      { updateSortIcons(); renderCRM(); }
   if (id === 'summary')   { loadCloud().then(() => { document.getElementById('summarySearch').value = ''; lookupJobSummary(); }); }
-  if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); }
+  if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList(); }
   if (id === 'analytics') { renderAnalytics(); }
   // Refresh SUPPLIERS map whenever supplier tab opened
   if (id === 'invoices') loadInvoicesTab();
