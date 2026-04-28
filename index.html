@@ -4182,8 +4182,10 @@ function showApp() {
 // ══════════════════════════════════════════════════════════
 // GOOGLE OAUTH AUTH SYSTEM
 // ══════════════════════════════════════════════════════════
-// ── Owner email — permanently allowed, cannot be removed ──
-const OWNER_EMAIL = 'anthonyd@blackwolfindustriesli.com';
+// ── Auth constants — hardcoded so login works on ANY device/browser ──
+const OWNER_EMAIL  = 'anthonyd@blackwolfindustriesli.com';
+const AUTH_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyV-y9YMwfl6181-xLaFoiJHvsn5QT1GAER-VJc533_Ifc-WYzNmTXyXpDq1JBi-RsI/exec';
+const AUTH_API_KEY    = 'fp_bwi_2026_xK9mQpLvNzRtWjYd';
 
 function getAllowedEmails() {
   try {
@@ -4314,18 +4316,11 @@ async function handleGoogleLogin(response) {
       return;
     }
 
-    // Read scriptUrl and apiKey directly from localStorage
-    // (settings object may not be initialized yet at login time)
-    let scriptUrl = '';
-    let apiKey    = 'fp_bwi_2026_xK9mQpLvNzRtWjYd';
-    try {
-      const stored = JSON.parse(localStorage.getItem('fp_settings') || '{}');
-      scriptUrl = stored.scriptUrl || '';
-      apiKey    = stored.apiKey    || apiKey;
-    } catch(e) {}
+    // Read scriptUrl and apiKey from hardcoded constants — always available on any device
+    const scriptUrl = AUTH_SCRIPT_URL;
+    const apiKey    = AUTH_API_KEY;
 
     if (!scriptUrl) {
-      // No cloud — deny access for non-owners
       showAccessDenied(email);
       return;
     }
