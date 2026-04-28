@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FencePro Estimator</title>
 <link id="favicon" rel="icon" type="image/jpeg" href="">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -595,6 +596,56 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 </head>
 <body>
+
+<!-- ══════════════════════════════════════════════════════════
+     GOOGLE OAUTH LOGIN SCREEN
+     Shown before app loads — hidden after successful auth
+     ══════════════════════════════════════════════════════════ -->
+<div id="auth_screen" style="
+  position:fixed;inset:0;z-index:99999;
+  background:linear-gradient(135deg,#0f1a2e 0%,#1B2B4B 60%,#0f1a2e 100%);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Helvetica Neue',Arial,sans-serif">
+  <div style="text-align:center;padding:48px 40px;max-width:420px;width:100%">
+
+    <!-- Logo -->
+    <div id="auth_logo" style="margin-bottom:24px"></div>
+
+    <!-- Title -->
+    <div style="font-size:28px;font-weight:900;color:#fff;letter-spacing:-.5px;margin-bottom:6px">FencePro</div>
+    <div style="font-size:14px;color:rgba(255,255,255,.45);margin-bottom:40px">Black Wolf Industries LLC</div>
+
+    <!-- Sign in button -->
+    <div id="auth_btn_wrap" style="margin-bottom:20px">
+      <div id="g_id_onload"
+        data-client_id="724150230566-6bvcjaa3gd2qf5ghtq2j4vuoc8im1bbf.apps.googleusercontent.com"
+        data-callback="handleGoogleLogin"
+        data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin"
+        data-type="standard"
+        data-size="large"
+        data-theme="filled_blue"
+        data-text="sign_in_with"
+        data-shape="rectangular"
+        data-logo_alignment="left"
+        data-width="280">
+      </div>
+    </div>
+
+    <!-- Status message -->
+    <div id="auth_msg" style="font-size:13px;color:rgba(255,255,255,.5);min-height:20px"></div>
+
+    <!-- Access denied state (hidden by default) -->
+    <div id="auth_denied" style="display:none;margin-top:20px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);border-radius:10px;padding:16px 20px">
+      <div style="font-size:16px;margin-bottom:6px">🚫</div>
+      <div style="font-size:14px;font-weight:700;color:#FCA5A5;margin-bottom:4px">Access Denied</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.5)" id="auth_denied_email"></div>
+      <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:8px">Contact Anthony to request access.</div>
+    </div>
+
+  </div>
+</div>
 
 <!-- ══ LOCK SCREEN — COMMENTED OUT (re-enable when cloud deployment needed) ═══
 <div id="lockScreen">
@@ -3030,7 +3081,11 @@
 <div class="statusbar">
   <div class="cloud-dot" id="sbDot"></div>
   <span id="sbMsg">Ready</span>
-  <span style="margin-left:auto" id="sbDate"></span>
+  <span style="margin-left:auto;display:flex;align-items:center;gap:10px">
+    <span id="sbDate"></span>
+    <span id="sb_user" style="font-size:10px;color:rgba(255,255,255,.4);font-family:var(--mono)"></span>
+    <button onclick="logout()" style="font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;font-family:var(--mono)" title="Sign out">⏻</button>
+  </span>
 </div>
 <div class="toast" id="toastMsg"></div>
 
@@ -4108,11 +4163,105 @@ function showApp() {
   // document.getElementById('lockScreen').classList.add('hidden');
 }
 
+// ══════════════════════════════════════════════════════════
+// GOOGLE OAUTH AUTH SYSTEM
+// ══════════════════════════════════════════════════════════
+const ALLOWED_EMAILS = [
+  'anthonyd@blackwolfindustriesllc.com',
+  'anthonyd@batpigindustries.com'
+  // Add more emails here to grant access
+];
+
+const AUTH_SESSION_KEY = 'fp_auth_session';
+const AUTH_SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+function checkAuthSession() {
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || 'null');
+    if (!session) return false;
+    if (Date.now() > session.expires) {
+      localStorage.removeItem(AUTH_SESSION_KEY);
+      return false;
+    }
+    if (!ALLOWED_EMAILS.includes(session.email)) return false;
+    return true;
+  } catch(e) { return false; }
+}
+
+function saveAuthSession(email, name) {
+  const session = {
+    email,
+    name,
+    expires: Date.now() + AUTH_SESSION_TTL,
+    loggedInAt: new Date().toISOString()
+  };
+  localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+}
+
+function handleGoogleLogin(response) {
+  try {
+    // Decode the JWT credential from Google
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    const email   = payload.email || '';
+    const name    = payload.name  || '';
+
+    document.getElementById('auth_msg').textContent = 'Verifying access...';
+
+    if (ALLOWED_EMAILS.includes(email.toLowerCase()) || ALLOWED_EMAILS.includes(email)) {
+      saveAuthSession(email, name);
+      launchApp();
+    } else {
+      // Access denied
+      document.getElementById('auth_btn_wrap').style.display  = 'none';
+      document.getElementById('auth_denied').style.display    = 'block';
+      document.getElementById('auth_denied_email').textContent = email;
+      document.getElementById('auth_msg').textContent = '';
+    }
+  } catch(e) {
+    document.getElementById('auth_msg').textContent = 'Login error — please try again';
+    console.error('Auth error:', e);
+  }
+}
+
+function launchApp() {
+  const screen = document.getElementById('auth_screen');
+  if (screen) {
+    screen.style.transition = 'opacity .3s';
+    screen.style.opacity = '0';
+    setTimeout(() => { screen.style.display = 'none'; }, 300);
+  }
+  // Show logged-in user in statusbar
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || 'null');
+    const sbUser  = document.getElementById('sb_user');
+    if (session && sbUser) sbUser.textContent = session.email;
+  } catch(e) {}
+}
+
+function logout() {
+  localStorage.removeItem(AUTH_SESSION_KEY);
+  location.reload();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const sbDate = document.getElementById('sbDate');
   if (sbDate) sbDate.textContent = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+  // Set logo in auth screen
+  const authLogo = document.getElementById('auth_logo');
+  if (authLogo && typeof COMPANY_LOGOS !== 'undefined' && COMPANY_LOGOS.BWI?.src) {
+    authLogo.innerHTML = `<img src="${COMPANY_LOGOS.BWI.src}" style="width:80px;height:80px;border-radius:50%;border:3px solid rgba(242,101,34,.6);object-fit:cover">`;
+  }
+
+  // Check if already authenticated
+  if (checkAuthSession()) {
+    launchApp();
+  }
+  // Otherwise login screen stays visible — Google button handles the rest
+
+  // Initialize the rest of the app
   showApp();
-  setFavicon(activeCompany); // Set favicon and title on load
+  setFavicon(activeCompany);
   // Populate dynamic dropdowns from stored lists
   populateFenceTypes();
   populateSuppliers();
