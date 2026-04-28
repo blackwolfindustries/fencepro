@@ -4196,10 +4196,21 @@ function getAllowedEmails() {
   }
 }
 
-function renderAccessList() {
+async function renderAccessList() {
   const el = document.getElementById('access_list');
   if (!el) return;
-  const emails = getAllowedEmails();
+  el.innerHTML = '<div style="font-size:12px;color:var(--text3)">Loading...</div>';
+  let emails = [OWNER_EMAIL];
+  try {
+    if (settings.scriptUrl) {
+      const res = await cloudCall({ action: 'getAllowedEmails', data: {} });
+      if (res.emails) emails = res.emails;
+    } else {
+      emails = getAllowedEmails();
+    }
+  } catch(e) {
+    emails = getAllowedEmails();
+  }
   if (emails.length === 0) { el.innerHTML = '<div style="font-size:12px;color:var(--text3)">No users added yet.</div>'; return; }
   el.innerHTML = emails.map(email => {
     const isOwner = email.toLowerCase() === OWNER_EMAIL.toLowerCase();
@@ -4213,33 +4224,47 @@ function renderAccessList() {
   }).join('');
 }
 
-function addAllowedEmail() {
+async function addAllowedEmail() {
   const input = document.getElementById('access_new_email');
   const msg   = document.getElementById('access_msg');
   const email = (input.value || '').trim().toLowerCase();
   if (!email) { msg.textContent = 'Please enter an email address'; msg.style.color = 'var(--red)'; return; }
   if (!email.includes('@')) { msg.textContent = 'Invalid email address'; msg.style.color = 'var(--red)'; return; }
-  const current = getAllowedEmails();
-  if (current.includes(email)) { msg.textContent = 'That email is already on the list'; msg.style.color = 'var(--amber)'; return; }
-  const stored = JSON.parse(localStorage.getItem('fp_allowed_emails') || '[]');
-  stored.push(email);
-  saveAllowedEmails(stored);
-  input.value = '';
-  msg.textContent = `✓ ${email} added`;
-  msg.style.color = 'var(--green)';
-  setTimeout(() => { msg.textContent = ''; }, 3000);
-  renderAccessList();
+
+  msg.textContent = 'Saving...'; msg.style.color = 'var(--text3)';
+
+  // Save to Sheets (source of truth)
+  try {
+    const session = JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || '{}');
+    await cloudCall({ action: 'saveAllowedEmails', data: { emails: [email], addedBy: session.email || 'Admin' } });
+    // Also keep local copy for offline reference
+    const stored = JSON.parse(localStorage.getItem('fp_allowed_emails') || '[]');
+    if (!stored.includes(email)) { stored.push(email); localStorage.setItem('fp_allowed_emails', JSON.stringify(stored)); }
+    input.value = '';
+    msg.textContent = `✓ ${email} added`;
+    msg.style.color = 'var(--green)';
+    setTimeout(() => { msg.textContent = ''; }, 3000);
+    renderAccessList();
+  } catch(e) {
+    msg.textContent = 'Failed to save — check connection';
+    msg.style.color = 'var(--red)';
+  }
 }
 
-function removeAllowedEmail(email) {
+async function removeAllowedEmail(email) {
   if (email.toLowerCase() === OWNER_EMAIL.toLowerCase()) return;
   if (!confirm(`Remove ${email} from access list?`)) return;
-  const stored = JSON.parse(localStorage.getItem('fp_allowed_emails') || '[]');
-  const updated = stored.filter(e => e.toLowerCase() !== email.toLowerCase());
-  saveAllowedEmails(updated);
-  renderAccessList();
   const msg = document.getElementById('access_msg');
-  if (msg) { msg.textContent = `${email} removed`; msg.style.color = 'var(--text3)'; setTimeout(() => { msg.textContent = ''; }, 3000); }
+  try {
+    await cloudCall({ action: 'removeAllowedEmail', data: { email } });
+    // Update local copy
+    const stored = JSON.parse(localStorage.getItem('fp_allowed_emails') || '[]');
+    localStorage.setItem('fp_allowed_emails', JSON.stringify(stored.filter(e => e !== email)));
+    if (msg) { msg.textContent = `${email} removed`; msg.style.color = 'var(--text3)'; setTimeout(() => { msg.textContent = ''; }, 3000); }
+    renderAccessList();
+  } catch(e) {
+    if (msg) { msg.textContent = 'Failed to remove — check connection'; msg.style.color = 'var(--red)'; }
+  }
 }
 
 function saveAllowedEmails(emails) {
@@ -4274,29 +4299,58 @@ function saveAuthSession(email, name) {
   localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
 }
 
-function handleGoogleLogin(response) {
+async function handleGoogleLogin(response) {
   try {
-    // Decode the JWT credential from Google
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
     const email   = payload.email || '';
     const name    = payload.name  || '';
 
     document.getElementById('auth_msg').textContent = 'Verifying access...';
 
-    if (getAllowedEmails().includes(email.toLowerCase())) {
+    // Always allow owner without cloud call
+    if (email.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+      saveAuthSession(email, name);
+      launchApp();
+      return;
+    }
+
+    // Verify against Apps Script — the source of truth
+    const scriptUrl = settings.scriptUrl;
+    if (!scriptUrl) {
+      // No cloud configured — fall back to localStorage list
+      if (getAllowedEmails().includes(email.toLowerCase())) {
+        saveAuthSession(email, name);
+        launchApp();
+      } else {
+        showAccessDenied(email);
+      }
+      return;
+    }
+
+    const res  = await fetch(scriptUrl, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify({ action: 'verifyAccess', key: settings.apiKey || '', data: { email } })
+    });
+    const data = await res.json();
+
+    if (data.allowed) {
       saveAuthSession(email, name);
       launchApp();
     } else {
-      // Access denied
-      document.getElementById('auth_btn_wrap').style.display  = 'none';
-      document.getElementById('auth_denied').style.display    = 'block';
-      document.getElementById('auth_denied_email').textContent = email;
-      document.getElementById('auth_msg').textContent = '';
+      showAccessDenied(email);
     }
   } catch(e) {
     document.getElementById('auth_msg').textContent = 'Login error — please try again';
     console.error('Auth error:', e);
   }
+}
+
+function showAccessDenied(email) {
+  document.getElementById('auth_btn_wrap').style.display  = 'none';
+  document.getElementById('auth_denied').style.display    = 'block';
+  document.getElementById('auth_denied_email').textContent = email;
+  document.getElementById('auth_msg').textContent = '';
 }
 
 function launchApp() {
