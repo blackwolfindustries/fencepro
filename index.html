@@ -446,18 +446,6 @@
     .hdr-right .cloud-status{display:none!important}
     .hdr-right .franchise-wrap{display:none!important}
 
-    /* ── PRICE BANNER: tablet — 2 columns, wraps into rows ── */
-    .price-banner-row{
-      display:grid!important;
-      grid-template-columns:1fr 1fr;
-    }
-    .pbc{
-      border-right:none!important;
-      border-left:none!important;
-      border-bottom:1px solid rgba(255,255,255,.1);
-      padding:12px 16px!important;
-    }
-
     /* Show hamburger button */
     .mob-burger{
       display:flex;flex-direction:column;justify-content:center;gap:5px;
@@ -506,24 +494,70 @@
     }
   }
 
-  /* ── PRICE BANNER: phone — 1 column, full-width stacked ── */
-  @media(max-width:480px){
-    .price-banner-row{
-      grid-template-columns:1fr!important;
-    }
-    .pbc{
-      padding:13px 18px!important;
-    }
-    /* Bump up the two key prices on phone for easy reading */
-    #s_final{font-size:26px!important}
-    #s_cash{font-size:22px!important}
-  }
-
   /* Hide drawer elements on desktop — they should never appear */
   @media(min-width:769px){
     .mob-burger{display:none!important}
     .mob-drawer{display:none!important}
     .mob-overlay{display:none!important}
+  }
+
+  /* ── MOBILE ESTIMATOR FORM — tablet (481–768px) ────────────── */
+  @media(max-width:768px){
+
+    /* Main form: 2 columns on tablet */
+    .est-form-grid{grid-template-columns:1fr 1fr!important}
+    /* Spans of 2 or 3 collapse to full 2-col width */
+    .est-form-grid > .f[style*="grid-column:span 2"],
+    .est-form-grid > .f[style*="grid-column:span 3"],
+    .est-form-grid > div[style*="grid-column:span 2"],
+    .est-form-grid > div[style*="grid-column:span 3"]{grid-column:span 2!important}
+    /* More fields panel */
+    #moreFieldsPanel{grid-template-columns:1fr 1fr!important}
+
+    /* Scope / Notes: stack vertically */
+    .scope-notes-grid{grid-template-columns:1fr!important}
+
+    /* Contact & address: 2 columns */
+    .contact-addr-grid{grid-template-columns:1fr 1fr!important}
+    .contact-addr-grid .f[style*="grid-column:span 2"]{grid-column:span 2!important}
+
+    /* Supplier strip: 2x2 grid */
+    .supplier-strip{display:grid!important;grid-template-columns:1fr 1fr!important}
+    .supplier-strip > div{border-right:none!important;border-bottom:1px solid var(--border)}
+
+    /* CRM box: show toggle button, collapse body by default */
+    .crm-toggle-btn{display:block!important}
+    .crm-entry-body{display:none!important}
+    .crm-entry-body.open{display:flex!important}
+  }
+
+  /* ── MOBILE ESTIMATOR FORM — phone (≤480px) ────────────────── */
+  @media(max-width:480px){
+
+    /* Main form: 1 column, everything stacks top to bottom */
+    .est-form-grid{grid-template-columns:1fr!important}
+    .est-form-grid > .f[style*="grid-column:span 2"],
+    .est-form-grid > .f[style*="grid-column:span 3"],
+    .est-form-grid > div[style*="grid-column:span 2"],
+    .est-form-grid > div[style*="grid-column:span 3"]{grid-column:span 1!important}
+    #moreFieldsPanel{grid-template-columns:1fr!important}
+
+    /* Contact & address: 1 column */
+    .contact-addr-grid{grid-template-columns:1fr!important}
+    .contact-addr-grid .f[style*="grid-column:span 2"]{grid-column:span 1!important}
+    .contact-addr-grid input{padding:10px 12px!important;font-size:14px!important}
+    .contact-addr-grid label{font-size:10px!important}
+
+    /* Supplier strip: 1 column */
+    .supplier-strip{grid-template-columns:1fr!important}
+
+    /* Deposit row: stack % and $ inputs vertically on phone */
+    .est-form-grid .f > div[style*="display:flex;gap:6px"]{flex-direction:column!important}
+
+    /* Price banner: 1 column */
+    .price-banner-row{grid-template-columns:1fr!important}
+    #s_final{font-size:26px!important}
+    #s_cash{font-size:22px!important}
   }
   @media print{
     /* Default print — hide app chrome */
@@ -884,44 +918,44 @@
     </div>
 
     <!-- Row 2: Prices -->
-    <div class="price-banner-row" style="display:flex">
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
+    <div style="display:flex">
+      <div style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">CC / Finance Price</div>
         <div style="font-size:20px;font-weight:800;color:#F26522;font-family:var(--mono)" id="s_final">$0</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
+      <div style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Cash / Check Price</div>
         <div style="font-size:18px;font-weight:700;color:#4ADE80;font-family:var(--mono)" id="s_cash">$0</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
+      <div style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Price per LF</div>
         <div style="font-size:16px;font-weight:700;color:rgba(255,255,255,.9);font-family:var(--mono)" id="s_plf">—</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
+      <div style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Gross Margin $</div>
         <div style="font-size:16px;font-weight:700;color:#4ADE80;font-family:var(--mono)" id="s_gmd_banner">—</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
+      <div style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Gross Margin %</div>
         <div style="font-size:16px;font-weight:700;color:rgba(255,255,255,.9);font-family:var(--mono)" id="s_gm">—</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px">
+      <div style="flex:1;padding:10px 16px">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Franchise Fee (8.5%)</div>
         <div style="font-size:16px;font-weight:700;color:#FB923C;font-family:var(--mono)" id="s_ff_banner">—</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
+      <div style="flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Material %</div>
         <div style="font-size:16px;font-weight:700;color:#93C5FD;font-family:var(--mono)" id="s_mat_pct">—</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
+      <div style="flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Labor %</div>
         <div style="font-size:16px;font-weight:700;color:#C4B5FD;font-family:var(--mono)" id="s_lab_pct">—</div>
       </div>
-      <div id="taxrow" class="pbc" style="display:none;flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
+      <div id="taxrow" style="display:none;flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">+ Tax</div>
         <div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.7);font-family:var(--mono)" id="s_ctax">$0</div>
       </div>
-      <div id="taxfinalrow" class="pbc" style="display:none;flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
+      <div id="taxfinalrow" style="display:none;flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Total w/Tax</div>
         <div style="font-size:16px;font-weight:700;color:#F26522;font-family:var(--mono)" id="s_ctfinal">$0</div>
       </div>
@@ -930,7 +964,7 @@
   </div>
   <!-- ── ENTRY FORM ── -->
   <div class="card" style="padding:16px 20px">
-    <div style="display:grid;grid-template-columns:repeat(6,1fr) 1fr;gap:10px 12px;align-items:start">
+    <div class="est-form-grid" style="display:grid;grid-template-columns:repeat(6,1fr) 1fr;gap:10px 12px;align-items:start">
 
       <!-- ROW 1: Job Type · Customer Name (span 2) · Zip · City · County · Payment -->
       <div class="f">
@@ -1097,7 +1131,7 @@
     </div>
 
     <!-- ── SCOPE OF WORK + INTERNAL NOTES ── -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px">
+    <div class="scope-notes-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px">
       <div class="card" style="padding:14px 16px">
         <div class="card-title">Scope of Work</div>
         <textarea id="scopeNotes" rows="4" placeholder="Scope of work, materials, special conditions..." style="resize:none;height:100px"></textarea>
@@ -1112,7 +1146,7 @@
     </div>
 
     <!-- Supplier info strip -->
-    <div id="supplierStrip" style="
+    <div id="supplierStrip" class="supplier-strip" style="
       display:flex;gap:0;margin-top:12px;
       border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;
       background:var(--surface2);font-size:12px;
@@ -1153,7 +1187,7 @@
   <!-- ── CONTACT & ADDRESS ── -->
   <div class="card" style="padding:10px 12px">
     <div class="card-title" style="margin-bottom:8px">Contact & Address</div>
-    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px">
+    <div class="contact-addr-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px">
       <div class="f" style="gap:3px"><label style="font-size:8px">PHONE</label><input id="custPhone" placeholder="(631) 555-0000" oninput="formatPhone(this)" style="padding:5px 8px;font-size:12px"></div>
       <div class="f" style="gap:3px"><label style="font-size:8px">EMAIL</label><input type="email" id="custEmail" placeholder="customer@email.com" style="padding:5px 8px;font-size:12px"></div>
       <div class="f" style="gap:3px;grid-column:span 2"><label style="font-size:8px">STREET ADDRESS</label><input id="jobAddr" placeholder="123 Main St" style="padding:5px 8px;font-size:12px"></div>
@@ -1183,9 +1217,12 @@
 <div class="est-side">
 
   <!-- CRM Entry Box — moved to top for visibility -->
-  <div style="background:var(--navy);border-radius:var(--r);padding:13px 15px;flex-shrink:0">
-    <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">📋 Enter Into CRM</div>
-    <div style="display:flex;flex-direction:column;gap:7px">
+  <div class="crm-entry-box" style="background:var(--navy);border-radius:var(--r);padding:13px 15px;flex-shrink:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase">📋 Enter Into CRM</div>
+      <button class="crm-toggle-btn" onclick="fpToggleCRM(this)" style="display:none;background:none;border:1px solid rgba(255,255,255,.25);border-radius:5px;color:rgba(255,255,255,.7);font-size:11px;font-weight:700;padding:3px 8px;cursor:pointer;font-family:var(--sans)">Show ▼</button>
+    </div>
+    <div class="crm-entry-body" style="display:flex;flex-direction:column;gap:7px">
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:rgba(255,255,255,.7)">
         <span>Material Retail in SM</span><span style="font-family:var(--mono);color:#fff;font-weight:600;font-size:15px" id="crm_mat">—</span>
       </div>
@@ -4559,6 +4596,12 @@ function fpToggleDrawer() {
   const lbl2 = document.getElementById('cloudLabel2');
   if (dot && dot2) dot2.className = dot.className;
   if (lbl && lbl2) lbl2.textContent = lbl.textContent;
+}
+
+function fpToggleCRM(btn) {
+  const body = btn.closest('.crm-entry-box').querySelector('.crm-entry-body');
+  const open = body.classList.toggle('open');
+  btn.textContent = open ? 'Hide ▲' : 'Show ▼';
 }
 
 function show(id) {
