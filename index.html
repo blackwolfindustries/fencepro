@@ -4307,30 +4307,34 @@ async function handleGoogleLogin(response) {
 
     document.getElementById('auth_msg').textContent = 'Verifying access...';
 
-    // Always allow owner without cloud call
+    // Owner always allowed — no cloud call needed
     if (email.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
       saveAuthSession(email, name);
       launchApp();
       return;
     }
 
-    // Verify against Apps Script — the source of truth
-    const scriptUrl = settings.scriptUrl;
+    // Read scriptUrl and apiKey directly from localStorage
+    // (settings object may not be initialized yet at login time)
+    let scriptUrl = '';
+    let apiKey    = 'fp_bwi_2026_xK9mQpLvNzRtWjYd';
+    try {
+      const stored = JSON.parse(localStorage.getItem('fp_settings') || '{}');
+      scriptUrl = stored.scriptUrl || '';
+      apiKey    = stored.apiKey    || apiKey;
+    } catch(e) {}
+
     if (!scriptUrl) {
-      // No cloud configured — fall back to localStorage list
-      if (getAllowedEmails().includes(email.toLowerCase())) {
-        saveAuthSession(email, name);
-        launchApp();
-      } else {
-        showAccessDenied(email);
-      }
+      // No cloud — deny access for non-owners
+      showAccessDenied(email);
       return;
     }
 
+    // Verify against Apps Script
     const res  = await fetch(scriptUrl, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body:    JSON.stringify({ action: 'verifyAccess', key: settings.apiKey || '', data: { email } })
+      body:    JSON.stringify({ action: 'verifyAccess', key: apiKey, data: { email } })
     });
     const data = await res.json();
 
