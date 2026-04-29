@@ -643,7 +643,90 @@
     }
     .crm-entry-body.open{max-height:600px!important}
   }
-  @media print{
+
+  /* ── REMAINING MOBILE FIXES — phone & tablet (≤768px) ───────── */
+  @media(max-width:768px){
+
+    /* 1. RECALL SEARCH — move to its own row below job#/status */
+    .banner-row1{
+      flex-wrap:wrap;
+      gap:10px 16px;
+    }
+    .recall-wrap{
+      margin-left:0!important;
+      width:100%;
+      order:10; /* pushes it after all other banner-row1 children */
+    }
+    .recall-wrap input{
+      width:100%!important;
+      box-sizing:border-box;
+      min-height:40px;
+      font-size:14px!important;
+    }
+    #recallDropdown{
+      width:100%!important;
+      right:0;left:0;
+    }
+
+    /* 2. MODALS — full width on mobile, never clip */
+    .mbox{
+      width:calc(100% - 32px)!important;
+      max-width:100%!important;
+      max-height:88vh!important;
+      padding:18px 16px!important;
+      margin:0 auto;
+    }
+
+    /* 3. TOUCH TARGETS — all buttons & inputs min 44px */
+    .btn, button:not(.mob-burger):not(.mob-nav-btn):not(.crm-toggle-btn):not(.tog *){
+      min-height:44px!important;
+    }
+    input:not([type="hidden"]):not([type="checkbox"]):not(.jobnum-input),
+    select{
+      min-height:44px!important;
+    }
+
+    /* 4. SUPPLIER PHOTO GRID — 2 columns on tablet */
+    .pgrid{
+      grid-template-columns:repeat(2,1fr)!important;
+    }
+
+    /* 5. JOB BOARD — keep horizontal scroll on tablet (acceptable),
+          add momentum scrolling for iOS */
+    .board-wrap{
+      -webkit-overflow-scrolling:touch;
+      scroll-snap-type:x mandatory;
+    }
+    .board-col{
+      scroll-snap-align:start;
+    }
+  }
+
+  /* ── PHONE ONLY extras (≤480px) ─────────────────────────────── */
+  @media(max-width:480px){
+
+    /* Supplier photo grid: 1 column on phone */
+    .pgrid{
+      grid-template-columns:1fr!important;
+    }
+
+    /* Job Board: snap columns, show one at a time */
+    .board-wrap{
+      scroll-snap-type:x mandatory;
+      -webkit-overflow-scrolling:touch;
+    }
+    .board-col{
+      scroll-snap-align:start;
+      min-width:85vw!important; /* one column nearly fills screen */
+    }
+
+    /* Modal: nearly full screen on phone */
+    .mbox{
+      width:calc(100% - 16px)!important;
+      padding:16px 14px!important;
+      max-height:92vh!important;
+    }
+  }
     /* Default print — hide app chrome */
     .header,.est-side,.btn,.statusbar,.hdr-right,.nav-tabs{display:none!important}
     .est-layout{grid-template-columns:1fr}
@@ -957,7 +1040,7 @@
   <div style="background:linear-gradient(135deg,#1B2B4B 0%,#253659 100%);border-radius:12px;box-shadow:0 4px 12px rgba(27,43,75,.2);flex-shrink:0">
 
     <!-- Row 1: Job # + Status + Recall Search -->
-    <div style="display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.1)">
+    <div class="banner-row1" style="display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.1)">
       <div>
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Job # ★</div>
         <div style="display:flex;align-items:center;gap:10px">
@@ -985,7 +1068,7 @@
         <div class="sib-pills" id="siblingPills"></div>
       </div>
       <!-- Recall search — right side of row 1 -->
-      <div style="margin-left:auto;position:relative">
+      <div class="recall-wrap" style="margin-left:auto;position:relative">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Recall Estimate</div>
         <input id="recallSearch" placeholder="Name, job #, address..." autocomplete="off"
           oninput="onRecallSearch()" onkeydown="onRecallKey(event)"
