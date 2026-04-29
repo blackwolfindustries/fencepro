@@ -644,89 +644,47 @@
     .crm-entry-body.open{max-height:600px!important}
   }
 
-  /* ── REMAINING MOBILE FIXES — phone & tablet (≤768px) ───────── */
+  /* ── FIX 1: RECALL SEARCH — own row on mobile ───────────────── */
   @media(max-width:768px){
-
-    /* 1. RECALL SEARCH — move to its own row below job#/status */
-    .banner-row1{
-      flex-wrap:wrap;
-      gap:10px 16px;
-    }
-    .recall-wrap{
-      margin-left:0!important;
-      width:100%;
-      order:10; /* pushes it after all other banner-row1 children */
-    }
-    .recall-wrap input{
-      width:100%!important;
-      box-sizing:border-box;
-      min-height:40px;
-      font-size:14px!important;
-    }
-    #recallDropdown{
-      width:100%!important;
-      right:0;left:0;
-    }
-
-    /* 2. MODALS — full width on mobile, never clip */
-    .mbox{
-      width:calc(100% - 32px)!important;
-      max-width:100%!important;
-      max-height:88vh!important;
-      padding:18px 16px!important;
-      margin:0 auto;
-    }
-
-    /* 3. TOUCH TARGETS — all buttons & inputs min 44px */
-    .btn, button:not(.mob-burger):not(.mob-nav-btn):not(.crm-toggle-btn):not(.tog *){
-      min-height:44px!important;
-    }
-    input:not([type="hidden"]):not([type="checkbox"]):not(.jobnum-input),
-    select{
-      min-height:44px!important;
-    }
-
-    /* 4. SUPPLIER PHOTO GRID — 2 columns on tablet */
-    .pgrid{
-      grid-template-columns:repeat(2,1fr)!important;
-    }
-
-    /* 5. JOB BOARD — keep horizontal scroll on tablet (acceptable),
-          add momentum scrolling for iOS */
-    .board-wrap{
-      -webkit-overflow-scrolling:touch;
-      scroll-snap-type:x mandatory;
-    }
-    .board-col{
-      scroll-snap-align:start;
-    }
+    .banner-row1{flex-wrap:wrap;gap:10px 16px}
+    .recall-wrap{margin-left:0!important;width:100%;order:10}
+    .recall-wrap input{width:100%!important;box-sizing:border-box;min-height:40px;font-size:14px!important}
+    #recallDropdown{width:100%!important;right:0;left:0}
   }
 
-  /* ── PHONE ONLY extras (≤480px) ─────────────────────────────── */
+  /* ── FIX 2: MODALS — never clip on mobile ───────────────────── */
+  @media(max-width:768px){
+    .mbox{width:calc(100% - 32px)!important;max-width:100%!important;max-height:88vh!important;padding:18px 16px!important;margin:0 auto}
+  }
   @media(max-width:480px){
-
-    /* Supplier photo grid: 1 column on phone */
-    .pgrid{
-      grid-template-columns:1fr!important;
-    }
-
-    /* Job Board: snap columns, show one at a time */
-    .board-wrap{
-      scroll-snap-type:x mandatory;
-      -webkit-overflow-scrolling:touch;
-    }
-    .board-col{
-      scroll-snap-align:start;
-      min-width:85vw!important; /* one column nearly fills screen */
-    }
-
-    /* Modal: nearly full screen on phone */
-    .mbox{
-      width:calc(100% - 16px)!important;
-      padding:16px 14px!important;
-      max-height:92vh!important;
-    }
+    .mbox{width:calc(100% - 16px)!important;padding:16px 14px!important;max-height:92vh!important}
   }
+
+  /* ── FIX 3: TOUCH TARGETS — 44px min on mobile only ─────────── */
+  @media(max-width:768px){
+    .btn{min-height:44px!important}
+    input:not([type="hidden"]):not([type="checkbox"]):not(.jobnum-input),
+    select{min-height:44px!important}
+  }
+
+  /* ── FIX 4: SUPPLIER GRID — 2-col tablet, 1-col phone ────────── */
+  @media(max-width:768px){
+    .pgrid{grid-template-columns:repeat(2,1fr)!important}
+  }
+  @media(max-width:480px){
+    .pgrid{grid-template-columns:1fr!important}
+  }
+
+  /* ── FIX 5: JOB BOARD — momentum + snap scroll on mobile ─────── */
+  @media(max-width:768px){
+    .board-wrap{-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
+    .board-col{scroll-snap-align:start}
+  }
+  @media(max-width:480px){
+    .board-col{min-width:85vw!important}
+  }
+
+  @media print{
     /* Default print — hide app chrome */
     .header,.est-side,.btn,.statusbar,.hdr-right,.nav-tabs{display:none!important}
     .est-layout{grid-template-columns:1fr}
