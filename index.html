@@ -8,6 +8,17 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+/*
+╔══════════════════════════════════════════════════════════════════╗
+║              ⚠️  FENCEPRO — CSS PROTECTION RULES ⚠️              ║
+║                                                                  ║
+║  DO NOT modify any rules outside of @media blocks.              ║
+║  Desktop styles are final. All mobile changes go in             ║
+║  @media(max-width:768px) or @media(max-width:480px) ONLY.       ║
+║  DO NOT add display:none to .btn, .hdr-right, .nav-tabs,        ║
+║  .statusbar, or .header outside of @media print.                ║
+╚══════════════════════════════════════════════════════════════════╝
+*/
   :root {
     /* Core palette — clean, high contrast, field-readable */
     --bg:       #ECEEF2;
@@ -439,6 +450,7 @@
     .nav-tab{padding:5px 8px;font-size:11px}
   }
 
+  /* ✅ SAFE ZONE — All rules below are @media only, desktop unaffected */
   /* ── MOBILE NAV — only active on tablet/phone ─────────────── */
   @media(max-width:768px){
     /* Hide desktop nav tabs and header-right items on mobile */
@@ -3687,6 +3699,32 @@
 </div>
 
 <script>
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║              ⚠️  FENCEPRO — PROTECTED CODEBASE ⚠️               ║
+// ║                                                                  ║
+// ║  This file drives ALL estimator calculations, pricing, Google    ║
+// ║  Sheets sync, proposals, invoices, and CRM across the platform.  ║
+// ║                                                                  ║
+// ║  RULES FOR ANY AI ASSISTANT OR DEVELOPER:                        ║
+// ║  1. DO NOT modify any function marked ⛔ PROTECTED ZONE          ║
+// ║  2. DO NOT modify CSS outside of @media blocks                   ║
+// ║  3. DO NOT modify HTML structure of the estimator banner         ║
+// ║  4. ALWAYS ask the owner before editing JS logic                 ║
+// ║  5. Mobile/responsive changes go in @media blocks ONLY           ║
+// ║  6. Confirm desktop view works before every deploy               ║
+// ║                                                                  ║
+// ║  PROTECTED ZONES (scroll down for markers):                      ║
+// ║  • normalizeJob()        — job data normalization (line ~4138)   ║
+// ║  • persistJobs()         — single write point for all saves      ║
+// ║  • recalcDebounced()     — debounced pricing trigger             ║
+// ║  • recalc()              — MASTER pricing engine                 ║
+// ║  • loadJobLocal()        — job loading / recall                  ║
+// ║  • newEst()              — new estimate initializer              ║
+// ║  • convertJob()          — proposal conversion                   ║
+// ║  • normalizeJob()        — field normalization (60+ fields)      ║
+// ║  • saveJob() / sync      — Google Sheets write pipeline          ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
 // ════════════════════════════════════════════════
 // CONFIG TABLES (from your Excel workbook)
 // ════════════════════════════════════════════════
@@ -4135,6 +4173,10 @@ let lastCalc = {};
 // Converts any incoming record (Sheets CRM keys or camelCase)
 // to canonical camelCase. All downstream code uses camelCase only.
 // ════════════════════════════════════════════════
+// ⛔⛔⛔ PROTECTED ZONE — normalizeJob() ⛔⛔⛔
+// Normalizes all 60+ job fields. Every save/load passes through here.
+// DO NOT modify field names, defaults, or structure without owner approval.
+// Breaking this breaks ALL job data across Sheets, proposals, and invoices.
 function normalizeJob(j) {
   if (!j || typeof j !== 'object') return j;
   // Helper: prefer camelCase key, fall back to CRM string key, then default
@@ -4253,6 +4295,9 @@ function normalizeJob(j) {
 // All code must call persistJobs() instead of
 // localStorage.setItem('fp_jobs', ...) directly
 // ════════════════════════════════════════════════
+// ⛔⛔⛔ PROTECTED ZONE — persistJobs() ⛔⛔⛔
+// Single write point for ALL job saves to localStorage.
+// DO NOT add side effects, filters, or transforms here.
 function persistJobs() {
   localStorage.setItem('fp_jobs', JSON.stringify(jobs));
 }
@@ -4337,6 +4382,12 @@ function migrateAllJobs() {
 
 
 let _recalcTimer = null;
+// ⛔⛔⛔ PROTECTED ZONE — recalcDebounced() + recalc() ⛔⛔⛔
+// THE MASTER PRICING ENGINE. Drives every price, margin, fee, and KPI
+// shown in the estimator banner and CRM box.
+// DO NOT modify pricing logic, markup formulas, CC rates, delivery
+// calculations, franchise fee, or tax logic without owner approval.
+// Any change here affects ALL estimates, proposals, and invoices.
 function recalcDebounced() {
   clearTimeout(_recalcTimer);
   _recalcTimer = setTimeout(recalc, 120);
@@ -5656,6 +5707,9 @@ function stripCurrency(el) {
 // CORE PRICING CALCULATION
 // Exact replication of Tab A formula chain
 // ════════════════════════════════════════════════
+// ⛔⛔⛔ END PROTECTED ZONE — recalcDebounced() ⛔⛔⛔
+
+// ⛔⛔⛔ PROTECTED ZONE — recalc() MASTER PRICING ENGINE ⛔⛔⛔
 function recalc() {
   const jobType    = val('jobType');
   const payMethod  = val('payMethod');
@@ -6078,6 +6132,9 @@ function renderSiblingPills() {
   ).join('');
 }
 
+// ⛔⛔⛔ PROTECTED ZONE — loadJobLocal() ⛔⛔⛔
+// Loads a saved job into the estimator form. Populates all 60+ fields.
+// DO NOT change field mapping or val() assignments without owner approval.
 function loadJobLocal(idx) {
   const d = jobs[idx];
   curIdx  = idx;
@@ -6150,6 +6207,9 @@ function setVal(id, val) {
   if (el && val !== undefined && val !== null) el.value = val;
 }
 
+// ⛔⛔⛔ PROTECTED ZONE — newEst() ⛔⛔⛔
+// Resets the entire estimator to a blank state. Clears all fields and triggers recalc.
+// DO NOT modify without testing full estimator reset flow.
 function newEst() {
   curIdx = -1;
   photos = [];
@@ -6181,6 +6241,9 @@ function newEst() {
   recalc();
 }
 
+// ⛔⛔⛔ PROTECTED ZONE — convertJob() ⛔⛔⛔
+// Converts estimate to proposal. Triggers Sheets write, token generation,
+// and proposal link creation. DO NOT modify without full proposal flow test.
 function convertJob() {
   openProposal();
 }
