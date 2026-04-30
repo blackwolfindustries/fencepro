@@ -6,7 +6,7 @@
 <title>FencePro Estimator</title>
 <link id="favicon" rel="icon" type="image/jpeg" href="">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     /* Core palette — clean, high contrast, field-readable */
@@ -40,7 +40,7 @@
 
     /* Typography — system mono for guaranteed clean zero rendering */
     --sans: 'Inter', sans-serif;
-    --mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', 'Liberation Mono', Menlo, monospace;
+    --mono: 'Roboto Mono', monospace;
 
     /* Shape */
     --r:  8px;
@@ -58,7 +58,7 @@
   /* Force slashed zeros and tabular numbers everywhere mono font is used */
   *[style*="var(--mono)"], .mono,
   #crm_mat, #crm_labor, #crm_demo, #crm_disc, #crm_addons,
-  #crm_mupct, #crm_muDol, #crm_final, #crm_cash,
+  #crm_mupct, #crm_muDol, #crm_final,
   #s_final, #s_cash, #s_plf, #s_gm, #s_gmd_banner, #s_ff_banner,
   #s_mat_pct, #s_lab_pct, #s_ctax, #s_ctfinal,
   #comb_final, #comb_cash, #comb_plf, #comb_gmpct, #comb_gmdol, #comb_ff,
@@ -1374,10 +1374,6 @@
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:15px;font-weight:800;color:#fff">Final Price</span>
         <span style="font-family:var(--mono);color:var(--orange);font-size:22px;font-weight:900;letter-spacing:-.5px" id="crm_final">—</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-        <span style="font-size:13px;font-weight:600;color:rgba(255,255,255,.7)">Cash / Check Price</span>
-        <span style="font-family:var(--mono);color:#4ADE80;font-size:16px;font-weight:700" id="crm_cash">—</span>
       </div>
     </div>
   </div>
@@ -5846,7 +5842,6 @@ function recalc() {
   setText('crm_mupct',  markupPct.toFixed(1) + '%');
   setText('crm_muDol',  '$' + crmMarkupDol.toFixed(2));
   setText('crm_final',  '$' + finalRnd.toLocaleString());
-  setText('crm_cash',   '$' + Math.round(cashPrc).toLocaleString());
 
   status('Calculated · ' + new Date().toLocaleTimeString());
 }
