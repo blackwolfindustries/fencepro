@@ -6,7 +6,7 @@
 <title>FencePro Estimator</title>
 <link id="favicon" rel="icon" type="image/jpeg" href="">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     /* Core palette — clean, high contrast, field-readable */
@@ -39,8 +39,8 @@
     --text3:    #5C6E8A;
 
     /* Typography — system mono for guaranteed clean zero rendering */
-    --sans: 'Inter', sans-serif;
-    --mono: 'DM Mono', monospace;
+    --sans: 'Plus Jakarta Sans', sans-serif;
+    --mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', 'Liberation Mono', Menlo, monospace;
 
     /* Shape */
     --r:  8px;
@@ -58,7 +58,7 @@
   /* Force slashed zeros and tabular numbers everywhere mono font is used */
   *[style*="var(--mono)"], .mono,
   #crm_mat, #crm_labor, #crm_demo, #crm_disc, #crm_addons,
-  #crm_mupct, #crm_muDol, #crm_final, #crm_cash,
+  #crm_mupct, #crm_muDol, #crm_final,
   #s_final, #s_cash, #s_plf, #s_gm, #s_gmd_banner, #s_ff_banner,
   #s_mat_pct, #s_lab_pct, #s_ctax, #s_ctfinal,
   #comb_final, #comb_cash, #comb_plf, #comb_gmpct, #comb_gmdol, #comb_ff,
@@ -1324,12 +1324,12 @@
 
   <!-- ── PHOTOS ── -->
   <div class="card" style="padding:14px 16px">
-    <div class="card-title">Site Photos</div>
+    <div class="card-title">Images</div>
     <div class="pdrop" id="pdrop" onclick="document.getElementById('pInput').click()"
       ondragover="event.preventDefault();this.classList.add('over')"
       ondragleave="this.classList.remove('over')"
       ondrop="onDrop(event)">
-      ↑ drag & drop or tap to upload site photos
+      ↑ drag & drop or tap to upload images
       <input type="file" id="pInput" multiple accept="image/*" style="display:none" onchange="onFiles(event)">
     </div>
     <div class="pgrid" id="pgrid"></div>
@@ -1374,10 +1374,6 @@
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:15px;font-weight:800;color:#fff">Final Price</span>
         <span style="font-family:var(--mono);color:var(--orange);font-size:22px;font-weight:900;letter-spacing:-.5px" id="crm_final">—</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px">
-        <span style="font-size:13px;font-weight:600;color:rgba(255,255,255,.65)">Cash / Check Price</span>
-        <span style="font-family:var(--mono);color:#4ADE80;font-size:16px;font-weight:600" id="crm_cash">—</span>
       </div>
     </div>
   </div>
@@ -2695,7 +2691,7 @@
                 <!-- ── SITE PHOTOS ── -->
         <div id="prop_photosSection" style="display:none;margin-bottom:24px">
           <div style="font-size:9px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #E2E5EA">
-            Site Photos
+            Images
             <span style="font-weight:400;color:#bbb;text-transform:none;letter-spacing:0;margin-left:8px;font-size:9px">For reference only — actual installation may vary slightly</span>
           </div>
           <!-- Carousel wrapper -->
@@ -5846,7 +5842,6 @@ function recalc() {
   setText('crm_mupct',  markupPct.toFixed(1) + '%');
   setText('crm_muDol',  '$' + crmMarkupDol.toFixed(2));
   setText('crm_final',  '$' + finalRnd.toLocaleString());
-  setText('crm_cash',   '$' + Math.round(cashPrc).toLocaleString());
 
   status('Calculated · ' + new Date().toLocaleTimeString());
 }
