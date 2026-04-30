@@ -1324,12 +1324,12 @@
 
   <!-- ── PHOTOS ── -->
   <div class="card" style="padding:14px 16px">
-    <div class="card-title">Site Photos</div>
+    <div class="card-title">Images</div>
     <div class="pdrop" id="pdrop" onclick="document.getElementById('pInput').click()"
       ondragover="event.preventDefault();this.classList.add('over')"
       ondragleave="this.classList.remove('over')"
       ondrop="onDrop(event)">
-      ↑ drag & drop or tap to upload site photos
+      ↑ drag & drop or tap to upload images
       <input type="file" id="pInput" multiple accept="image/*" style="display:none" onchange="onFiles(event)">
     </div>
     <div class="pgrid" id="pgrid"></div>
@@ -2691,7 +2691,7 @@
                 <!-- ── SITE PHOTOS ── -->
         <div id="prop_photosSection" style="display:none;margin-bottom:24px">
           <div style="font-size:9px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #E2E5EA">
-            Site Photos
+            Images
             <span style="font-weight:400;color:#bbb;text-transform:none;letter-spacing:0;margin-left:8px;font-size:9px">For reference only — actual installation may vary slightly</span>
           </div>
           <!-- Carousel wrapper -->
@@ -4181,7 +4181,7 @@ function normalizeJob(j) {
     franchiseOn: bool(j.franchiseOn, j['Franchise On'], true),
     deliveryOverride: bool(j.deliveryOverride, j['Delivery Override'], false),
     photos: Array.isArray(j.photos) ? j.photos.map(p =>
-      typeof p === 'string' ? {name:p, driveUrl:''} : {name:p.name||'', driveUrl:p.driveUrl||''}
+      typeof p === 'string' ? { name: p, driveUrl: '' } : { name: p.name||'', driveUrl: p.driveUrl||'' }
     ) : [],
     completionNotes: s(j.completionNotes, '', ''),
     // ── Quantities ──────────────────────────────
@@ -5893,8 +5893,7 @@ function collectData() {
     internalNotes:   val('internalNotes'),
     completionNotes: curIdx >= 0 ? (jobs[curIdx]?.completionNotes || '') : '',
     franchiseOn: document.getElementById('franchTog').checked,
-    photos:      photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' })),  // store name + Drive URL
-    photoUrls:   photos.map(p => p.driveUrl).filter(Boolean),  // Drive URLs for proposal display
+    photos:      photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' })),
     // Calculated fields (for Sheets analysis)
     calc_delivery:  lastCalc.delivery   || 0,
     calc_suppCCRate:lastCalc.suppCCRate || 0,
@@ -6085,11 +6084,11 @@ function renderSiblingPills() {
 function loadJobLocal(idx) {
   const d = jobs[idx];
   curIdx  = idx;
-  // Handle both legacy string format and new object format {name, driveUrl}
-  photos = (d.photos||[]).map(p => {
-    if (typeof p === 'string') return { name: p, uploaded: true, driveUrl: '' };
-    return { name: p.name||'', uploaded: true, driveUrl: p.driveUrl||'' };
-  });
+  photos = (d.photos||[]).map(p =>
+    typeof p === 'string'
+      ? { name: p, uploaded: true, driveUrl: '' }
+      : { name: p.name||'', uploaded: true, driveUrl: p.driveUrl||'' }
+  );
   renderPhotos();
 
   // Helper — reads field from job object trying multiple key names
@@ -6347,7 +6346,7 @@ function openProposal() {
     s('prop_tax').textContent      = '$' + Math.round(custTax).toLocaleString();
   }
 
-  // Photos — carousel — show any photo that has a local dataUrl or a Drive URL
+  // Photos — carousel — show any photo with a local preview OR a Drive URL
   const photosSection = document.getElementById('prop_photosSection');
   const visiblePhotos = photos.filter(p => p.dataUrl || p.driveUrl);
   if (visiblePhotos.length > 0) {
@@ -6672,10 +6671,10 @@ function propCarouselRender() {
 
   // Show current image — fully contained, no overflow
   const p = propCarouselPhotos[propCarouselIdx];
-  const imgSrc = p.dataUrl || getDriveThumbUrl(p.driveUrl, 800);
-  track.innerHTML = `<img src="${imgSrc}"
+  const carouselSrc = p.dataUrl || getDriveThumbUrl(p.driveUrl, 800);
+  track.innerHTML = `<img src="${carouselSrc}"
     style="width:100%;max-height:340px;object-fit:contain;display:block;border-radius:0"
-    alt="Site photo ${propCarouselIdx + 1} of ${total}">`;
+    alt="Image ${propCarouselIdx + 1} of ${total}">`;
 
   // Arrows — only show if multiple photos
   const multi = total > 1;
@@ -7088,35 +7087,41 @@ function addPhoto(file) {
   };
   reader.readAsDataURL(file);
 }
+function getDriveThumbUrl(url, size) {
+  if (!url) return '';
+  const m = url.match(/[-\w]{25,}/);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=s' + (size||400) : '';
+}
+
 function renderPhotos() {
   const g = document.getElementById('pgrid');
   if (!g) return;
   g.innerHTML = '';
-  photos.forEach((p,i) => {
+  photos.forEach((p, i) => {
     const d   = document.createElement('div');
     d.className = 'pthumb';
-    // Convert Drive view URL to direct thumbnail URL
-    const thumbSrc = p.dataUrl || (p.driveUrl ? getDriveThumbUrl(p.driveUrl, 400) : '');
-    if (thumbSrc) {
-      d.innerHTML = `<img src="${thumbSrc}" onerror="this.style.display='none';this.nextSibling.style.display='flex'">
-        <div style="display:none;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);padding:4px;text-align:center">${p.name}<br>✓ Uploaded</div>
+    const src = p.dataUrl || getDriveThumbUrl(p.driveUrl, 400);
+    if (src) {
+      d.innerHTML = `<img src="${src}" onerror="this.style.display='none'">
         <button class="xbtn" onclick="rmPhoto(${i})">✕</button>`;
     } else {
-      d.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px;text-align:center">${p.name}<br>${p.uploaded?'✓ Uploaded':'pending'}</div>`;
+      d.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px;text-align:center">
+        ${p.name}<br>${p.uploaded ? '✓ Uploaded' : 'pending'}
+        <br><button class="xbtn" style="position:relative;display:block;margin:4px auto 0" onclick="rmPhoto(${i})">✕</button>
+      </div>`;
     }
     g.appendChild(d);
   });
   const note = document.getElementById('photoNote');
-  if (note) note.textContent = photos.length > 0 ? `${photos.length} photo(s) — saved to Drive job folder on sync` : '';
+  if (note) note.textContent = photos.length > 0 ? `${photos.length} image(s) — saved to Drive on sync` : '';
 }
 
-function getDriveThumbUrl(driveUrl, size) {
-  // Extract file ID from various Drive URL formats
-  const m = driveUrl.match(/[-\w]{25,}/);
-  if (!m) return '';
-  return 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=s' + (size||400);
+function rmPhoto(i) {
+  photos.splice(i, 1);
+  // Keep the job's photo list in sync immediately
+  if (curIdx >= 0) jobs[curIdx].photos = photos.map(p => ({ name: p.name, driveUrl: p.driveUrl||'' }));
+  renderPhotos();
 }
-function rmPhoto(i) { photos.splice(i,1); renderPhotos(); }
 
 // ════════════════════════════════════════════════
 // SHARE / EMAIL
