@@ -86,6 +86,7 @@
     display:flex;align-items:center;gap:14px;
     height:58px;position:sticky;top:0;z-index:100;
     box-shadow:0 2px 8px rgba(27,43,75,.3);
+    overflow:hidden;
   }
   .logo{font-size:18px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px;white-space:nowrap;letter-spacing:-.3px}
   .logo-box{width:30px;height:30px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -437,6 +438,20 @@
     .f.s2{grid-column:span 1}
     .pgrid{grid-template-columns:repeat(3,1fr)}
     .nav-tab{padding:5px 8px;font-size:11px}
+  }
+
+  /* ── DESKTOP HEADER COMPRESSION — smaller browser windows ───── */
+  @media(max-width:1280px){
+    .header{gap:6px;padding:0 12px}
+    .nav-tab{padding:6px 9px;font-size:12px}
+    .hdr-right{gap:6px}
+    .cloud-status{padding:5px 8px;font-size:10px}
+  }
+  @media(max-width:1100px){
+    .header{gap:4px;padding:0 8px}
+    .nav-tab{padding:5px 6px;font-size:11px}
+    .hdr-right{gap:4px}
+    .cloud-status{display:none!important}
   }
 
   /* ── MOBILE NAV — only active on tablet/phone ─────────────── */
@@ -2999,14 +3014,8 @@
 
         <!-- How to Proceed -->
         <div style="background:#FFF8F4;border-left:3px solid #F26522;border-radius:4px;padding:14px 18px;margin-top:24px;margin-bottom:12px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-            <div style="font-size:9px;font-weight:700;color:#F26522;text-transform:uppercase;letter-spacing:.12em">How to Proceed</div>
-            <div style="font-size:9px;color:#F26522;opacity:.6;font-style:italic">✎ tap to edit</div>
-          </div>
-          <div id="mo_proceed" contenteditable="true" spellcheck="false"
-            style="font-size:12px;color:#444;line-height:1.7;outline:none;border-radius:3px;padding:2px 4px;margin:-2px -4px;transition:background .15s"
-            onfocus="this.style.background='rgba(242,101,34,.06)'"
-            onblur="this.style.background='transparent';fpSaveProceedText(this.innerText)"></div>
+          <div style="font-size:9px;font-weight:700;color:#F26522;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">How to Proceed</div>
+          <div id="mo_proceed" style="font-size:12px;color:#444;line-height:1.7"></div>
         </div>
         <!-- Terms & Conditions -->
         <div style="margin-bottom:24px">
@@ -4733,18 +4742,6 @@ function fpToggleCRM(btn) {
   const body = btn.closest('.crm-entry-box').querySelector('.crm-entry-body');
   const open = body.classList.toggle('open');
   btn.textContent = open ? 'Hide ▲' : 'Show ▼';
-}
-
-function fpSaveProceedText(text) {
-  if (!text || !text.trim()) return;
-  const key = (activeCompany === 'TRF') ? 'proceed_trf' : 'proceed_bwi';
-  const stored = JSON.parse(localStorage.getItem('fp_templates') || '{}');
-  stored[key] = text.trim();
-  localStorage.setItem('fp_templates', JSON.stringify(stored));
-  // Keep Setup textareas in sync
-  const taId = (activeCompany === 'TRF') ? 'tmpl_proceed_trf' : 'tmpl_proceed_bwi';
-  const ta = document.getElementById(taId);
-  if (ta) ta.value = text.trim();
 }
 
 function show(id) {
