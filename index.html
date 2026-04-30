@@ -1831,9 +1831,12 @@
         </div>
       </div>
       <!-- Action buttons -->
-      <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
-        <button class="btn btn-g" style="flex:1;justify-content:center" onclick="openMultiOptionProposal()">📄 Multi-Option Proposal</button>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-g" style="flex:1;justify-content:center;font-size:12px" onclick="openMultiOptionProposal('options')" title="Show selected estimates as separate tabs — no combined total">📄 Show Options</button>
+        <button class="btn" style="flex:1;justify-content:center;font-size:12px;background:#6D28D9;color:#fff;border-color:#6D28D9" onclick="openMultiOptionProposal('combined')" title="Combine selected estimates and show grand total">⊕ Combined Total</button>
       </div>
+      <!-- Hidden checkbox kept for showCombinedTab() function compatibility -->
+      <input type="checkbox" id="showCombinedTab" style="display:none">
     </div>
 
     <!-- ══ JOB COSTS ══════════════════════════════════════════ -->
@@ -2550,13 +2553,18 @@
     </div>
 
     <!-- Estimate tabs — only shown when job has multiple estimates -->
-    <div id="prop_tabs_bar" style="display:none;background:#1a2a44;border-bottom:1px solid rgba(255,255,255,.1);padding:0 20px;display:none;align-items:center;gap:0;flex-shrink:0">
+    <div id="prop_tabs_bar" style="display:none;background:#1a2a44;border-bottom:1px solid rgba(255,255,255,.1);padding:0 16px;display:none;align-items:center;gap:0;flex-shrink:0">
       <div id="prop_tabs" style="display:flex;gap:0;flex:1"></div>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:rgba(255,255,255,.6);white-space:nowrap;padding:8px 0;margin-left:16px;user-select:none">
-        <input type="checkbox" id="prop_show_combined" checked onchange="onPropCombinedToggle()"
-          style="width:13px;height:13px;cursor:pointer;accent-color:var(--orange)">
-        Show Combined
-      </label>
+      <div style="display:flex;gap:6px;margin-left:12px;flex-shrink:0">
+        <button id="prop_btn_options" onclick="fpPropSetMode('options')"
+          style="padding:5px 12px;font-size:11px;font-weight:700;font-family:var(--sans);cursor:pointer;border-radius:5px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff;transition:.15s"
+          title="Show each estimate as a separate tab — no combined total">📄 Options</button>
+        <button id="prop_btn_combined" onclick="fpPropSetMode('combined')"
+          style="padding:5px 12px;font-size:11px;font-weight:700;font-family:var(--sans);cursor:pointer;border-radius:5px;border:1.5px solid rgba(106,40,217,.6);background:transparent;color:rgba(255,255,255,.5);transition:.15s"
+          title="Switch to combined total view">⊕ Combined</button>
+        <!-- Hidden for compatibility -->
+        <input type="checkbox" id="prop_show_combined" style="display:none">
+      </div>
     </div>
 
     <!-- Proposal preview area -->
@@ -9400,8 +9408,6 @@ function duplicateEstimate() {
 // ════════════════════════════════════════════════
 let propTabEstimates  = []; // all estimates for this job prefix
 let propActiveTabIdx  = 0;  // index into propTabEstimates
-let propVisibleIdxs   = new Set(); // which estimate tabs are visible
-let propCombineIdxs   = new Set(); // which estimates are included in combined total
 
 function buildProposalTabs() {
   const prefix   = val('jobPrefix') || (jobs[curIdx]?.id||'').split('-')[0] || '';
@@ -9420,15 +9426,12 @@ function buildProposalTabs() {
     return la.localeCompare(lb);
   });
 
+  // Only show tabs if more than one estimate
   if (propTabEstimates.length < 2) {
     tabsBar.style.display = 'none';
     propTabEstimates = [];
     return;
   }
-
-  // Reset selection — all visible and all in combined by default
-  propVisibleIdxs = new Set(propTabEstimates.map((_, i) => i));
-  propCombineIdxs = new Set(propTabEstimates.map((_, i) => i));
 
   tabsBar.style.display = 'flex';
   const colors = ['#F26522','#B0C4DE','#16A34A'];
@@ -9446,8 +9449,8 @@ function buildProposalTabs() {
     </button>`;
   }).join('');
 
+  // Add combined tab if toggle is on
   buildPropCombinedTab();
-  fpBuildPropControlStrip();
 }
 
 function buildPropCombinedTab() {
@@ -9472,83 +9475,29 @@ function buildPropCombinedTab() {
 
 function onPropCombinedToggle() {
   buildPropCombinedTab();
+  // If currently on combined tab, switch back to first
   if (propActiveTabIdx === 'combined') {
     switchProposalTab(0);
   }
 }
 
-// ── PROPOSAL SELECTION CONTROLS ─────────────────────────────
-function fpBuildPropControlStrip() {
-  // Remove any existing strip
-  document.getElementById('fp_prop_strip')?.remove();
-
-  const tabsBar = document.getElementById('prop_tabs_bar');
-  if (!tabsBar || propTabEstimates.length < 2) return;
-
-  const colors = ['#F26522','#B0C4DE','#16A34A'];
-  const strip  = document.createElement('div');
-  strip.id     = 'fp_prop_strip';
-  strip.style.cssText = 'display:flex;align-items:center;gap:16px;padding:5px 20px;background:rgba(0,0,0,.3);border-bottom:1px solid rgba(255,255,255,.1);font-size:11px;flex-wrap:wrap';
-
-  // Show section
-  const showPart = propTabEstimates.map((est, i) => {
-    const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
-    const color  = colors[i] || '#fff';
-    return `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:${color};font-weight:700;user-select:none">
-      <input type="checkbox" checked onchange="fpPropToggleVisible(${i},this.checked)"
-        style="cursor:pointer;accent-color:${color}"> Option ${letter}
-    </label>`;
-  }).join('');
-
-  // Combined-includes section
-  const combPart = propTabEstimates.map((est, i) => {
-    const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
-    const color  = colors[i] || '#fff';
-    return `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:${color};font-weight:700;user-select:none">
-      <input type="checkbox" checked onchange="fpPropToggleCombine(${i},this.checked)"
-        style="cursor:pointer;accent-color:${color}"> ${letter}
-    </label>`;
-  }).join('');
-
-  strip.innerHTML = `
-    <span style="color:rgba(255,255,255,.4);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Show tabs:</span>
-    ${showPart}
-    <span style="width:1px;height:16px;background:rgba(255,255,255,.2);flex-shrink:0;display:inline-block"></span>
-    <span style="color:rgba(255,255,255,.4);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Include in combined:</span>
-    ${combPart}
-  `;
-
-  // Insert the strip right below the tabsBar
-  tabsBar.parentNode.insertBefore(strip, tabsBar.nextSibling);
-}
-
-function fpPropToggleVisible(idx, show) {
-  show ? propVisibleIdxs.add(idx) : propVisibleIdxs.delete(idx);
-  if (propVisibleIdxs.size === 0) { propVisibleIdxs.add(idx); return; }
-  // Show/hide the tab button
-  const btn = document.getElementById('prop_tab_' + idx);
-  if (btn) btn.style.display = show ? '' : 'none';
-  // If the hidden tab was active, switch to first visible
-  if (!show && propActiveTabIdx === idx) {
-    const first = Math.min(...propVisibleIdxs);
-    switchProposalTab(first);
+function fpPropSetMode(mode) {
+  const btnOpt  = document.getElementById('prop_btn_options');
+  const btnComb = document.getElementById('prop_btn_combined');
+  const cb      = document.getElementById('prop_show_combined');
+  if (mode === 'combined') {
+    if (btnOpt)  { btnOpt.style.background='transparent'; btnOpt.style.color='rgba(255,255,255,.5)'; }
+    if (btnComb) { btnComb.style.background='rgba(106,40,217,.5)'; btnComb.style.color='#fff'; btnComb.style.borderColor='#6D28D9'; }
+    if (cb) cb.checked = true;
+    buildPropCombinedTab();
+    switchProposalTab('combined');
+  } else {
+    if (btnOpt)  { btnOpt.style.background='rgba(255,255,255,.15)'; btnOpt.style.color='#fff'; }
+    if (btnComb) { btnComb.style.background='transparent'; btnComb.style.color='rgba(255,255,255,.5)'; btnComb.style.borderColor='rgba(106,40,217,.6)'; }
+    if (cb) cb.checked = false;
+    document.getElementById('prop_tab_combined')?.remove();
+    if (propActiveTabIdx === 'combined') switchProposalTab(0);
   }
-}
-
-function fpPropToggleCombine(idx, include) {
-  include ? propCombineIdxs.add(idx) : propCombineIdxs.delete(idx);
-  if (propCombineIdxs.size === 0) { propCombineIdxs.add(idx); return; }
-  // Refresh combined tab label to show which are included
-  const btn = document.getElementById('prop_tab_combined');
-  if (btn) {
-    const letters = propTabEstimates
-      .filter((_, i) => propCombineIdxs.has(i))
-      .map((est, i) => (est.id||'').split('-')[2] || String.fromCharCode(65+i))
-      .join('+');
-    btn.innerHTML = `⊕ Combined (${letters})`;
-  }
-  // If currently viewing combined, refresh it
-  if (propActiveTabIdx === 'combined') showPropCombinedView();
 }
 
 function switchProposalTab(idx) {
@@ -9571,9 +9520,9 @@ function switchProposalTab(idx) {
   }
 
   if (idx === 'combined') {
-    // Only total the estimates checked for combining
-    const sel = propTabEstimates.filter((_, i) => propCombineIdxs.has(i));
-    moEstimates = sel.length > 0 ? sel : propTabEstimates;
+    // Show multi-option combined view
+    moEstimates = propTabEstimates;
+    // Re-use the mMultiProposal rendering but show it inside the current proposal scroll area
     showPropCombinedView();
   } else {
     // Load the selected estimate into the proposal doc
@@ -9600,9 +9549,7 @@ function showPropCombinedView() {
   document.getElementById('prop_combined_view')?.remove();
 
   // Build combined view using same logic as multi-option
-  // Only include estimates selected for combining
-  const combSelected = propTabEstimates.filter((_, i) => propCombineIdxs.has(i));
-  moEstimates   = combSelected.length > 0 ? combSelected : propTabEstimates;
+  moEstimates   = propTabEstimates;
   const co      = activeCompany === 'TRF' ? 'Top Rail Fence Huntington' : 'Black Wolf Industries LLC';
   const first   = propTabEstimates[0];
   const today   = new Date();
@@ -10271,8 +10218,6 @@ function renderEstList() {
 // ════════════════════════════════════════════════
 let moActiveCompany = 'BWI';
 let moEstimates     = [];
-let moVisibleIdxs   = new Set();
-let moCombineIdxs   = new Set();
 
 function selectMultiCompany(co) {
   moActiveCompany = co;
@@ -10288,15 +10233,19 @@ function selectMultiCompany(co) {
   document.getElementById('mo_proceed').innerHTML = proceed;
 }
 
-function openMultiOptionProposal() {
+function openMultiOptionProposal(mode) {
+  // mode = 'options' (show tabs only, no combined) or 'combined' (go straight to combined total)
+  mode = mode || 'options';
   const cards   = document.getElementById('summaryCards');
   const matches = cards._matches || [];
   const checked = [...cards.querySelectorAll('input[type=checkbox]:checked')];
   if (checked.length < 2) { alert('Select 2 or more estimates first'); return; }
 
   moEstimates = checked.map(c => matches[parseInt(c.dataset.idx)]);
-  moVisibleIdxs = new Set(moEstimates.map((_, i) => i));
-  moCombineIdxs = new Set(moEstimates.map((_, i) => i));
+  // Set the hidden checkbox so showCombinedTab() returns the right value
+  const cb = document.getElementById('showCombinedTab');
+  if (cb) cb.checked = (mode === 'combined');
+
   const first = moEstimates[0];
 
   moActiveCompany = activeCompany || 'BWI';
@@ -10321,6 +10270,11 @@ function openMultiOptionProposal() {
   buildMultiOptionTabs();
   selectMultiCompany(moActiveCompany);
   openM('mMultiProposal');
+
+  // If combined mode, auto-switch to the combined tab
+  if (mode === 'combined') {
+    setTimeout(() => switchMultiTab('combined'), 50);
+  }
 }
 
 function onCombinedToggle() {
@@ -10344,47 +10298,8 @@ function buildMultiOptionTabs() {
   tabsEl.innerHTML   = '';
   panelsEl.innerHTML = '';
 
-  // Remove existing control strip
-  document.getElementById('fp_mo_strip')?.remove();
-
-  // ── CONTROL STRIP ────────────────────────────────────────
-  const strip = document.createElement('div');
-  strip.id    = 'fp_mo_strip';
-  strip.style.cssText = 'display:flex;align-items:center;gap:16px;padding:8px 0 12px 0;border-bottom:2px solid #E2E5EA;margin-bottom:4px;flex-wrap:wrap;font-size:11px';
-
-  const showPart = moEstimates.map((est, i) => {
-    const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
-    const color  = colors[i] || '#333';
-    const chk    = moVisibleIdxs.has(i) ? 'checked' : '';
-    return `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:${color};font-weight:700;user-select:none">
-      <input type="checkbox" ${chk} onchange="fpMoToggleVisible(${i},this.checked)" style="cursor:pointer;accent-color:${color}"> Option ${letter}
-    </label>`;
-  }).join('');
-
-  const combPart = moEstimates.map((est, i) => {
-    const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
-    const color  = colors[i] || '#333';
-    const chk    = moCombineIdxs.has(i) ? 'checked' : '';
-    return `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:${color};font-weight:700;user-select:none">
-      <input type="checkbox" ${chk} onchange="fpMoToggleCombine(${i},this.checked)" style="cursor:pointer;accent-color:${color}"> ${letter}
-    </label>`;
-  }).join('');
-
-  strip.innerHTML = `
-    <span style="color:#888;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Show:</span>
-    ${showPart}
-    <span style="width:1px;height:16px;background:#ddd;flex-shrink:0;display:inline-block"></span>
-    <span style="color:#888;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap">Include in combined:</span>
-    ${combPart}
-    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:#888;font-size:11px;user-select:none;margin-left:4px">
-      <input type="checkbox" id="showCombinedTab" checked onchange="onCombinedToggle()" style="cursor:pointer;accent-color:var(--orange)"> Show Combined tab
-    </label>
-  `;
-  tabsEl.parentElement.insertBefore(strip, tabsEl);
-
-  // ── INDIVIDUAL OPTION TABS — only visible ones ────────────
+  // ── INDIVIDUAL OPTION TABS ───────────────────────────────
   moEstimates.forEach((est, i) => {
-    if (!moVisibleIdxs.has(i)) return;
     const letter = (est.id || '').split('-')[2] || String.fromCharCode(65 + i);
     const color  = colors[i] || '#555';
     const final  = est.calc_final||0;
@@ -10438,26 +10353,23 @@ function buildMultiOptionTabs() {
 
   // ── COMBINED TAB — only if toggle is on ─────────────────────
   if (showCombinedTab()) {
-  const combColor  = '#6D28D9';
-  const combEsts   = moEstimates.filter((_, i) => moCombineIdxs.has(i));
-  const combLetters = combEsts.map((est,i) => (est.id||'').split('-')[2] || String.fromCharCode(65+moEstimates.indexOf(est))).join('+');
+  const combColor  = '#6D28D9'; // purple — distinct from option colors
   const combTab    = document.createElement('button');
   combTab.id       = 'mo_tab_combined';
-  combTab.innerHTML = `⊕ Combined (${combLetters})`;
+  combTab.innerHTML = '⊕ Combined';
   combTab.onclick  = () => switchMultiTab('combined');
   combTab.style.cssText = `padding:10px 24px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;border:none;border-bottom:3px solid transparent;background:transparent;color:var(--text3);transition:all .15s;margin-left:auto`;
   tabsEl.appendChild(combTab);
 
-  // Build combined panel — only selected estimates
-  const combFinal = combEsts.reduce((s,e) => s + (e.calc_final||0), 0);
-  const combCash  = combEsts.reduce((s,e) => s + (e.calc_cash||0), 0);
-  const combLF    = combEsts.reduce((s,e) => s + (e.totalLF||0), 0);
+  // Build combined panel content
+  const combFinal = moEstimates.reduce((s,e) => s + (e.calc_final||0), 0);
+  const combCash  = moEstimates.reduce((s,e) => s + (e.calc_cash||0), 0);
+  const combLF    = moEstimates.reduce((s,e) => s + (e.totalLF||0), 0);
   const combFinalRnd = Math.ceil(combFinal / 25) * 25;
   const combCashRnd  = Math.ceil(combCash  / 25) * 25;
 
-  // Scope sections — one per selected estimate
-  const scopeSections = combEsts.map((est, i) => {
-    const origIdx = moEstimates.indexOf(est);
+  // Scope sections — one per estimate, labeled
+  const scopeSections = moEstimates.map((est, i) => {
     const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
     const color  = colors[i] || '#555';
     const scope  = est.scopeNotes || '';
@@ -10468,11 +10380,10 @@ function buildMultiOptionTabs() {
       </div>`;
   }).join('');
 
-  // Line items — one row per selected estimate
-  const lineRows = combEsts.map((est, i) => {
-    const origIdx = moEstimates.indexOf(est);
-    const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+origIdx);
-    const color  = colors[origIdx] || '#555';
+  // Line items — one row per estimate
+  const lineRows = moEstimates.map((est, i) => {
+    const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
+    const color  = colors[i] || '#555';
     const final  = est.calc_final||0;
     const fence  = est.fenceType||'Fence Installation';
     return `<tr>
@@ -10510,11 +10421,10 @@ function buildMultiOptionTabs() {
     <!-- Combined totals -->
     <div style="display:flex;justify-content:flex-end;padding:12px 0 0 0">
       <table style="width:300px;border-collapse:collapse">
-        ${combEsts.map((est,i) => {
-          const origIdx = moEstimates.indexOf(est);
-          const letter = (est.id||'').split('-')[2]||String.fromCharCode(65+origIdx);
+        ${moEstimates.map((est,i) => {
+          const letter = (est.id||'').split('-')[2]||String.fromCharCode(65+i);
           const final  = est.calc_final||0;
-          const color  = colors[origIdx]||'#555';
+          const color  = colors[i]||'#555';
           return `<tr><td style="padding:3px 14px 3px 0;font-size:11px;color:#999;text-align:right">Option ${letter}</td><td style="padding:3px 0;font-size:11px;color:#666;text-align:right;font-weight:600">$${Math.round(final).toLocaleString()}</td></tr>`;
         }).join('')}
         <tr style="border-top:2px solid #1B2B4B">
@@ -10534,20 +10444,6 @@ function buildMultiOptionTabs() {
     </div>`;
   panelsEl.appendChild(combPanel);
   } // end if showCombinedTab
-}
-
-function fpMoToggleVisible(idx, show) {
-  show ? moVisibleIdxs.add(idx) : moVisibleIdxs.delete(idx);
-  if (moVisibleIdxs.size === 0) { moVisibleIdxs.add(idx); return; }
-  buildMultiOptionTabs();
-  selectMultiCompany(moActiveCompany);
-}
-
-function fpMoToggleCombine(idx, include) {
-  include ? moCombineIdxs.add(idx) : moCombineIdxs.delete(idx);
-  if (moCombineIdxs.size === 0) { moCombineIdxs.add(idx); return; }
-  buildMultiOptionTabs();
-  selectMultiCompany(moActiveCompany);
 }
 
 function switchMultiTab(activeIdx) {
