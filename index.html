@@ -4768,18 +4768,20 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
     const cb = document.createElement('input');
     cb.type    = 'checkbox';
     cb.value   = est.id || '';
-    cb.checked = true;
+    cb.setAttribute('checked', '');
+    cb.defaultChecked = true;
     cb.style.cssText = 'width:20px;height:20px;min-height:20px!important;cursor:pointer;accent-color:' + color + ';flex-shrink:0';
-    lbl.appendChild(cb);
 
     const optSpan = document.createElement('span');
     optSpan.style.cssText = 'font-weight:800;color:' + color + ';font-size:15px;white-space:nowrap';
     optSpan.textContent = 'Option ' + letter;
-    lbl.appendChild(optSpan);
 
     const fenceSpan = document.createElement('span');
     fenceSpan.style.cssText = 'font-size:12px;color:#666;flex:1';
     fenceSpan.textContent = fence;
+
+    lbl.appendChild(cb);
+    lbl.appendChild(optSpan);
     lbl.appendChild(fenceSpan);
 
     if (price) {
@@ -4790,6 +4792,8 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
     }
 
     checksWrap.appendChild(lbl);
+    // Set checked AFTER the label is in the DOM to prevent toggle-on-insert
+    cb.checked = true;
   });
   box.appendChild(checksWrap);
 
