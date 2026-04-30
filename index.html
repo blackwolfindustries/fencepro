@@ -4732,107 +4732,85 @@ function fpToggleCRM(btn) {
 // ── PROPOSAL LINK PICKER — shown when current job has multiple estimates ──
 function fpOpenProposalLinkPicker(siblings, currentId) {
   document.getElementById('fp_prop_picker')?.remove();
-  const colors = ['#F26522','#1B6FBF','#16A34A','#6D28D9','#0891B2'];
-  const sorted = [...siblings].sort((a,b)=>((a.id||'').split('-')[2]||'').localeCompare((b.id||'').split('-')[2]||''));
 
-  // Build overlay using DOM — avoids nested template literal issues
+  const colors  = ['#F26522','#1B6FBF','#16A34A','#6D28D9','#0891B2'];
+  const sorted  = [...siblings].sort((a,b)=>((a.id||'').split('-')[2]||'').localeCompare((b.id||'').split('-')[2]||''));
+  // Store selected IDs in a plain array — no checkboxes needed
+  const selected = sorted.map(e => e.id); // all selected by default
+
   const overlay = document.createElement('div');
   overlay.id = 'fp_prop_picker';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
 
   const box = document.createElement('div');
-  box.style.cssText = 'background:#fff;border-radius:14px;padding:28px;max-width:480px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.2)';
+  box.style.cssText = 'background:#fff;border-radius:14px;padding:28px;max-width:460px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.25)';
 
-  const title = document.createElement('div');
-  title.style.cssText = 'font-size:17px;font-weight:800;color:#1B2B4B;margin-bottom:4px';
-  title.textContent = '📧 Send Proposal Link';
-  box.appendChild(title);
+  box.innerHTML = '<div style="font-size:17px;font-weight:800;color:#1B2B4B;margin-bottom:4px">\u{1F4E7} Send Proposal Link</div><div style="font-size:13px;color:#888;margin-bottom:18px">Tap to select/deselect. Then pick a format.</div>';
 
-  const sub = document.createElement('div');
-  sub.style.cssText = 'font-size:13px;color:#888;margin-bottom:16px';
-  sub.textContent = 'All estimates are checked. Uncheck any to exclude, then pick a format.';
-  box.appendChild(sub);
-
-  const checksWrap = document.createElement('div');
-  checksWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:16px';
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap';
 
   sorted.forEach((est, i) => {
     const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
     const color  = colors[i] || '#333';
-    const fence  = est.fenceType || 'Fence Installation';
-    const price  = est.calc_final ? '$' + Math.round(est.calc_final).toLocaleString() : '';
+    const price  = est.calc_final ? ' — $' + Math.round(est.calc_final).toLocaleString() : '';
 
-    const lbl = document.createElement('label');
-    lbl.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;border:2px solid ' + color + '40;border-radius:8px;cursor:pointer;user-select:none;background:' + color + '08';
+    const btn = document.createElement('button');
+    btn.dataset.estId = est.id;
+    btn.dataset.selected = 'true';
+    btn.style.cssText = 'flex:1;min-width:120px;padding:14px 10px;border-radius:10px;border:3px solid '+color+';background:'+color+';color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;transition:.15s;line-height:1.4';
+    btn.innerHTML = 'Option ' + letter + '<br><span style="font-size:11px;font-weight:400;opacity:.85">' + (est.fenceType||'Fence') + price + '</span>';
 
-    const cb = document.createElement('input');
-    cb.type    = 'checkbox';
-    cb.value   = est.id || '';
-    cb.setAttribute('checked', '');
-    cb.defaultChecked = true;
-    cb.style.cssText = 'width:20px;height:20px;min-height:20px!important;cursor:pointer;accent-color:' + color + ';flex-shrink:0';
-
-    const optSpan = document.createElement('span');
-    optSpan.style.cssText = 'font-weight:800;color:' + color + ';font-size:15px;white-space:nowrap';
-    optSpan.textContent = 'Option ' + letter;
-
-    const fenceSpan = document.createElement('span');
-    fenceSpan.style.cssText = 'font-size:12px;color:#666;flex:1';
-    fenceSpan.textContent = fence;
-
-    lbl.appendChild(cb);
-    lbl.appendChild(optSpan);
-    lbl.appendChild(fenceSpan);
-
-    if (price) {
-      const priceSpan = document.createElement('span');
-      priceSpan.style.cssText = 'font-size:13px;font-weight:700;color:' + color;
-      priceSpan.textContent = price;
-      lbl.appendChild(priceSpan);
-    }
-
-    checksWrap.appendChild(lbl);
-    // Set checked AFTER the label is in the DOM to prevent toggle-on-insert
-    cb.checked = true;
+    btn.onclick = function() {
+      if (this.dataset.selected === 'true') {
+        this.dataset.selected = 'false';
+        this.style.background = '#fff';
+        this.style.color = color;
+      } else {
+        this.dataset.selected = 'true';
+        this.style.background = color;
+        this.style.color = '#fff';
+      }
+    };
+    row.appendChild(btn);
   });
-  box.appendChild(checksWrap);
+  box.appendChild(row);
 
   const hint = document.createElement('div');
-  hint.style.cssText = 'font-size:11px;color:#bbb;margin-bottom:14px;text-align:center';
-  hint.textContent = 'Need 2+ checked for Options or Combined.';
+  hint.style.cssText = 'font-size:11px;color:#bbb;margin-bottom:16px;text-align:center';
+  hint.textContent = 'Select 2+ for Options or Combined. Select 1 for a single link.';
   box.appendChild(hint);
 
-  // Main action buttons
   const btnRow1 = document.createElement('div');
   btnRow1.style.cssText = 'display:flex;gap:10px;margin-bottom:10px';
 
-  const btnOpts = document.createElement('button');
-  btnOpts.style.cssText = 'flex:1;padding:13px;border-radius:8px;border:2px solid #1B2B4B;background:#1B2B4B;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5';
-  btnOpts.innerHTML = '📄 Show Options<br><span style="font-size:11px;font-weight:400;opacity:.75">Each option shown separately</span>';
-  btnOpts.onclick = function(){ fpSendPickerLink('options'); };
-  btnRow1.appendChild(btnOpts);
+  const bOpts = document.createElement('button');
+  bOpts.style.cssText = 'flex:1;padding:13px;border-radius:8px;border:2px solid #1B2B4B;background:#1B2B4B;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5';
+  bOpts.innerHTML = '\u{1F4C4} Show Options<br><span style="font-size:11px;font-weight:400;opacity:.75">Each option separately</span>';
+  bOpts.onclick = function(){ fpSendPickerLink('options'); };
+  btnRow1.appendChild(bOpts);
 
-  const btnComb = document.createElement('button');
-  btnComb.style.cssText = 'flex:1;padding:13px;border-radius:8px;border:2px solid #6D28D9;background:#6D28D9;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5';
-  btnComb.innerHTML = '⊕ Combined Total<br><span style="font-size:11px;font-weight:400;opacity:.75">Grand total of selected</span>';
-  btnComb.onclick = function(){ fpSendPickerLink('combined'); };
-  btnRow1.appendChild(btnComb);
+  const bComb = document.createElement('button');
+  bComb.style.cssText = 'flex:1;padding:13px;border-radius:8px;border:2px solid #6D28D9;background:#6D28D9;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5';
+  bComb.innerHTML = '\u2295 Combined Total<br><span style="font-size:11px;font-weight:400;opacity:.75">Grand total of selected</span>';
+  bComb.onclick = function(){ fpSendPickerLink('combined'); };
+  btnRow1.appendChild(bComb);
   box.appendChild(btnRow1);
 
   const btnRow2 = document.createElement('div');
   btnRow2.style.cssText = 'display:flex;gap:10px';
 
-  const btnSingle = document.createElement('button');
-  btnSingle.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#555;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit';
-  btnSingle.textContent = 'Current estimate only';
-  btnSingle.onclick = function(){ fpSendPickerLink('single'); };
-  btnRow2.appendChild(btnSingle);
+  const bSingle = document.createElement('button');
+  bSingle.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#555;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit';
+  bSingle.textContent = 'Current estimate only';
+  bSingle.onclick = function(){ fpSendPickerLink('single'); };
+  btnRow2.appendChild(bSingle);
 
-  const btnCancel = document.createElement('button');
-  btnCancel.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#aaa;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit';
-  btnCancel.textContent = 'Cancel';
-  btnCancel.onclick = function(){ document.getElementById('fp_prop_picker').remove(); };
-  btnRow2.appendChild(btnCancel);
+  const bCancel = document.createElement('button');
+  bCancel.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#aaa;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit';
+  bCancel.textContent = 'Cancel';
+  bCancel.onclick = function(){ document.getElementById('fp_prop_picker').remove(); };
+  btnRow2.appendChild(bCancel);
   box.appendChild(btnRow2);
 
   overlay.appendChild(box);
@@ -4841,24 +4819,20 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
 
 function fpSendPickerLink(mode) {
   const picker = document.getElementById('fp_prop_picker');
-  const allCbs = [...picker.querySelectorAll('input[type=checkbox]')];
-  const checkedCbs = [...picker.querySelectorAll('input[type=checkbox]:checked')];
-  const ids = checkedCbs.map(c => c.value);
-  console.log('[FencePro] fpSendPickerLink mode='+mode+' allCheckboxes='+allCbs.length+' checked='+checkedCbs.length+' ids='+JSON.stringify(ids));
   if (mode === 'single') {
     picker.remove();
     generateProposalLink('single', [jobs[curIdx].id]);
     return;
   }
+  // Read selected toggle buttons
+  const ids = [...picker.querySelectorAll('button[data-est-id][data-selected="true"]')].map(b => b.dataset.estId);
   if (ids.length < 2) {
-    showToast('⚠ Check at least 2 estimates for ' + mode + ' mode — found ' + ids.length, 3000);
-    console.log('[FencePro] BLOCKED — only '+ids.length+' checked');
+    showToast('\u26a0 Select at least 2 options for ' + mode + ' mode', 2500);
     return;
   }
   picker.remove();
   generateProposalLink(mode, ids);
 }
-
 
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
