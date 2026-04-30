@@ -4837,14 +4837,18 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
 
 function fpSendPickerLink(mode) {
   const picker = document.getElementById('fp_prop_picker');
-  const ids    = [...picker.querySelectorAll('input[type=checkbox]:checked')].map(c => c.value);
+  const allCbs = [...picker.querySelectorAll('input[type=checkbox]')];
+  const checkedCbs = [...picker.querySelectorAll('input[type=checkbox]:checked')];
+  const ids = checkedCbs.map(c => c.value);
+  console.log('[FencePro] fpSendPickerLink mode='+mode+' allCheckboxes='+allCbs.length+' checked='+checkedCbs.length+' ids='+JSON.stringify(ids));
   if (mode === 'single') {
     picker.remove();
     generateProposalLink('single', [jobs[curIdx].id]);
     return;
   }
   if (ids.length < 2) {
-    showToast('\u26a0 Check at least 2 estimates for ' + mode + ' mode', 2500);
+    showToast('⚠ Check at least 2 estimates for ' + mode + ' mode — found ' + ids.length, 3000);
+    console.log('[FencePro] BLOCKED — only '+ids.length+' checked');
     return;
   }
   picker.remove();
