@@ -4735,44 +4735,103 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
   const colors = ['#F26522','#1B6FBF','#16A34A','#6D28D9','#0891B2'];
   const sorted = [...siblings].sort((a,b)=>((a.id||'').split('-')[2]||'').localeCompare((b.id||'').split('-')[2]||''));
 
+  // Build overlay using DOM — avoids nested template literal issues
   const overlay = document.createElement('div');
-  overlay.id    = 'fp_prop_picker';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.id = 'fp_prop_picker';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
 
-  // ALL estimates pre-checked so user just picks format
-  const checkboxes = sorted.map((est,i) => {
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:14px;padding:28px;max-width:480px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.2)';
+
+  const title = document.createElement('div');
+  title.style.cssText = 'font-size:17px;font-weight:800;color:#1B2B4B;margin-bottom:4px';
+  title.textContent = '📧 Send Proposal Link';
+  box.appendChild(title);
+
+  const sub = document.createElement('div');
+  sub.style.cssText = 'font-size:13px;color:#888;margin-bottom:16px';
+  sub.textContent = 'All estimates are checked. Uncheck any to exclude, then pick a format.';
+  box.appendChild(sub);
+
+  const checksWrap = document.createElement('div');
+  checksWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:16px';
+
+  sorted.forEach((est, i) => {
     const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
     const color  = colors[i] || '#333';
+    const fence  = est.fenceType || 'Fence Installation';
     const price  = est.calc_final ? '$' + Math.round(est.calc_final).toLocaleString() : '';
-    const safeId = (est.id||'').replace(/"/g, '&quot;');
-    const fence  = (est.fenceType||'Fence Installation').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    return `<label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border:1.5px solid ${color}40;border-radius:8px;cursor:pointer;user-select:none;background:${color}08">
-      <input type="checkbox" value="${safeId}" checked style="width:18px;height:18px;cursor:pointer;accent-color:${color};flex-shrink:0">
-      <span style="font-weight:800;color:${color};font-size:15px">Option ${letter}</span>
-      <span style="font-size:12px;color:#666;flex:1">${fence}</span>
-      ${price ? `<span style="font-size:13px;font-weight:700;color:${color}">${price}</span>` : ''}
-    </label>`;
-  }).join('');
 
-  overlay.innerHTML = `
-    <div style="background:#fff;border-radius:14px;padding:28px;max-width:480px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.2)">
-      <div style="font-size:17px;font-weight:800;color:#1B2B4B;margin-bottom:4px">📧 Send Proposal Link</div>
-      <div style="font-size:13px;color:#888;margin-bottom:18px">Uncheck any estimates to exclude, then pick a format.</div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px" id="fp_picker_checks">${checkboxes}</div>
-      <div style="font-size:11px;color:#aaa;margin-bottom:14px;text-align:center">Need 2+ checked for Options or Combined. 1 checked = single estimate link.</div>
-      <div style="display:flex;gap:10px;margin-bottom:10px">
-        <button onclick="fpSendPickerLink('options')" style="flex:1;padding:13px;border-radius:8px;border:2px solid #1B2B4B;background:#1B2B4B;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5">
-          📄 Show Options<br><span style="font-size:11px;font-weight:400;opacity:.75">Each option shown separately</span>
-        </button>
-        <button onclick="fpSendPickerLink('combined')" style="flex:1;padding:13px;border-radius:8px;border:2px solid #6D28D9;background:#6D28D9;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5">
-          ⊕ Combined Total<br><span style="font-size:11px;font-weight:400;opacity:.75">Grand total of selected</span>
-        </button>
-      </div>
-      <div style="display:flex;gap:10px">
-        <button onclick="fpSendPickerLink('single')" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#555;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">Current estimate only</button>
-        <button onclick="document.getElementById('fp_prop_picker').remove()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#aaa;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">Cancel</button>
-      </div>
-    </div>`;
+    const lbl = document.createElement('label');
+    lbl.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 16px;border:2px solid ' + color + '40;border-radius:8px;cursor:pointer;user-select:none;background:' + color + '08';
+
+    const cb = document.createElement('input');
+    cb.type    = 'checkbox';
+    cb.value   = est.id || '';
+    cb.checked = true;
+    cb.style.cssText = 'width:20px;height:20px;min-height:20px!important;cursor:pointer;accent-color:' + color + ';flex-shrink:0';
+    lbl.appendChild(cb);
+
+    const optSpan = document.createElement('span');
+    optSpan.style.cssText = 'font-weight:800;color:' + color + ';font-size:15px;white-space:nowrap';
+    optSpan.textContent = 'Option ' + letter;
+    lbl.appendChild(optSpan);
+
+    const fenceSpan = document.createElement('span');
+    fenceSpan.style.cssText = 'font-size:12px;color:#666;flex:1';
+    fenceSpan.textContent = fence;
+    lbl.appendChild(fenceSpan);
+
+    if (price) {
+      const priceSpan = document.createElement('span');
+      priceSpan.style.cssText = 'font-size:13px;font-weight:700;color:' + color;
+      priceSpan.textContent = price;
+      lbl.appendChild(priceSpan);
+    }
+
+    checksWrap.appendChild(lbl);
+  });
+  box.appendChild(checksWrap);
+
+  const hint = document.createElement('div');
+  hint.style.cssText = 'font-size:11px;color:#bbb;margin-bottom:14px;text-align:center';
+  hint.textContent = 'Need 2+ checked for Options or Combined.';
+  box.appendChild(hint);
+
+  // Main action buttons
+  const btnRow1 = document.createElement('div');
+  btnRow1.style.cssText = 'display:flex;gap:10px;margin-bottom:10px';
+
+  const btnOpts = document.createElement('button');
+  btnOpts.style.cssText = 'flex:1;padding:13px;border-radius:8px;border:2px solid #1B2B4B;background:#1B2B4B;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5';
+  btnOpts.innerHTML = '📄 Show Options<br><span style="font-size:11px;font-weight:400;opacity:.75">Each option shown separately</span>';
+  btnOpts.onclick = function(){ fpSendPickerLink('options'); };
+  btnRow1.appendChild(btnOpts);
+
+  const btnComb = document.createElement('button');
+  btnComb.style.cssText = 'flex:1;padding:13px;border-radius:8px;border:2px solid #6D28D9;background:#6D28D9;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5';
+  btnComb.innerHTML = '⊕ Combined Total<br><span style="font-size:11px;font-weight:400;opacity:.75">Grand total of selected</span>';
+  btnComb.onclick = function(){ fpSendPickerLink('combined'); };
+  btnRow1.appendChild(btnComb);
+  box.appendChild(btnRow1);
+
+  const btnRow2 = document.createElement('div');
+  btnRow2.style.cssText = 'display:flex;gap:10px';
+
+  const btnSingle = document.createElement('button');
+  btnSingle.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#555;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit';
+  btnSingle.textContent = 'Current estimate only';
+  btnSingle.onclick = function(){ fpSendPickerLink('single'); };
+  btnRow2.appendChild(btnSingle);
+
+  const btnCancel = document.createElement('button');
+  btnCancel.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#aaa;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit';
+  btnCancel.textContent = 'Cancel';
+  btnCancel.onclick = function(){ document.getElementById('fp_prop_picker').remove(); };
+  btnRow2.appendChild(btnCancel);
+  box.appendChild(btnRow2);
+
+  overlay.appendChild(box);
   document.body.appendChild(overlay);
 }
 
