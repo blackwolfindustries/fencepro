@@ -4180,7 +4180,9 @@ function normalizeJob(j) {
     propStatus:  s(j.propStatus || j.proposalStatus, j['Status'], 'Draft'),
     franchiseOn: bool(j.franchiseOn, j['Franchise On'], true),
     deliveryOverride: bool(j.deliveryOverride, j['Delivery Override'], false),
-    photos:      Array.isArray(j.photos) ? j.photos : [],
+    photos: Array.isArray(j.photos) ? j.photos.map(p =>
+      typeof p === 'string' ? {name:p, driveUrl:''} : {name:p.name||'', driveUrl:p.driveUrl||''}
+    ) : [],
     completionNotes: s(j.completionNotes, '', ''),
     // ── Quantities ──────────────────────────────
     totalLF:   n(j.totalLF,   j['Total LF'],    0),
@@ -4727,111 +4729,6 @@ function fpToggleCRM(btn) {
   const body = btn.closest('.crm-entry-box').querySelector('.crm-entry-body');
   const open = body.classList.toggle('open');
   btn.textContent = open ? 'Hide ▲' : 'Show ▼';
-}
-
-// ── PROPOSAL LINK PICKER — shown when current job has multiple estimates ──
-function fpOpenProposalLinkPicker(siblings, currentId) {
-  document.getElementById('fp_prop_picker')?.remove();
-
-  const colors  = ['#F26522','#1B6FBF','#16A34A','#6D28D9','#0891B2'];
-  const sorted  = [...siblings].sort((a,b)=>((a.id||'').split('-')[2]||'').localeCompare((b.id||'').split('-')[2]||''));
-  // Store selected IDs in a plain array — no checkboxes needed
-  const selected = sorted.map(e => e.id); // all selected by default
-
-  const overlay = document.createElement('div');
-  overlay.id = 'fp_prop_picker';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
-
-  const box = document.createElement('div');
-  box.style.cssText = 'background:#fff;border-radius:14px;padding:28px;max-width:460px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.25)';
-
-  box.innerHTML = '<div style="font-size:17px;font-weight:800;color:#1B2B4B;margin-bottom:4px">\u{1F4E7} Send Proposal Link</div><div style="font-size:13px;color:#888;margin-bottom:18px">Tap to select/deselect. Then pick a format.</div>';
-
-  const row = document.createElement('div');
-  row.style.cssText = 'display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap';
-
-  sorted.forEach((est, i) => {
-    const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
-    const color  = colors[i] || '#333';
-    const price  = est.calc_final ? ' — $' + Math.round(est.calc_final).toLocaleString() : '';
-
-    const btn = document.createElement('button');
-    btn.dataset.estId = est.id;
-    btn.dataset.selected = 'true';
-    btn.style.cssText = 'flex:1;min-width:120px;padding:14px 10px;border-radius:10px;border:3px solid '+color+';background:'+color+';color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;transition:.15s;line-height:1.4';
-    btn.innerHTML = 'Option ' + letter + '<br><span style="font-size:11px;font-weight:400;opacity:.85">' + (est.fenceType||'Fence') + price + '</span>';
-
-    btn.onclick = function() {
-      if (this.dataset.selected === 'true') {
-        this.dataset.selected = 'false';
-        this.style.background = '#fff';
-        this.style.color = color;
-      } else {
-        this.dataset.selected = 'true';
-        this.style.background = color;
-        this.style.color = '#fff';
-      }
-    };
-    row.appendChild(btn);
-  });
-  box.appendChild(row);
-
-  const hint = document.createElement('div');
-  hint.style.cssText = 'font-size:11px;color:#bbb;margin-bottom:16px;text-align:center';
-  hint.textContent = 'Select 2+ for Options or Combined. Select 1 for a single link.';
-  box.appendChild(hint);
-
-  const btnRow1 = document.createElement('div');
-  btnRow1.style.cssText = 'display:flex;gap:10px;margin-bottom:10px';
-
-  const bOpts = document.createElement('button');
-  bOpts.style.cssText = 'flex:1;padding:13px;border-radius:8px;border:2px solid #1B2B4B;background:#1B2B4B;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5';
-  bOpts.innerHTML = '\u{1F4C4} Show Options<br><span style="font-size:11px;font-weight:400;opacity:.75">Each option separately</span>';
-  bOpts.onclick = function(){ fpSendPickerLink('options'); };
-  btnRow1.appendChild(bOpts);
-
-  const bComb = document.createElement('button');
-  bComb.style.cssText = 'flex:1;padding:13px;border-radius:8px;border:2px solid #6D28D9;background:#6D28D9;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5';
-  bComb.innerHTML = '\u2295 Combined Total<br><span style="font-size:11px;font-weight:400;opacity:.75">Grand total of selected</span>';
-  bComb.onclick = function(){ fpSendPickerLink('combined'); };
-  btnRow1.appendChild(bComb);
-  box.appendChild(btnRow1);
-
-  const btnRow2 = document.createElement('div');
-  btnRow2.style.cssText = 'display:flex;gap:10px';
-
-  const bSingle = document.createElement('button');
-  bSingle.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#555;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit';
-  bSingle.textContent = 'Current estimate only';
-  bSingle.onclick = function(){ fpSendPickerLink('single'); };
-  btnRow2.appendChild(bSingle);
-
-  const bCancel = document.createElement('button');
-  bCancel.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#aaa;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit';
-  bCancel.textContent = 'Cancel';
-  bCancel.onclick = function(){ document.getElementById('fp_prop_picker').remove(); };
-  btnRow2.appendChild(bCancel);
-  box.appendChild(btnRow2);
-
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-}
-
-function fpSendPickerLink(mode) {
-  const picker = document.getElementById('fp_prop_picker');
-  if (mode === 'single') {
-    picker.remove();
-    generateProposalLink('single', [jobs[curIdx].id]);
-    return;
-  }
-  // Read selected toggle buttons
-  const ids = [...picker.querySelectorAll('button[data-est-id][data-selected="true"]')].map(b => b.dataset.estId);
-  if (ids.length < 2) {
-    showToast('\u26a0 Select at least 2 options for ' + mode + ' mode', 2500);
-    return;
-  }
-  picker.remove();
-  generateProposalLink(mode, ids);
 }
 
 function show(id) {
@@ -5996,7 +5893,8 @@ function collectData() {
     internalNotes:   val('internalNotes'),
     completionNotes: curIdx >= 0 ? (jobs[curIdx]?.completionNotes || '') : '',
     franchiseOn: document.getElementById('franchTog').checked,
-    photos:      photos.map(p => p.name),  // store names only; full data uploaded separately
+    photos:      photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' })),  // store name + Drive URL
+    photoUrls:   photos.map(p => p.driveUrl).filter(Boolean),  // Drive URLs for proposal display
     // Calculated fields (for Sheets analysis)
     calc_delivery:  lastCalc.delivery   || 0,
     calc_suppCCRate:lastCalc.suppCCRate || 0,
@@ -6126,7 +6024,6 @@ async function saveJob() {
           mimeType:   photos[i].mimeType || 'image/jpeg'
         }});
         photos[i].uploaded = true;
-        // Store the Drive URL so the proposal can show the image
         if (upRes && upRes.url) photos[i].driveUrl = upRes.url;
       }
     }
@@ -6188,10 +6085,10 @@ function renderSiblingPills() {
 function loadJobLocal(idx) {
   const d = jobs[idx];
   curIdx  = idx;
-  // Photos may be stored as strings (legacy) or objects {name, uploaded, driveUrl}
-  photos  = (d.photos||[]).map(p => {
-    if (typeof p === 'string') return {name:p, uploaded:true};
-    return {name:p.name||'', uploaded:true, driveUrl:p.driveUrl||''};
+  // Handle both legacy string format and new object format {name, driveUrl}
+  photos = (d.photos||[]).map(p => {
+    if (typeof p === 'string') return { name: p, uploaded: true, driveUrl: '' };
+    return { name: p.name||'', uploaded: true, driveUrl: p.driveUrl||'' };
   });
   renderPhotos();
 
@@ -6536,16 +6433,17 @@ async function saveProposalPDF() {
               min-height: auto;
               height: auto;
             `;
-            track.innerHTML = propCarouselPhotos.map(p => `
-              <img src="${p.dataUrl}" style="
+            track.innerHTML = propCarouselPhotos.map(p => {
+              const src = p.dataUrl || getDriveThumbUrl(p.driveUrl, 800);
+              return `<img src="${src}" style="
                 width: 100%;
                 height: ${imgH};
                 object-fit: cover;
                 border-radius: 6px;
                 border: 1px solid #E2E5EA;
                 display: block;
-              ">
-            `).join('');
+              ">`;
+            }).join('');
           }
         }
       }
@@ -6774,7 +6672,7 @@ function propCarouselRender() {
 
   // Show current image — fully contained, no overflow
   const p = propCarouselPhotos[propCarouselIdx];
-  const imgSrc = p.dataUrl || (p.driveUrl ? p.driveUrl.replace('/view?usp=drive_link','').replace('/view','') + '=s800' : '');
+  const imgSrc = p.dataUrl || getDriveThumbUrl(p.driveUrl, 800);
   track.innerHTML = `<img src="${imgSrc}"
     style="width:100%;max-height:340px;object-fit:contain;display:block;border-radius:0"
     alt="Site photo ${propCarouselIdx + 1} of ${total}">`;
@@ -7192,17 +7090,31 @@ function addPhoto(file) {
 }
 function renderPhotos() {
   const g = document.getElementById('pgrid');
+  if (!g) return;
   g.innerHTML = '';
   photos.forEach((p,i) => {
-    const d = document.createElement('div');
+    const d   = document.createElement('div');
     d.className = 'pthumb';
-    const src = p.dataUrl || (p.driveUrl ? p.driveUrl.replace('/view?usp=drive_link','').replace('/view','') + '=s400' : '');
-    d.innerHTML = src
-      ? `<img src="${src}" onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);padding:4px;text-align:center\\'>${p.name}<br>✓ Uploaded</div>'"><button class="xbtn" onclick="rmPhoto(${i})">✕</button>`
-      : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px;text-align:center">${p.name}<br>${p.uploaded?'✓ Uploaded':'pending'}</div>`;
+    // Convert Drive view URL to direct thumbnail URL
+    const thumbSrc = p.dataUrl || (p.driveUrl ? getDriveThumbUrl(p.driveUrl, 400) : '');
+    if (thumbSrc) {
+      d.innerHTML = `<img src="${thumbSrc}" onerror="this.style.display='none';this.nextSibling.style.display='flex'">
+        <div style="display:none;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);padding:4px;text-align:center">${p.name}<br>✓ Uploaded</div>
+        <button class="xbtn" onclick="rmPhoto(${i})">✕</button>`;
+    } else {
+      d.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px;text-align:center">${p.name}<br>${p.uploaded?'✓ Uploaded':'pending'}</div>`;
+    }
     g.appendChild(d);
   });
-  document.getElementById('photoNote').textContent = photos.length > 0 ? `${photos.length} photo(s) — saved to Drive job folder on sync` : '';
+  const note = document.getElementById('photoNote');
+  if (note) note.textContent = photos.length > 0 ? `${photos.length} photo(s) — saved to Drive job folder on sync` : '';
+}
+
+function getDriveThumbUrl(driveUrl, size) {
+  // Extract file ID from various Drive URL formats
+  const m = driveUrl.match(/[-\w]{25,}/);
+  if (!m) return '';
+  return 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=s' + (size||400);
 }
 function rmPhoto(i) { photos.splice(i,1); renderPhotos(); }
 
@@ -9789,23 +9701,11 @@ function openSms() {
   window.location.href = phone ? `sms:+1${phone}?body=${body}` : `sms:?body=${body}`;
 }
 
-async function generateProposalLink(mode, estimateIds) {
+async function generateProposalLink() {
   if (curIdx < 0) { alert('Please load an estimate first'); return; }
   const job = jobs[curIdx];
   if (!job?.id) { alert('Please save the estimate to Sheets first before generating a link'); return; }
   if (!settings.scriptUrl) { alert('Cloud not connected — configure in Setup first'); return; }
-
-  // If no mode specified, check for siblings — show picker if found
-  if (!mode) {
-    const prefix   = (job.id||'').split('-')[0];
-    const siblings = jobs.filter(j => (j.id||'').split('-')[0] === prefix && j.id);
-    if (siblings.length > 1) {
-      fpOpenProposalLinkPicker(siblings, job.id);
-      return;
-    }
-    mode        = 'single';
-    estimateIds = [job.id];
-  }
 
   document.getElementById('plink_generating').style.display = 'block';
   document.getElementById('plink_ready').style.display      = 'none';
@@ -9816,9 +9716,7 @@ async function generateProposalLink(mode, estimateIds) {
     const res = await cloudCall({
       action: 'generateProposalToken',
       data: {
-        estimateId:   estimateIds[0],
-        estimateIds:  estimateIds,
-        proposalMode: mode,
+        estimateId: job.id,
         custName:   job.custName  || val('custName')  || '',
         custEmail:  job.custEmail || val('custEmail') || '',
         company:    activeCompany || 'BWI'
