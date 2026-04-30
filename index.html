@@ -6119,13 +6119,15 @@ async function saveJob() {
     // Upload any new photos first (fire sequentially but don't block UI)
     for (let i = 0; i < photos.length; i++) {
       if (!photos[i].uploaded && photos[i].dataUrl) {
-        await cloudCall({ action:'uploadPhoto', data:{
+        const upRes = await cloudCall({ action:'uploadPhoto', data:{
           jobId:      data.id,
           fileName:   photos[i].name,
           base64Data: photos[i].dataUrl.split(',')[1],
           mimeType:   photos[i].mimeType || 'image/jpeg'
         }});
         photos[i].uploaded = true;
+        // Store the Drive URL so the proposal can show the image
+        if (upRes && upRes.url) photos[i].driveUrl = upRes.url;
       }
     }
 
@@ -6186,7 +6188,11 @@ function renderSiblingPills() {
 function loadJobLocal(idx) {
   const d = jobs[idx];
   curIdx  = idx;
-  photos  = (d.photos||[]).map(n=>({name:n, uploaded:true}));
+  // Photos may be stored as strings (legacy) or objects {name, uploaded, driveUrl}
+  photos  = (d.photos||[]).map(p => {
+    if (typeof p === 'string') return {name:p, uploaded:true};
+    return {name:p.name||'', uploaded:true, driveUrl:p.driveUrl||''};
+  });
   renderPhotos();
 
   // Helper — reads field from job object trying multiple key names
@@ -6444,11 +6450,12 @@ function openProposal() {
     s('prop_tax').textContent      = '$' + Math.round(custTax).toLocaleString();
   }
 
-  // Photos — carousel
+  // Photos — carousel — show any photo that has a local dataUrl or a Drive URL
   const photosSection = document.getElementById('prop_photosSection');
-  if (photos && photos.filter(p => p.dataUrl).length > 0) {
+  const visiblePhotos = photos.filter(p => p.dataUrl || p.driveUrl);
+  if (visiblePhotos.length > 0) {
     photosSection.style.display = 'block';
-    propCarouselPhotos = photos.filter(p => p.dataUrl);
+    propCarouselPhotos = visiblePhotos;
     propCarouselIdx    = 0;
     propCarouselRender();
   } else {
@@ -6767,7 +6774,8 @@ function propCarouselRender() {
 
   // Show current image — fully contained, no overflow
   const p = propCarouselPhotos[propCarouselIdx];
-  track.innerHTML = `<img src="${p.dataUrl}"
+  const imgSrc = p.dataUrl || (p.driveUrl ? p.driveUrl.replace('/view?usp=drive_link','').replace('/view','') + '=s800' : '');
+  track.innerHTML = `<img src="${imgSrc}"
     style="width:100%;max-height:340px;object-fit:contain;display:block;border-radius:0"
     alt="Site photo ${propCarouselIdx + 1} of ${total}">`;
 
@@ -7188,8 +7196,10 @@ function renderPhotos() {
   photos.forEach((p,i) => {
     const d = document.createElement('div');
     d.className = 'pthumb';
-    const src = p.dataUrl || '';
-    d.innerHTML = src ? `<img src="${src}"><button class="xbtn" onclick="rmPhoto(${i})">✕</button>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px;text-align:center">${p.name}<br>${p.uploaded?'✓ Uploaded':'pending'}</div>`;
+    const src = p.dataUrl || (p.driveUrl ? p.driveUrl.replace('/view?usp=drive_link','').replace('/view','') + '=s400' : '');
+    d.innerHTML = src
+      ? `<img src="${src}" onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);padding:4px;text-align:center\\'>${p.name}<br>✓ Uploaded</div>'"><button class="xbtn" onclick="rmPhoto(${i})">✕</button>`
+      : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px;text-align:center">${p.name}<br>${p.uploaded?'✓ Uploaded':'pending'}</div>`;
     g.appendChild(d);
   });
   document.getElementById('photoNote').textContent = photos.length > 0 ? `${photos.length} photo(s) — saved to Drive job folder on sync` : '';
