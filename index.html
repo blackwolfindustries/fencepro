@@ -4739,33 +4739,38 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
   overlay.id    = 'fp_prop_picker';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
 
+  // ALL estimates pre-checked so user just picks format
   const checkboxes = sorted.map((est,i) => {
     const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
     const color  = colors[i] || '#333';
-    const isCur  = est.id === currentId;
-    return `<label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid ${color}30;border-radius:8px;cursor:pointer;user-select:none;background:${color}08">
-      <input type="checkbox" value="${escHtml(est.id)}" ${isCur?'checked':''} style="width:16px;height:16px;cursor:pointer;accent-color:${color}">
-      <span style="font-weight:700;color:${color};font-size:14px">Option ${letter}</span>
-      <span style="font-size:12px;color:#666;margin-left:auto">${escHtml(est.fenceType||'Fence')}</span>
+    const price  = est.calc_final ? '$' + Math.round(est.calc_final).toLocaleString() : '';
+    const safeId = (est.id||'').replace(/"/g, '&quot;');
+    const fence  = (est.fenceType||'Fence Installation').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<label style="display:flex;align-items:center;gap:10px;padding:12px 16px;border:1.5px solid ${color}40;border-radius:8px;cursor:pointer;user-select:none;background:${color}08">
+      <input type="checkbox" value="${safeId}" checked style="width:18px;height:18px;cursor:pointer;accent-color:${color};flex-shrink:0">
+      <span style="font-weight:800;color:${color};font-size:15px">Option ${letter}</span>
+      <span style="font-size:12px;color:#666;flex:1">${fence}</span>
+      ${price ? `<span style="font-size:13px;font-weight:700;color:${color}">${price}</span>` : ''}
     </label>`;
   }).join('');
 
   overlay.innerHTML = `
-    <div style="background:#fff;border-radius:14px;padding:28px;max-width:460px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.2)">
-      <div style="font-size:16px;font-weight:800;color:#1B2B4B;margin-bottom:6px">Send Proposal Link</div>
-      <div style="font-size:13px;color:#666;margin-bottom:20px">Select which estimates to include and choose a format.</div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px" id="fp_picker_checks">${checkboxes}</div>
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <button onclick="fpSendPickerLink('options')" style="flex:1;padding:12px;border-radius:8px;border:2px solid #1B2B4B;background:#1B2B4B;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.4">
-          📄 Show Options<br><span style="font-size:11px;font-weight:400;opacity:.75">Customer sees each option separately</span>
+    <div style="background:#fff;border-radius:14px;padding:28px;max-width:480px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+      <div style="font-size:17px;font-weight:800;color:#1B2B4B;margin-bottom:4px">📧 Send Proposal Link</div>
+      <div style="font-size:13px;color:#888;margin-bottom:18px">Uncheck any estimates to exclude, then pick a format.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px" id="fp_picker_checks">${checkboxes}</div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:14px;text-align:center">Need 2+ checked for Options or Combined. 1 checked = single estimate link.</div>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <button onclick="fpSendPickerLink('options')" style="flex:1;padding:13px;border-radius:8px;border:2px solid #1B2B4B;background:#1B2B4B;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5">
+          📄 Show Options<br><span style="font-size:11px;font-weight:400;opacity:.75">Each option shown separately</span>
         </button>
-        <button onclick="fpSendPickerLink('combined')" style="flex:1;padding:12px;border-radius:8px;border:2px solid #6D28D9;background:#6D28D9;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.4">
-          ⊕ Combined Total<br><span style="font-size:11px;font-weight:400;opacity:.75">Customer sees a grand total</span>
+        <button onclick="fpSendPickerLink('combined')" style="flex:1;padding:13px;border-radius:8px;border:2px solid #6D28D9;background:#6D28D9;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;line-height:1.5">
+          ⊕ Combined Total<br><span style="font-size:11px;font-weight:400;opacity:.75">Grand total of selected</span>
         </button>
       </div>
       <div style="display:flex;gap:10px">
-        <button onclick="fpSendPickerLink('single')" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#444;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">Send current estimate only</button>
-        <button onclick="document.getElementById('fp_prop_picker').remove()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#999;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">Cancel</button>
+        <button onclick="fpSendPickerLink('single')" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#555;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">Current estimate only</button>
+        <button onclick="document.getElementById('fp_prop_picker').remove()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#aaa;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">Cancel</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -4774,12 +4779,19 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
 function fpSendPickerLink(mode) {
   const picker = document.getElementById('fp_prop_picker');
   const ids    = [...picker.querySelectorAll('input[type=checkbox]:checked')].map(c => c.value);
-  if (mode !== 'single' && ids.length < 1) { showToast('⚠ Select at least one estimate', 2000); return; }
+  if (mode === 'single') {
+    picker.remove();
+    generateProposalLink('single', [jobs[curIdx].id]);
+    return;
+  }
+  if (ids.length < 2) {
+    showToast('\u26a0 Check at least 2 estimates for ' + mode + ' mode', 2500);
+    return;
+  }
   picker.remove();
-  const job      = jobs[curIdx];
-  const finalIds  = mode === 'single' ? [job.id] : ids;
-  generateProposalLink(mode === 'single' ? 'single' : mode, finalIds);
+  generateProposalLink(mode, ids);
 }
+
 
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
