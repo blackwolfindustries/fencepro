@@ -1019,11 +1019,19 @@
       </div>
       <div id="siblingPillsWrap" style="display:none">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Estimates</div>
-        <div class="sib-pills" id="siblingPills"></div>
-      </div>
-      <div id="siblingPillsWrap" style="display:none">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Estimates</div>
-        <div class="sib-pills" id="siblingPills"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="sib-pills" id="siblingPills"></div>
+          <div id="estLetterEditWrap" style="display:none;flex-direction:column;gap:2px">
+            <div style="font-size:8px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em">Edit Letter</div>
+            <input id="estLetterInput" maxlength="1"
+              style="width:32px;height:26px;text-align:center;font-size:14px;font-weight:800;font-family:var(--mono);text-transform:uppercase;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;cursor:pointer"
+              title="Click to edit estimate letter"
+              oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/,'')"
+              onkeydown="if(event.key==='Enter'){this.blur()}"
+              onblur="fpSaveEstLetter(this.value)"
+            >
+          </div>
+        </div>
       </div>
       <!-- Recall search — right side of row 1 -->
       <div class="recall-wrap" style="margin-left:auto;position:relative">
@@ -4729,6 +4737,48 @@ function fpToggleCRM(btn) {
   btn.textContent = open ? 'Hide ▲' : 'Show ▼';
 }
 
+function fpSaveEstLetter(newLetter) {
+  newLetter = (newLetter || '').toUpperCase().trim();
+  const input = document.getElementById('estLetterInput');
+  // Must be a single A-Z letter
+  if (!newLetter || !/^[A-Z]$/.test(newLetter)) {
+    showToast('⚠ Letter must be A–Z', 2000);
+    if (input && curIdx >= 0) input.value = (jobs[curIdx].id || '').split('-')[2] || '';
+    return;
+  }
+  if (curIdx < 0) return;
+  const currentId = jobs[curIdx].id || '';
+  const parts = currentId.split('-');
+  const currentLetter = parts[2] || '';
+  // No change needed
+  if (newLetter === currentLetter) return;
+  // Check if letter already taken by another estimate with same job #
+  const prefix = parts[0];
+  const taken = jobs.some((j, i) => {
+    if (i === curIdx) return false;
+    const jp = (j.id || '').split('-');
+    return jp[0] === prefix && jp[2] === newLetter;
+  });
+  if (taken) {
+    showToast('⚠ Estimate ' + newLetter + ' already exists for job #' + prefix, 3000);
+    if (input) input.value = currentLetter;
+    return;
+  }
+  // Update the ID with the new letter
+  parts[2] = newLetter;
+  const newId = parts.join('-');
+  jobs[curIdx].id = newId;
+  persistJobs();
+  // Update all display elements
+  const estIdEl = document.getElementById('estId');
+  const idAssEl = document.getElementById('idAssembled');
+  if (estIdEl) estIdEl.textContent = newId;
+  if (idAssEl) idAssEl.textContent = newId;
+  renderSiblingPills();
+  renderEstList();
+  showToast('✓ Estimate letter changed to ' + newLetter, 2000);
+}
+
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -4740,23 +4790,12 @@ function show(id) {
   if (id === 'board')     { renderBoard(); renderEstList(); }
   if (id === 'jobs')      { updateSortIcons(); renderCRM(); }
   if (id === 'summary')   { loadCloud().then(() => { document.getElementById('summarySearch').value = ''; lookupJobSummary(); }); }
-  if (id === 'setup') {
-    if (!window._setupInitialized) {
-      // First time only — run everything
-      renderFenceTypeList(); renderSupplierList(); renderCrewList();
-      renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList();
-      SUPPLIERS = buildSuppliersMap();
-      window._setupInitialized = true;
-    } else {
-      // Subsequent visits — only refresh what can change externally
-      loadTemplateFields();
-      renderAccessList();
-    }
-  }
+  if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList(); }
   if (id === 'analytics') { renderAnalytics(); }
   // Refresh SUPPLIERS map whenever supplier tab opened
   if (id === 'invoices') loadInvoicesTab();
   if (id === 'calendar') renderCalendar();
+  if (id === 'setup')   SUPPLIERS = buildSuppliersMap();
 }
 
 // ════════════════════════════════════════════════
@@ -6082,11 +6121,21 @@ function renderSiblingPills() {
     .map((j, i) => ({ idx: i, id: j.id || '', letter: (j.id || '').split('-')[2] || '' }))
     .filter(s => s.id.split('-')[0] === prefix && s.letter)
     .sort((a, b) => a.letter.localeCompare(b.letter));
-  if (siblings.length <= 1) { wrap.style.display = 'none'; return; }
+  if (siblings.length <= 1 && !activeId) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'block';
   pills.innerHTML = siblings.map(s =>
     `<span class="sib-pill${s.idx === curIdx ? ' active' : ''}" onclick="loadJobLocal(${s.idx})" title="${s.id}">${s.letter}</span>`
   ).join('');
+  // Show the edit letter input if a saved estimate is active
+  const editWrap = document.getElementById('estLetterEditWrap');
+  const editInput = document.getElementById('estLetterInput');
+  const currentLetter = activeId.split('-')[2] || '';
+  if (editWrap && editInput && curIdx >= 0 && currentLetter) {
+    editWrap.style.display = 'flex';
+    editInput.value = currentLetter;
+  } else if (editWrap) {
+    editWrap.style.display = 'none';
+  }
 }
 
 function loadJobLocal(idx) {
@@ -6599,7 +6648,6 @@ function loadTemplateFields() {
 }
 
 function saveTemplates() {
-  window._setupInitialized = false; // force re-render on next Setup visit
   const el = id => document.getElementById(id);
   const t = {
     proposal_expiry:   parseInt(el('tmpl_proposal_expiry').value)  || 30,
@@ -6926,7 +6974,6 @@ function updateCloudStatus() {
 // SETTINGS
 // ════════════════════════════════════════════════
 function saveSettings() {
-  window._setupInitialized = false; // force re-render on next Setup visit
   settings.scriptUrl    = val('scriptUrl');
   settings.companyName  = val('companyName');
   settings.companyPhone = val('companyPhone');
