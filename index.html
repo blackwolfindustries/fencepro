@@ -4903,23 +4903,6 @@ async function boardDeleteEstimate(jobIdx, event) {
     try { await cloudCall({ action: 'deleteJob', data: { jobId: job.id } }); } catch(e) {}
   }
 }
-
-async function boardDeleteEstimate(jobIdx, event) {
-  event.stopPropagation();
-  const job = jobs[jobIdx];
-  if (!job) return;
-  const label = job.id || job.custName || 'this estimate';
-  if (!confirm('Delete ' + label + '?\n\nThis removes it from the app and Google Sheets.\nThis cannot be undone.')) return;
-  jobs.splice(jobIdx, 1);
-  if (curIdx === jobIdx) curIdx = -1;
-  else if (curIdx > jobIdx) curIdx--;
-  persistJobs();
-  renderBoard(); renderEstList(); renderJobsList();
-  showToast('🗑 ' + label + ' deleted');
-  if (settings.scriptUrl && job.id) {
-    try { await cloudCall({ action: 'deleteJob', data: { jobId: job.id } }); } catch(e) {}
-  }
-}
 async function deleteCurrentEstimate() {
   if (curIdx < 0) { alert('No estimate loaded — open an estimate first'); return; }
   const job = jobs[curIdx];
@@ -6026,6 +6009,11 @@ async function saveJob() {
         if (upRes && upRes.url) photos[i].driveUrl = upRes.url;
       }
     }
+
+    // Build photoUrls array from Drive URLs for Sheets / proposal display
+    data.photoUrls = photos
+      .map(p => p.driveUrl || '')
+      .filter(Boolean);
 
     // Save to Sheets
     const res = await cloudCall({ action:'saveJob', data });
