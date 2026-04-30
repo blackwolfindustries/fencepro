@@ -86,7 +86,6 @@
     display:flex;align-items:center;gap:14px;
     height:58px;position:sticky;top:0;z-index:100;
     box-shadow:0 2px 8px rgba(27,43,75,.3);
-    overflow:hidden;
   }
   .logo{font-size:18px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px;white-space:nowrap;letter-spacing:-.3px}
   .logo-box{width:30px;height:30px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -438,20 +437,6 @@
     .f.s2{grid-column:span 1}
     .pgrid{grid-template-columns:repeat(3,1fr)}
     .nav-tab{padding:5px 8px;font-size:11px}
-  }
-
-  /* ── DESKTOP HEADER COMPRESSION — smaller browser windows ───── */
-  @media(max-width:1280px){
-    .header{gap:6px;padding:0 12px}
-    .nav-tab{padding:6px 9px;font-size:12px}
-    .hdr-right{gap:6px}
-    .cloud-status{padding:5px 8px;font-size:10px}
-  }
-  @media(max-width:1100px){
-    .header{gap:4px;padding:0 8px}
-    .nav-tab{padding:5px 6px;font-size:11px}
-    .hdr-right{gap:4px}
-    .cloud-status{display:none!important}
   }
 
   /* ── MOBILE NAV — only active on tablet/phone ─────────────── */
@@ -4755,12 +4740,23 @@ function show(id) {
   if (id === 'board')     { renderBoard(); renderEstList(); }
   if (id === 'jobs')      { updateSortIcons(); renderCRM(); }
   if (id === 'summary')   { loadCloud().then(() => { document.getElementById('summarySearch').value = ''; lookupJobSummary(); }); }
-  if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList(); }
+  if (id === 'setup') {
+    if (!window._setupInitialized) {
+      // First time only — run everything
+      renderFenceTypeList(); renderSupplierList(); renderCrewList();
+      renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList();
+      SUPPLIERS = buildSuppliersMap();
+      window._setupInitialized = true;
+    } else {
+      // Subsequent visits — only refresh what can change externally
+      loadTemplateFields();
+      renderAccessList();
+    }
+  }
   if (id === 'analytics') { renderAnalytics(); }
   // Refresh SUPPLIERS map whenever supplier tab opened
   if (id === 'invoices') loadInvoicesTab();
   if (id === 'calendar') renderCalendar();
-  if (id === 'setup')   SUPPLIERS = buildSuppliersMap();
 }
 
 // ════════════════════════════════════════════════
@@ -6603,6 +6599,7 @@ function loadTemplateFields() {
 }
 
 function saveTemplates() {
+  window._setupInitialized = false; // force re-render on next Setup visit
   const el = id => document.getElementById(id);
   const t = {
     proposal_expiry:   parseInt(el('tmpl_proposal_expiry').value)  || 30,
@@ -6929,6 +6926,7 @@ function updateCloudStatus() {
 // SETTINGS
 // ════════════════════════════════════════════════
 function saveSettings() {
+  window._setupInitialized = false; // force re-render on next Setup visit
   settings.scriptUrl    = val('scriptUrl');
   settings.companyName  = val('companyName');
   settings.companyPhone = val('companyPhone');
