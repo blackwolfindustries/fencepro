@@ -1449,6 +1449,20 @@
 
   <div class="sep"></div>
 
+  <!-- ── PROPOSAL AUDIT TRAIL ─────────────────────────────── -->
+  <div id="auditWrap" style="display:none">
+    <div class="side-title" style="margin-top:4px;display:flex;align-items:center;gap:6px">
+      📡 Proposal Activity
+      <button onclick="refreshAudit()" id="auditRefreshBtn"
+        style="margin-left:auto;font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text3);cursor:pointer;line-height:1.6">↻</button>
+    </div>
+    <div id="auditTimeline" style="margin-top:6px;display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
+    <div id="auditEmpty" style="display:none;font-size:11px;color:var(--text3);padding:8px 0">No proposal sent yet for this estimate.</div>
+    <div id="auditLoading" style="display:none;font-size:11px;color:var(--text3);padding:8px 0">Loading...</div>
+  </div>
+
+  <div class="sep" id="auditSep" style="display:none"></div>
+
 </div><!-- est-side -->
 </div><!-- est-layout -->
 </div><!-- s-est -->
@@ -6069,6 +6083,118 @@ function renderSiblingPills() {
   ).join('');
 }
 
+// ── PROPOSAL AUDIT TRAIL ──────────────────────────────────────
+// Fetches all token rows for the current estimate and renders
+// a timeline: Sent → Opened → Responded
+
+async function refreshAudit() {
+  const estimateId = curIdx >= 0 ? (jobs[curIdx]?.id || '') : '';
+  const wrap       = document.getElementById('auditWrap');
+  const sep        = document.getElementById('auditSep');
+  const timeline   = document.getElementById('auditTimeline');
+  const empty      = document.getElementById('auditEmpty');
+  const loading    = document.getElementById('auditLoading');
+
+  if (!wrap) return;
+
+  // Hide if no estimate loaded or no cloud connection
+  if (!estimateId || !settings.scriptUrl) {
+    wrap.style.display = 'none';
+    sep.style.display  = 'none';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  sep.style.display  = 'block';
+  timeline.innerHTML = '';
+  empty.style.display   = 'none';
+  loading.style.display = 'block';
+
+  try {
+    const res = await cloudCall({ action: 'getProposalAudit', data: { estimateId } });
+    loading.style.display = 'none';
+
+    if (!res.tokens || res.tokens.length === 0) {
+      empty.style.display = 'block';
+      return;
+    }
+
+    timeline.innerHTML = res.tokens.map(t => buildAuditCard(t)).join('');
+  } catch(e) {
+    loading.style.display = 'none';
+    timeline.innerHTML = `<div style="color:var(--red);font-size:11px">Could not load audit data.</div>`;
+  }
+}
+
+function buildAuditCard(t) {
+  const fmt = iso => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return isNaN(d) ? '—' : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) +
+      ' · ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  };
+
+  const statusColor = {
+    'Pending':  'var(--text3)',
+    'Accepted': 'var(--green)',
+    'Declined': 'var(--red)'
+  }[t.status] || 'var(--text3)';
+
+  const modeLabel = { single:'Single', options:'Options', combined:'Combined' }[t.mode] || t.mode;
+
+  const events = [];
+
+  // ── Sent ──
+  events.push(auditDot('blue', '📧 Sent', fmt(t.createdAt)));
+
+  // ── Opened ──
+  if (t.firstOpenedAt) {
+    const viewLabel = t.viewCount > 1 ? `👁 Opened (${t.viewCount}×)` : '👁 Opened';
+    events.push(auditDot('orange', viewLabel, fmt(t.firstOpenedAt)));
+  } else {
+    events.push(auditDot('grey', '👁 Not yet opened', ''));
+  }
+
+  // ── Responded ──
+  if (t.responseAt && t.status !== 'Pending') {
+    const icon   = t.status === 'Accepted' ? '✅' : '❌';
+    const detail = t.status === 'Accepted' && t.priceType
+      ? ` · ${t.priceType} $${Math.round(t.contractPrice || 0).toLocaleString()}`
+      : '';
+    events.push(auditDot(t.status === 'Accepted' ? 'green' : 'red',
+      `${icon} ${t.status}${detail}`, fmt(t.responseAt)));
+  } else {
+    events.push(auditDot('grey', '⏳ Awaiting response', ''));
+  }
+
+  return `
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:4px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">${modeLabel}</span>
+      <span style="font-size:10px;font-weight:700;color:${statusColor}">${t.status}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:3px">${events.join('')}</div>
+    ${t.viewCount > 1 ? `<div style="margin-top:5px;font-size:10px;color:var(--text3)">Viewed ${t.viewCount} time${t.viewCount>1?'s':''} total</div>` : ''}
+  </div>`;
+}
+
+function auditDot(color, label, time) {
+  const colors = { blue:'#2563EB', orange:'var(--orange)', green:'var(--green)', red:'var(--red)', grey:'#CBD5E1' };
+  const c = colors[color] || colors.grey;
+  return `<div style="display:flex;align-items:baseline;gap:6px">
+    <span style="width:7px;height:7px;border-radius:50%;background:${c};flex-shrink:0;margin-top:2px;display:inline-block"></span>
+    <span style="color:var(--text1);font-weight:600">${label}</span>
+    ${time ? `<span style="color:var(--text3);font-size:10px;margin-left:auto;white-space:nowrap">${time}</span>` : ''}
+  </div>`;
+}
+
+function clearAudit() {
+  const wrap = document.getElementById('auditWrap');
+  const sep  = document.getElementById('auditSep');
+  if (wrap) { wrap.style.display = 'none'; }
+  if (sep)  { sep.style.display  = 'none'; }
+}
+
 function loadJobLocal(idx) {
   const d = jobs[idx];
   curIdx  = idx;
@@ -6137,6 +6263,7 @@ function loadJobLocal(idx) {
   recalc();
   updateBadge();
   renderSiblingPills();
+  refreshAudit();   // load proposal activity for this estimate
   show('est');
 }
 
@@ -6174,6 +6301,7 @@ function newEst() {
   document.getElementById('jobNo').value = '';  // blank = new estimate, server assigns ID
   document.getElementById('estContactUID').value = '';
   recalc();
+  clearAudit();  // hide audit panel when starting a fresh estimate
 }
 
 function convertJob() {
