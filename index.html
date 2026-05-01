@@ -1336,6 +1336,33 @@
     <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:6px" id="photoNote"></div>
   </div>
 
+  <!-- ── INTERNAL DOCS ── -->
+  <div class="card" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span class="card-title" style="margin:0">📁 Internal Docs</span>
+      <span style="font-size:9px;font-weight:600;color:var(--text3);background:var(--surface2);padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em">Never on proposals</span>
+    </div>
+    <div id="docUnsavedNote" style="display:none;font-size:11px;color:var(--orange);margin-bottom:8px;padding:6px 8px;background:rgba(245,158,11,.08);border-radius:5px;border:1px solid rgba(245,158,11,.25)">
+      ⚠ Save this estimate first to enable document uploads.
+      <button onclick="saveJob().then(()=>{ if(jobs[curIdx]?.id) document.getElementById('docUnsavedNote').style.display='none'; })"
+        style="margin-left:8px;font-size:11px;font-weight:700;color:var(--orange);background:none;border:1px solid var(--orange);border-radius:4px;padding:2px 8px;cursor:pointer">
+        💾 Save Now
+      </button>
+    </div>
+    <div class="pdrop" id="ddrop"
+      onclick="onDocClick()"
+      ondragover="event.preventDefault();this.classList.add('over')"
+      ondragleave="this.classList.remove('over')"
+      ondrop="onDocDrop(event)">
+      ↑ drag & drop or tap to upload docs
+      <input type="file" id="dInput" multiple
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.heic,.txt,.csv"
+        style="display:none" onchange="onDocFiles(event)">
+    </div>
+    <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px" id="docList"></div>
+    <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:6px" id="docNote"></div>
+  </div>
+
 </div><!-- est-main -->
 
 <!-- ══ SIDEBAR ══ -->
@@ -4141,6 +4168,7 @@ let parts    = JSON.parse(localStorage.getItem('fp_parts')    || '[]');
 let settings = { apiKey: 'fp_bwi_2026_xK9mQpLvNzRtWjYd', ...JSON.parse(localStorage.getItem('fp_settings') || '{}') };
 let curIdx = -1;
 let photos = [];  // [{dataUrl, name, uploaded}]
+let docs   = [];  // [{name, driveUrl, docType, uploadedAt, uploading}]
 let editPartIdx = -1;
 let lastCalc = {};
 
@@ -4196,6 +4224,9 @@ function normalizeJob(j) {
     deliveryOverride: bool(j.deliveryOverride, j['Delivery Override'], false),
     photos: Array.isArray(j.photos) ? j.photos.map(p =>
       typeof p === 'string' ? { name: p, driveUrl: '' } : { name: p.name||'', driveUrl: p.driveUrl||'' }
+    ) : [],
+    docs: Array.isArray(j.docs) ? j.docs.map(d =>
+      ({ name: d.name||'', driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' })
     ) : [],
     completionNotes: s(j.completionNotes, '', ''),
     // ── Quantities ──────────────────────────────
@@ -5891,6 +5922,7 @@ function collectData() {
     completionNotes: curIdx >= 0 ? (jobs[curIdx]?.completionNotes || '') : '',
     franchiseOn: document.getElementById('franchTog').checked,
     photos:      photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' })),
+    docs:        docs.map(d => ({ name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' })),
     // Calculated fields (for Sheets analysis)
     calc_delivery:  lastCalc.delivery   || 0,
     calc_suppCCRate:lastCalc.suppCCRate || 0,
@@ -6015,6 +6047,7 @@ async function saveJob() {
       if (!photos[i].uploaded && photos[i].dataUrl) {
         const upRes = await cloudCall({ action:'uploadPhoto', data:{
           jobId:      data.id,
+          custName:   data.custName || '',
           fileName:   photos[i].name,
           base64Data: photos[i].dataUrl.split(',')[1],
           mimeType:   photos[i].mimeType || 'image/jpeg'
@@ -6201,6 +6234,7 @@ function loadJobLocal(idx) {
   if (curIdx >= 0 && curIdx !== idx && jobs[curIdx]) {
     const snap = collectData();
     snap.photos = photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' }));
+    snap.docs   = docs.map(d => ({ name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' }));
     jobs[curIdx] = normalizeJob({ ...jobs[curIdx], ...snap });
     persistJobs();
   }
@@ -6212,7 +6246,15 @@ function loadJobLocal(idx) {
       ? { name: p, uploaded: true, driveUrl: '' }
       : { name: p.name||'', uploaded: true, driveUrl: p.driveUrl||'' }
   );
+  docs = (d.docs||[]).map(doc => ({
+    name:       doc.name      || '',
+    driveUrl:   doc.driveUrl  || '',
+    docType:    doc.docType   || 'Other',
+    uploadedAt: doc.uploadedAt|| '',
+    uploading:  false
+  }));
   renderPhotos();
+  renderDocs();
 
   // Helper — reads field from job object trying multiple key names
   // handles both camelCase local fields and Title Case Sheets fields
@@ -6284,7 +6326,9 @@ function setVal(id, val) {
 function newEst() {
   curIdx = -1;
   photos = [];
+  docs   = [];
   renderPhotos();
+  renderDocs();
   const nums = ['matCost','laborCost','demoLF','addOns','cartFee','discount','numGates','totalLF','concBags'];
   nums.forEach(id => document.getElementById(id).value = '0');
   const strs = ['custName','custPhone','custEmail','jobAddr','jobAddr2','jobCity','jobState','custZip','custCity','custCounty','lostReason','scopeNotes','internalNotes','custChannel','custCampaign'];
@@ -7263,6 +7307,193 @@ function rmPhoto(i) {
   // Keep the job's photo list in sync immediately
   if (curIdx >= 0) jobs[curIdx].photos = photos.map(p => ({ name: p.name, driveUrl: p.driveUrl||'' }));
   renderPhotos();
+}
+
+// ════════════════════════════════════════════════
+// INTERNAL DOCS
+// ════════════════════════════════════════════════
+const DOC_TYPES = ['Drawing','Work Order','Permit','Contract','Invoice','Photo','Other'];
+
+function onDocClick() {
+  // Gate: must be saved (have an ID and Drive folder) before uploading
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job || !job.id || !job.driveFolder) {
+    document.getElementById('docUnsavedNote').style.display = 'block';
+    return;
+  }
+  document.getElementById('dInput').click();
+}
+
+function onDocDrop(e) {
+  e.preventDefault();
+  document.getElementById('ddrop').classList.remove('over');
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job || !job.id || !job.driveFolder) {
+    document.getElementById('docUnsavedNote').style.display = 'block';
+    return;
+  }
+  [...e.dataTransfer.files].forEach(f => addDoc(f));
+}
+
+function onDocFiles(e) {
+  [...e.target.files].forEach(f => addDoc(f));
+  e.target.value = '';  // reset so same file can be re-selected
+}
+
+async function addDoc(file) {
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job || !job.id) return;
+
+  // Derive estimate letter from job ID (e.g. "1234-SmithJohn-A-2026" → "A")
+  const letter = (job.id || '').split('-')[2] || 'X';
+
+  // Build Drive filename: EST-A_Drawing_filename.pdf
+  const defaultType = guessDocType(file.name);
+  const driveName   = 'EST-' + letter + '_' + defaultType + '_' + file.name;
+
+  const entry = {
+    name:       driveName,
+    driveUrl:   '',
+    docType:    defaultType,
+    uploadedAt: '',
+    uploading:  true
+  };
+  docs.push(entry);
+  renderDocs();
+
+  // Read file as base64
+  const base64 = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('Read failed'));
+    r.readAsDataURL(file);
+  });
+
+  try {
+    const upRes = await cloudCall({
+      action: 'uploadDoc',
+      data: {
+        jobId:      job.id,
+        custName:   job.custName || '',
+        estimateLetter: letter,
+        fileName:   driveName,
+        base64Data: base64,
+        mimeType:   file.type || 'application/octet-stream'
+      }
+    });
+    entry.uploading  = false;
+    if (upRes && upRes.url) {
+      entry.driveUrl   = upRes.url;
+      entry.uploadedAt = new Date().toISOString();
+    } else {
+      entry.name = '⚠ Upload failed — ' + driveName;
+    }
+  } catch(err) {
+    entry.uploading = false;
+    entry.name = '⚠ Upload failed — ' + driveName;
+  }
+
+  // Persist docs back to job object
+  if (curIdx >= 0) jobs[curIdx].docs = docs.map(d => ({
+    name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||''
+  }));
+  persistJobs();
+  renderDocs();
+}
+
+function guessDocType(filename) {
+  const f = filename.toLowerCase();
+  if (f.includes('draw') || f.includes('plan') || f.includes('layout') || f.includes('sketch')) return 'Drawing';
+  if (f.includes('work') || f.includes('order') || f.includes('wo'))  return 'Work Order';
+  if (f.includes('permit') || f.includes('perm'))                      return 'Permit';
+  if (f.includes('contract') || f.includes('agreement'))               return 'Contract';
+  if (f.includes('invoice') || f.includes('inv'))                      return 'Invoice';
+  if (/\.(jpg|jpeg|png|gif|heic|webp)$/.test(f))                      return 'Photo';
+  return 'Other';
+}
+
+function setDocType(i, type) {
+  if (!docs[i]) return;
+  const job    = curIdx >= 0 ? jobs[curIdx] : null;
+  const letter = job ? ((job.id||'').split('-')[2] || 'X') : 'X';
+
+  // Rebuild filename with new type: EST-A_<NewType>_<rest>
+  const old  = docs[i].name;
+  const parts = old.replace(/^EST-[A-Z]_[^_]+_/, '');  // strip prefix
+  docs[i].docType = type;
+  docs[i].name    = 'EST-' + letter + '_' + type + '_' + parts;
+
+  if (curIdx >= 0) jobs[curIdx].docs = docs.map(d => ({
+    name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||''
+  }));
+  persistJobs();
+  renderDocs();
+}
+
+function rmDoc(i) {
+  docs.splice(i, 1);
+  if (curIdx >= 0) jobs[curIdx].docs = docs.map(d => ({
+    name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||''
+  }));
+  persistJobs();
+  renderDocs();
+}
+
+function renderDocs() {
+  const list = document.getElementById('docList');
+  const note = document.getElementById('docNote');
+  if (!list) return;
+  list.innerHTML = '';
+
+  docs.forEach((doc, i) => {
+    const typeColor = {
+      Drawing:'#2563EB', 'Work Order':'#D97706', Permit:'#7C3AED',
+      Contract:'#16A34A', Invoice:'#0891B2', Photo:'#DB2777', Other:'#64748B'
+    }[doc.docType] || '#64748B';
+
+    const shortName = doc.name.replace(/^EST-[A-Z]_[^_]+_/, '');  // display without prefix
+    const dateStr   = doc.uploadedAt
+      ? new Date(doc.uploadedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})
+      : '';
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:5px;font-size:11px';
+
+    if (doc.uploading) {
+      row.innerHTML = `
+        <span style="flex:1;color:var(--text2);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${doc.name}">
+          ⏳ Uploading… ${shortName}
+        </span>`;
+    } else {
+      const typeOpts = DOC_TYPES.map(t =>
+        `<option value="${t}"${t===doc.docType?' selected':''}>${t}</option>`
+      ).join('');
+
+      row.innerHTML = `
+        <span style="width:6px;height:6px;border-radius:50%;background:${typeColor};flex-shrink:0"></span>
+        <select onchange="setDocType(${i},this.value)"
+          style="font-size:10px;padding:1px 3px;border:1px solid var(--border);border-radius:3px;background:var(--surface);color:var(--text1);flex-shrink:0;max-width:82px">
+          ${typeOpts}
+        </select>
+        <span style="flex:1;color:var(--text1);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px" title="${doc.name}">
+          ${shortName}
+        </span>
+        ${dateStr ? `<span style="color:var(--text3);font-size:9px;flex-shrink:0">${dateStr}</span>` : ''}
+        ${doc.driveUrl
+          ? `<a href="${doc.driveUrl}" target="_blank"
+               style="color:var(--blue);font-size:13px;text-decoration:none;flex-shrink:0;line-height:1"
+               title="Open in Drive">🔗</a>`
+          : `<span style="color:var(--red);font-size:10px;flex-shrink:0" title="Not yet uploaded">⚠</span>`}
+        <button onclick="rmDoc(${i})"
+          style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;line-height:1;padding:0;flex-shrink:0"
+          title="Remove">✕</button>`;
+    }
+    list.appendChild(row);
+  });
+
+  if (note) note.textContent = docs.length > 0
+    ? `${docs.length} doc(s) · stored in EST-${(curIdx>=0&&jobs[curIdx]?.id||'').split('-')[2]||'?'} folder`
+    : '';
 }
 
 // ════════════════════════════════════════════════
