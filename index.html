@@ -504,6 +504,46 @@
     .crm-entry-body{display:flex!important}
   }
 
+  /* ── DESKTOP COMPRESSION — shrink header as window narrows ────────── */
+  /* Step 1 — slightly tight (≤1350px): tighten nav + hdr-right gaps */
+  @media(min-width:769px) and (max-width:1350px){
+    .header{padding:0 12px;gap:8px}
+    .nav-tabs{gap:1px;margin-left:4px}
+    .nav-tab{padding:5px 10px;font-size:12px}
+    .hdr-right{gap:7px}
+    .cloud-status{padding:4px 9px;font-size:10px}
+  }
+
+  /* Step 2 — medium tight (≤1200px): hide cloud-status dot label, tighten more */
+  @media(min-width:769px) and (max-width:1200px){
+    .header{padding:0 10px;gap:6px}
+    .nav-tab{padding:5px 8px;font-size:11.5px}
+    .logo{font-size:16px;gap:7px}
+    .hdr-right{gap:5px}
+    .cloud-status{padding:4px 7px;font-size:10px}
+  }
+
+  /* Step 3 — tight (≤1100px): abbreviate nav labels via hiding emoji,
+     hide the "jobs loaded" text in cloud status, shrink buttons */
+  @media(min-width:769px) and (max-width:1100px){
+    .header{padding:0 8px;gap:4px}
+    .nav-tabs{gap:0;margin-left:2px}
+    .nav-tab{padding:4px 7px;font-size:11px}
+    .logo{font-size:15px;gap:6px}
+    .logo-box{width:26px;height:26px;border-radius:6px}
+    .hdr-right{gap:4px}
+    .cloud-status{padding:3px 6px;font-size:10px}
+    /* Shorten + Contact and + New buttons */
+    .hdr-right .btn{padding:5px 10px;font-size:11px}
+  }
+
+  /* Step 4 — very tight (≤980px): hide non-essential hdr-right items */
+  @media(min-width:769px) and (max-width:980px){
+    .nav-tab{padding:4px 5px;font-size:10.5px}
+    .cloud-status{display:none!important}
+    .hdr-right{gap:4px}
+  }
+
   /* ── PHONE (≤480px): 1-column form, compact banner, CRM collapsed ── */
   @media(max-width:480px){
     /* Prevent horizontal scroll */
