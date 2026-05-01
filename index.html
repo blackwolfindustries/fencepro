@@ -6196,6 +6196,15 @@ function clearAudit() {
 }
 
 function loadJobLocal(idx) {
+  // ── SNAPSHOT CURRENT ESTIMATE TO MEMORY BEFORE SWITCHING ────
+  // Captures the live form state so switching pills never loses unsaved data
+  if (curIdx >= 0 && curIdx !== idx && jobs[curIdx]) {
+    const snap = collectData();
+    snap.photos = photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' }));
+    jobs[curIdx] = normalizeJob({ ...jobs[curIdx], ...snap });
+    persistJobs();
+  }
+
   const d = jobs[idx];
   curIdx  = idx;
   photos = (d.photos||[]).map(p =>
@@ -6281,7 +6290,6 @@ function newEst() {
   const strs = ['custName','custPhone','custEmail','jobAddr','jobAddr2','jobCity','jobState','custZip','custCity','custCounty','lostReason','scopeNotes','internalNotes','custChannel','custCampaign'];
   strs.forEach(id => document.getElementById(id).value = '');
   document.getElementById('projDesc').value     = '';
-  document.getElementById('internalNotes').value = '';
   document.getElementById('deliveryOverride').checked = false;
   document.getElementById('franchTog').checked = true;  // franchise always ON by default
   onFranchChange();
@@ -6964,6 +6972,10 @@ async function loadCloud() {
       // Local-only jobs (not yet saved to cloud) are appended after
       // Cloud is source of truth — getJobs now returns merged Estimates+Jobs data
       // Preserve ANY local job not yet confirmed in cloud (unsaved or failed sync)
+
+      // Snapshot the currently-open estimate ID before replacing the array
+      const openId = curIdx >= 0 ? (jobs[curIdx]?.id || '') : '';
+
       const cloudIds = new Set(data.jobs.map(j => String(j['Estimate ID'] || j['Job ID'] || '').trim()).filter(Boolean));
       const localOnlyJobs = jobs.filter(j => {
         const id = String(j.id || '').trim();
@@ -6974,6 +6986,19 @@ async function loadCloud() {
         ...localOnlyJobs
       ];
       persistJobs();
+
+      // Re-find the open estimate by ID and re-populate the form so it stays
+      // in sync with the freshly loaded cloud data (fixes internalNotes loss on refresh)
+      if (openId) {
+        const newIdx = jobs.findIndex(j => j.id === openId);
+        if (newIdx >= 0) {
+          curIdx = newIdx;
+          loadJobLocal(newIdx);
+        } else {
+          curIdx = -1;
+        }
+      }
+
       renderBoard();
       renderEstList();
       renderJobsList();
