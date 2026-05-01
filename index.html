@@ -2440,9 +2440,12 @@
       <select id="analyticsRange" onchange="localStorage.setItem('fp_analyticsRange',this.value);renderAnalytics()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600">
         <option value="week">This Week</option>
         <option value="month">This Month</option>
+        <option value="lastmonth">Last Month</option>
         <option value="30">Last 30 Days</option>
         <option value="90">Last 90 Days</option>
         <option value="180">Last 180 Days</option>
+        <option value="thisquarter">This Quarter</option>
+        <option value="lastquarter">Last Quarter</option>
         <option value="year">This Year</option>
         <option value="lastyear">Last Year</option>
         <option value="all">All Time</option>
@@ -2552,9 +2555,12 @@
             <select id="perfRange" onchange="localStorage.setItem('fp_perfRange',this.value);renderAnalytics()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600">
               <option value="week">This Week</option>
               <option value="month">This Month</option>
+              <option value="lastmonth">Last Month</option>
               <option value="30">Last 30 Days</option>
               <option value="90">Last 90 Days</option>
               <option value="180">Last 180 Days</option>
+              <option value="thisquarter">This Quarter</option>
+              <option value="lastquarter">Last Quarter</option>
               <option value="year">This Year</option>
               <option value="lastyear">Last Year</option>
               <option value="all">All Time</option>
@@ -11352,20 +11358,47 @@ function parseAnalyticsDate(str) {
 function getDateRange(rangeVal) {
   const now   = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const y     = today.getFullYear();
+  const m     = today.getMonth(); // 0-indexed
+
   if (rangeVal === 'all')      return { start: null, end: null };
   if (rangeVal === 'week') {
     const day = today.getDay(); // 0=Sun
     const mon = new Date(today.getTime() - ((day === 0 ? 6 : day - 1) * 86400000));
     return { start: mon, end: null };
   }
-  if (rangeVal === 'month')    return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: null };
-  if (rangeVal === '30')       return { start: new Date(today.getTime() - 30  * 86400000), end: null };
-  if (rangeVal === '90')       return { start: new Date(today.getTime() - 90  * 86400000), end: null };
-  if (rangeVal === '180')      return { start: new Date(today.getTime() - 180 * 86400000), end: null };
-  if (rangeVal === 'year')     return { start: new Date(today.getFullYear(), 0, 1), end: null };
-  if (rangeVal === 'lastyear') return {
-    start: new Date(today.getFullYear() - 1, 0, 1),
-    end:   new Date(today.getFullYear() - 1, 11, 31)
+  if (rangeVal === 'month')     return { start: new Date(y, m, 1), end: null };
+  if (rangeVal === 'lastmonth') return {
+    start: new Date(y, m - 1, 1),
+    end:   new Date(y, m, 0)          // last day of previous month
+  };
+  if (rangeVal === '30')        return { start: new Date(today.getTime() - 30  * 86400000), end: null };
+  if (rangeVal === '90')        return { start: new Date(today.getTime() - 90  * 86400000), end: null };
+  if (rangeVal === '180')       return { start: new Date(today.getTime() - 180 * 86400000), end: null };
+
+  // Quarters — fiscal year Jan 1 → Dec 31, so calendar quarters apply directly
+  // Q1 = Jan-Mar (0-2), Q2 = Apr-Jun (3-5), Q3 = Jul-Sep (6-8), Q4 = Oct-Dec (9-11)
+  if (rangeVal === 'thisquarter') {
+    const qStart = Math.floor(m / 3) * 3;   // first month of current quarter
+    return {
+      start: new Date(y, qStart, 1),
+      end:   null
+    };
+  }
+  if (rangeVal === 'lastquarter') {
+    const curQStart = Math.floor(m / 3) * 3;
+    const lqStart   = curQStart - 3;
+    if (lqStart < 0) {
+      // Last quarter was Q4 of previous year
+      return { start: new Date(y - 1, 9, 1), end: new Date(y - 1, 11, 31) };
+    }
+    return { start: new Date(y, lqStart, 1), end: new Date(y, lqStart + 3, 0) };
+  }
+
+  if (rangeVal === 'year')      return { start: new Date(y, 0, 1), end: null };
+  if (rangeVal === 'lastyear')  return {
+    start: new Date(y - 1, 0, 1),
+    end:   new Date(y - 1, 11, 31)
   };
   return { start: null, end: null };
 }
