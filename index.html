@@ -7454,16 +7454,12 @@ async function addDoc(file) {
   if (!job || !job.id) return;
 
   // Derive estimate letter from job ID (e.g. "1234-SmithJohn-A-2026" → "A")
-  const letter = (job.id || '').split('-')[2] || 'X';
-
-  // Build Drive filename: EST-A_Drawing_filename.pdf
-  const defaultType = guessDocType(file.name);
-  const driveName   = 'EST-' + letter + '_' + defaultType + '_' + file.name;
+  const letter = (job.id || '').split('-')[2] || 'A';
 
   const entry = {
-    name:       driveName,
+    name:       file.name,   // keep original filename — folder EST-A already identifies the estimate
     driveUrl:   '',
-    docType:    defaultType,
+    docType:    guessDocType(file.name),
     uploadedAt: '',
     uploading:  true
   };
@@ -7482,12 +7478,12 @@ async function addDoc(file) {
     const upRes = await cloudCall({
       action: 'uploadDoc',
       data: {
-        jobId:      job.jobId || job.id.split('-')[0],
-        custName:   job.custName || '',
+        jobId:          job.id,            // full estimate ID — backend extracts prefix and custName from it
+        custName:       job.custName || '',
         estimateLetter: letter,
-        fileName:   driveName,
-        base64Data: base64,
-        mimeType:   file.type || 'application/octet-stream'
+        fileName:       file.name,         // original filename
+        base64Data:     base64,
+        mimeType:       file.type || 'application/octet-stream'
       }
     });
     entry.uploading  = false;
@@ -7495,11 +7491,11 @@ async function addDoc(file) {
       entry.driveUrl   = upRes.url;
       entry.uploadedAt = new Date().toISOString();
     } else {
-      entry.name = '⚠ Upload failed — ' + driveName;
+      entry.name = '⚠ Upload failed — ' + file.name;
     }
   } catch(err) {
     entry.uploading = false;
-    entry.name = '⚠ Upload failed — ' + driveName;
+    entry.name = '⚠ Upload failed — ' + file.name;
   }
 
   // Persist docs back to job object
