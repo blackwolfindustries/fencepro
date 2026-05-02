@@ -5229,6 +5229,60 @@ async function loadCloudContacts() {
   }
 }
 
+// ════════════════════════════════════════════════
+// LOAD CLOUD JOB COSTS
+// Cloud is source of truth. Merges into fp_jobCosts,
+// preserving local-only pinnedEstimateId preference.
+// ════════════════════════════════════════════════
+async function loadCloudJobCosts() {
+  const url = settings.scriptUrl;
+  if (!url) return;
+  try {
+    const res = await fetch(url + '?action=getJobCosts&key=' + encodeURIComponent(settings.apiKey || ''));
+    const data = await res.json();
+    if (!data.costs || !Array.isArray(data.costs)) return;
+
+    // Read current local state so we can preserve pinnedEstimateId per job
+    const local = JSON.parse(localStorage.getItem('fp_jobCosts') || '{}');
+
+    // Group cloud costs by jobId
+    const cloudByJob = {};
+    data.costs.forEach(c => {
+      const jId = String(c.jobId || '').trim();
+      if (!jId) return;
+      if (!cloudByJob[jId]) cloudByJob[jId] = [];
+      cloudByJob[jId].push({
+        id:         c.costId,
+        type:       c.type,
+        desc:       c.desc,
+        date:       c.date,
+        amount:     c.amount,
+        estimateId: c.estimateId || '',
+        createdAt:  c.createdAt  || ''
+      });
+    });
+
+    // Merge: cloud costs win, but preserve local pinnedEstimateId
+    // Also preserve any local-only costs (not yet synced — id not in cloud set)
+    const merged = { ...local };
+    const cloudCostIds = new Set(data.costs.map(c => c.costId));
+
+    Object.entries(cloudByJob).forEach(([jId, cloudCosts]) => {
+      const existing     = local[jId] || { pinnedEstimateId: null, costs: [] };
+      const localOnlyCosts = (existing.costs || []).filter(c => !cloudCostIds.has(c.id));
+      merged[jId] = {
+        pinnedEstimateId: existing.pinnedEstimateId || null,
+        costs: [...cloudCosts, ...localOnlyCosts]
+      };
+    });
+
+    localStorage.setItem('fp_jobCosts', JSON.stringify(merged));
+    console.log('Job costs synced from Sheets:', data.costs.length, 'entries across', Object.keys(cloudByJob).length, 'jobs');
+  } catch(e) {
+    console.log('Cloud job costs sync failed (non-fatal):', e.message);
+  }
+}
+
 function loadContacts() {
   // Load from localStorage — no network call needed
   const stored = localStorage.getItem('fp_contacts');
@@ -7101,8 +7155,9 @@ async function loadCloud() {
       renderEstList();
       renderJobsList();
       setCloud('connected', jobs.length + ' jobs loaded');
-      // Also pull contacts from Sheets Contacts tab
+      // Also pull contacts and job costs from Sheets
       loadCloudContacts();
+      loadCloudJobCosts();
     }
   } catch(e) {
     console.error('loadCloud error:', e);
@@ -9556,8 +9611,41 @@ function getJobCostData(prefix) {
 
 function saveJobCostData(prefix, data) {
   const all = JSON.parse(localStorage.getItem('fp_jobCosts') || '{}');
+  const previous = all[prefix] || { pinnedEstimateId: null, costs: [] };
   all[prefix] = data;
   localStorage.setItem('fp_jobCosts', JSON.stringify(all));
+
+  // Sync any new or changed costs to cloud (fire-and-forget)
+  if (settings.scriptUrl) {
+    const prevIds = new Set((previous.costs || []).map(c => c.id));
+    const prevMap = {};
+    (previous.costs || []).forEach(c => { prevMap[c.id] = c; });
+
+    data.costs.forEach(c => {
+      // Sync if this cost is new OR its amount/type/desc/date changed
+      const prev = prevMap[c.id];
+      const changed = !prev ||
+        prev.amount !== c.amount ||
+        prev.type   !== c.type   ||
+        prev.desc   !== c.desc   ||
+        prev.date   !== c.date;
+      if (changed) {
+        cloudCall({
+          action: 'saveJobCost',
+          data: {
+            costId:     c.id,
+            jobId:      prefix,
+            estimateId: c.estimateId || '',
+            type:       c.type       || '',
+            desc:       c.desc       || '',
+            date:       c.date       || '',
+            amount:     c.amount     || 0,
+            createdAt:  c.createdAt  || new Date().toISOString()
+          }
+        }).catch(e => console.warn('Job cost sync failed:', c.id, e));
+      }
+    });
+  }
 }
 
 // Backward-compat helper
@@ -9620,11 +9708,24 @@ function saveJobCost() {
   if (!amtRaw || isNaN(amount) || amount <= 0) { err.textContent = 'Please enter a valid amount greater than $0.'; return; }
 
   const data = getJobCostData(_costPrefix);
+  // Derive the currently pinned estimate ID so the cost row knows which estimate it belongs to
+  const pinnedEstimateId = data.pinnedEstimateId || (_costMatches.length === 1 ? _costMatches[0].id : '');
   if (_costEditId) {
     const idx = data.costs.findIndex(c => c.id === _costEditId);
-    if (idx >= 0) data.costs[idx] = { id: _costEditId, type, desc, date, amount };
+    if (idx >= 0) {
+      data.costs[idx] = {
+        ...data.costs[idx],
+        type, desc, date, amount,
+        estimateId: data.costs[idx].estimateId || pinnedEstimateId
+      };
+    }
   } else {
-    data.costs.push({ id: 'cost_' + Date.now(), type, desc, date, amount });
+    data.costs.push({
+      id:         'cost_' + Date.now(),
+      type, desc, date, amount,
+      estimateId: pinnedEstimateId,
+      createdAt:  new Date().toISOString()
+    });
   }
   saveJobCostData(_costPrefix, data);
   closeM('mAddCost');
@@ -9637,8 +9738,13 @@ function deleteJobCost(prefix, id) {
   const data = getJobCostData(prefix);
   data.costs = data.costs.filter(c => c.id !== id);
   saveJobCostData(prefix, data);
+  // Sync deletion to cloud (fire-and-forget)
+  if (settings.scriptUrl) {
+    cloudCall({ action: 'deleteJobCost', data: { costId: id } })
+      .catch(e => console.warn('Job cost delete sync failed:', id, e));
+  }
   renderJobCosts(prefix, _costMatches);
-  showToast('\U0001f5d1 Cost deleted');
+  showToast('🗑 Cost deleted');
 }
 
 function renderJobCosts(prefix, matches) {
