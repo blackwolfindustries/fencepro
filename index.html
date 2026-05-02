@@ -4237,7 +4237,8 @@ function normalizeJob(j) {
 
   return {
     // ── Identity ────────────────────────────────
-    id:               s(j.id,          j['Estimate ID'] || j['Job ID'], ''),
+    id:               s(j.id,          j['Estimate ID'], ''),
+    jobId:            s(j.jobId,       j['Job ID'],      ''),
     jobPrefix:        s(j.jobPrefix,   j['Job Prefix'],  ''),
     jobNo:            s(j.jobNo,       j['Job No'],      ''),
     contactUID:       String(s(j.contactUID,  j['Contact UID'], '') || ''),
@@ -4991,7 +4992,7 @@ async function boardDeleteEstimate(jobIdx, event) {
   renderBoard(); renderEstList(); renderJobsList();
   showToast('🗑 ' + label + ' deleted');
   if (settings.scriptUrl && job.id) {
-    try { await cloudCall({ action: 'deleteJob', data: { jobId: job.id } }); } catch(e) {}
+    try { await cloudCall({ action: 'deleteJob', data: { estimateId: job.id, jobId: job.jobId || job.id.split('-')[0] } }); } catch(e) {}
   }
 }
 async function deleteCurrentEstimate() {
@@ -5010,7 +5011,7 @@ async function deleteCurrentEstimate() {
   // Remove from cloud
   if (settings.scriptUrl && job.id) {
     try {
-      await cloudCall({ action: 'deleteJob', data: { jobId: job.id } });
+      await cloudCall({ action: 'deleteJob', data: { estimateId: job.id, jobId: job.jobId || job.id.split('-')[0] } });
       status('Estimate deleted from Sheets ✓');
     } catch(e) {
       status('Deleted locally — cloud delete failed');
@@ -5930,6 +5931,7 @@ function collectData() {
   return {
     id:          existingId || '',  // blank = new estimate, server assigns ID
     jobNo:       existingId || '',
+    jobId:       existingId ? existingId.split('-')[0] : '',  // numeric prefix — the parent Job ID
     jobPrefix:   val('jobPrefix'),
     savedAt:     new Date().toISOString(),
     custName:    val('custName'),
@@ -6092,7 +6094,7 @@ async function saveJob() {
     for (let i = 0; i < photos.length; i++) {
       if (!photos[i].uploaded && photos[i].dataUrl) {
         const upRes = await cloudCall({ action:'uploadPhoto', data:{
-          jobId:      data.id,
+          jobId:      data.jobId || data.id.split('-')[0],
           custName:   data.custName || '',
           fileName:   photos[i].name,
           base64Data: photos[i].dataUrl.split(',')[1],
@@ -6111,15 +6113,21 @@ async function saveJob() {
     // Save to Sheets
     const res = await cloudCall({ action:'saveJob', data });
     if (res.success) {
-      // Update ID if server assigned a new letter
-      if (res.jobId && res.jobId !== data.id) {
-        jobs[curIdx].id    = res.jobId;
-        jobs[curIdx].jobNo = res.jobId;
-        data.id   = res.jobId;
-        data.jobNo = res.jobId;
-        document.getElementById('estId').textContent       = res.jobId;
-        document.getElementById('idAssembled').textContent = res.jobId;
-        document.getElementById('jobNo').value             = res.jobId;
+      // Server returns estimateId (full string) and jobId (numeric prefix) separately
+      const newEstimateId = res.estimateId || res.jobId || data.id;
+      const newJobId      = res.jobId || newEstimateId.split('-')[0];
+      if (newEstimateId && newEstimateId !== data.id) {
+        jobs[curIdx].id    = newEstimateId;
+        jobs[curIdx].jobNo = newEstimateId;
+        jobs[curIdx].jobId = newJobId;
+        data.id   = newEstimateId;
+        data.jobNo = newEstimateId;
+        data.jobId = newJobId;
+        document.getElementById('estId').textContent       = newEstimateId;
+        document.getElementById('idAssembled').textContent = newEstimateId;
+        document.getElementById('jobNo').value             = newEstimateId;
+      } else if (newJobId) {
+        jobs[curIdx].jobId = newJobId;
       }
       if (res.folderUrl) {
         jobs[curIdx].driveFolder = res.folderUrl;
@@ -6130,7 +6138,7 @@ async function saveJob() {
       renderEstList();
       setCloud('connected', '✓ Synced to Sheets');
       const saveMsg = res.assignedLetter
-        ? '✓ Saved — Estimate ' + res.assignedLetter + ' · ' + res.jobId
+        ? '✓ Saved — Estimate ' + res.assignedLetter + ' · ' + newEstimateId
         : '✓ Synced to Sheets';
       showToast(saveMsg);
     } else {
@@ -7419,7 +7427,7 @@ async function addDoc(file) {
     const upRes = await cloudCall({
       action: 'uploadDoc',
       data: {
-        jobId:      job.id,
+        jobId:      job.jobId || job.id.split('-')[0],
         custName:   job.custName || '',
         estimateLetter: letter,
         fileName:   driveName,
@@ -7641,9 +7649,11 @@ function openInvoice() {
 
 async function saveInvoice() {
   const existingInvId = val('invId');
+  const currentJob = curIdx >= 0 ? jobs[curIdx] : null;
   const data = {
     invoiceId:     existingInvId || '',       // blank = new, server assigns
-    jobId:         val('jobNo') || val('estId'),
+    jobId:         currentJob?.jobId || (val('jobNo') || val('estId')).split('-')[0] || '',
+    estimateId:    val('jobNo') || val('estId'),
     jobPrefix:     val('jobPrefix'),
     contactUID:    val('estContactUID') || '',
     custName:      val('custName'),
@@ -9222,7 +9232,7 @@ async function confirmCompleteJob() {
   // Upload final photos to Drive → Job Pictures → Final Job Photos — ALL IN PARALLEL
   if (cjPhotos.length > 0 && settings.scriptUrl) {
     const job      = jobs[curIdx];
-    const jobId    = job?.id    || val('jobNo');
+    const jobId    = job?.jobId || (job?.id || val('jobNo')).split('-')[0];
     const custName = job?.custName || val('custName');
 
     statusEl.textContent = `Uploading ${cjPhotos.length} photo${cjPhotos.length > 1 ? 's' : ''}...`;
