@@ -10553,12 +10553,7 @@ async function generateProposalLink(mode, estimateIds) {
     document.getElementById('plink_generating').style.display = 'none';
     document.getElementById('plink_ready').style.display      = 'block';
 
-    // Auto-advance status to Sent
-    document.getElementById('propStatus').value = 'Sent';
-    if (curIdx >= 0) jobs[curIdx].proposalLinkSent = true;
-    updateBadge();
-    saveJob();
-    showToast('✓ Proposal link generated — status → Sent');
+    showToast('✓ Proposal link generated — choose how to send below');
 
   } catch(e) {
     document.getElementById('plink_generating').style.display = 'none';
@@ -10678,6 +10673,27 @@ function buildProposalEmailText(opts) {
   ].join('\n');
 }
 
+// ── MARK PROPOSAL SENT ────────────────────────────────────
+// Called only when user takes a deliberate sending action.
+// Never called on token generation or modal open/close.
+function markProposalSent() {
+  if (curIdx < 0) return;
+  const statusEl = document.getElementById('propStatus');
+  // Only advance to Sent if currently Draft or Committed — don't downgrade Accepted etc.
+  const current = statusEl?.value || jobs[curIdx]?.propStatus || '';
+  if (['Draft','Committed'].includes(current)) {
+    if (statusEl) statusEl.value = 'Sent';
+    jobs[curIdx].propStatus        = 'Sent';
+    jobs[curIdx].proposalLinkSent  = true;
+    updateBadge();
+    saveJob();
+  } else {
+    // Still mark proposalLinkSent even if status not changed
+    jobs[curIdx].proposalLinkSent = true;
+    saveJob();
+  }
+}
+
 async function sendViaGmail() {
   const job = curIdx >= 0 ? jobs[curIdx] : null;
   const email = job?.custEmail || val('custEmail') || '';
@@ -10704,6 +10720,7 @@ async function sendViaGmail() {
     if (res.success) {
       showToast('✅ Email sent to ' + email);
       if (btn) { btn.textContent = '✅ Sent!'; btn.style.background = 'var(--green)'; }
+      markProposalSent();  // status → Sent only after email is actually delivered
     } else {
       throw new Error(res.error || 'Send failed');
     }
@@ -10714,7 +10731,10 @@ async function sendViaGmail() {
 }
 
 function copyProposalLink() {
-  navigator.clipboard.writeText(_proposalLinkUrl).then(() => showToast('✓ Link copied'));
+  navigator.clipboard.writeText(_proposalLinkUrl).then(() => {
+    showToast('✓ Link copied');
+    markProposalSent();  // copying the link = intent to send
+  });
 }
 
 function copyHtmlEmail() {
@@ -10756,6 +10776,8 @@ function openMailto() {
   const subject = encodeURIComponent(subj);
   const body    = encodeURIComponent(_proposalLinkDraft);
   const mailto  = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
+
+  markProposalSent();  // opening mail client = intent to send
 
   if (mailto.length < 2000) {
     window.location.href = mailto;
