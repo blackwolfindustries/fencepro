@@ -6138,6 +6138,11 @@ async function saveJob() {
     return;
   }
 
+  // Disable Save button during cloud sync to prevent race condition
+  // where a second save fires before the server assigns the estimate ID
+  const saveBtn = document.querySelector('button[onclick="saveJob()"]');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Saving...'; }
+
   setCloud('saving', 'Syncing...');
   try {
     // Upload any new photos first (fire sequentially but don't block UI)
@@ -6199,8 +6204,10 @@ async function saveJob() {
   } catch(e) {
     setCloud('', '✗ Sync failed — saved locally');
     console.error('Cloud sync error:', e.message);
+  } finally {
+    // Always re-enable Save button when cloud sync completes
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Save'; }
   }
-}
 
 
 function renderSiblingPills() {
