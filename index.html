@@ -732,7 +732,26 @@
     .card{border:1px solid #ddd;break-inside:avoid;box-shadow:none}
     .idbanner{background:#1B2B4B;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 
-    /* ── PROPOSAL PRINT ── */
+    /* ── ANALYTICS SUB-TABS ──────────────────────────── */
+  .atab {
+    padding: 10px 18px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--sans);
+    color: var(--text3);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .atab:hover { color: var(--navy); }
+  .atab.atab-active { color: var(--orange); border-bottom-color: var(--orange); }
+  .atab-panel { display: none !important; }
+  .atab-panel.active { display: flex !important; }
+
+  /* ── PROPOSAL PRINT ── */
     body.printing-proposal .screen,
     body.printing-proposal .header,
     body.printing-proposal .nav-tabs,
@@ -2430,10 +2449,16 @@
 
 <!-- ══ ANALYTICS SCREEN ══════════════════════════════════════ -->
 <div id="s-analytics" class="screen">
-  <div class="screen-header">
+
+  <!-- ── ANALYTICS HEADER — global filter lives here ──────── -->
+  <div class="screen-header" style="flex-wrap:wrap;gap:8px">
     <span class="screen-title">📈 Analytics</span>
-    <div style="display:flex;align-items:center;gap:8px;margin-left:16px">
-      <select id="analyticsRange" onchange="localStorage.setItem('fp_analyticsRange',this.value);renderAnalytics()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600">
+
+    <!-- Global date range — ONE filter, applies to ALL tabs -->
+    <div style="display:flex;align-items:center;gap:6px;margin-left:12px">
+      <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Range</span>
+      <select id="analyticsRange" onchange="localStorage.setItem('fp_analyticsRange',this.value);renderAnalytics()"
+        style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600">
         <option value="week">This Week</option>
         <option value="month">This Month</option>
         <option value="lastmonth">Last Month</option>
@@ -2446,17 +2471,28 @@
         <option value="lastyear">Last Year</option>
         <option value="all">All Time</option>
       </select>
-    </div>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
       <span id="analyticsProposalsMeta" style="font-size:11px;color:var(--text3)"></span>
+    </div>
+
+    <!-- Upload button -->
+    <div style="margin-left:auto">
       <label class="btn btn-sm" style="cursor:pointer" title="Upload proposals CSV from your CRM">
-        ⬆ Upload Proposals CSV
+        ⬆ Upload CSV
         <input type="file" id="analyticsFileInput" accept=".csv" style="display:none" onchange="handleAnalyticsFile(this.files[0]);this.value=''">
       </label>
     </div>
   </div>
 
-  <div style="padding:16px;overflow-y:auto;flex:1;background:var(--bg);display:flex;flex-direction:column;gap:16px">
+  <!-- ── ANALYTICS SUB-TABS ────────────────────────────────── -->
+  <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;gap:2px;flex-shrink:0">
+    <button id="atab_overview"     class="atab atab-active" onclick="showAnalyticsTab('overview')">📊 Overview</button>
+    <button id="atab_pipeline"     class="atab"             onclick="showAnalyticsTab('pipeline')">🔁 Pipeline</button>
+    <button id="atab_performance"  class="atab"             onclick="showAnalyticsTab('performance')">📈 Performance</button>
+    <button id="atab_breakdown"    class="atab"             onclick="showAnalyticsTab('breakdown')">🔍 Breakdown</button>
+  </div>
+
+  <!-- ── TAB CONTENT AREA ──────────────────────────────────── -->
+  <div style="flex:1;overflow-y:auto;background:var(--bg)">
 
     <!-- Upload prompt — shown when no data loaded -->
     <div id="analyticsEmpty" style="text-align:center;padding:60px 20px;color:var(--text3)">
@@ -2469,10 +2505,10 @@
       </label>
     </div>
 
-    <!-- Dashboard — shown when data is loaded -->
-    <div id="analyticsDash" style="display:none;display:flex;flex-direction:column;gap:16px">
+    <!-- ══ TAB 1: OVERVIEW ══════════════════════════════════ -->
+    <div id="atab-overview" class="atab-panel" style="display:none;padding:16px;display:flex;flex-direction:column;gap:16px">
 
-      <!-- KPI Bar -->
+      <!-- KPI Bar — 6 tiles -->
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px">
         <div class="card" style="padding:14px 16px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Proposals</div>
@@ -2503,38 +2539,37 @@
 
       <!-- Monthly Trend Chart -->
       <div class="card">
-        <div class="card-title">Monthly Trends</div>
+        <div class="card-title">Monthly Trends — Proposals Sent vs Closed vs Close Rate</div>
         <div style="overflow-x:auto">
           <canvas id="analyticsMonthChart" height="200"></canvas>
         </div>
       </div>
 
-      <!-- Channel + Campaign side by side -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    </div><!-- end atab-overview -->
 
-        <!-- Channel breakdown -->
-        <div class="card">
-          <div class="card-title">By Channel</div>
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead id="analyticsChannelHead"></thead>
-            <tbody id="analyticsChannelTable"></tbody>
-          </table>
+    <!-- ══ TAB 2: PIPELINE ══════════════════════════════════ -->
+    <div id="atab-pipeline" class="atab-panel" style="display:none;padding:16px;flex-direction:column;gap:16px">
+
+      <!-- Pipeline KPI mini bar -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div class="card" style="padding:14px 16px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Open Proposals</div>
+          <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="pipe_kpi_count">—</div>
         </div>
-
-        <!-- Campaign breakdown -->
-        <div class="card">
-          <div class="card-title">By Campaign</div>
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead id="analyticsCampaignHead"></thead>
-            <tbody id="analyticsCampaignTable"></tbody>
-          </table>
+        <div class="card" style="padding:14px 16px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Open Value</div>
+          <div style="font-size:22px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="pipe_kpi_value">—</div>
+        </div>
+        <div class="card" style="padding:14px 16px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Overdue (&gt;14 days)</div>
+          <div style="font-size:28px;font-weight:900;color:var(--red);font-family:var(--mono)" id="pipe_kpi_overdue">—</div>
         </div>
       </div>
 
-      <!-- Open Pipeline Table -->
+      <!-- Pipeline follow-up table -->
       <div class="card">
         <div class="card-title">Open Pipeline — Follow Up</div>
-        <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
+        <div style="overflow-x:auto;max-height:500px;overflow-y:auto">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead id="analyticsPipelineHead" style="position:sticky;top:0;background:var(--surface)"></thead>
             <tbody id="analyticsPipelineTable"></tbody>
@@ -2542,26 +2577,15 @@
         </div>
       </div>
 
-      <!-- ── PERFORMANCE SECTION ─────────────────────────── -->
-      <div class="card" id="perfSection">
+    </div><!-- end atab-pipeline -->
+
+    <!-- ══ TAB 3: PERFORMANCE ═══════════════════════════════ -->
+    <div id="atab-performance" class="atab-panel" style="display:none;padding:16px;flex-direction:column;gap:16px">
+
+      <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <div class="card-title" style="margin-bottom:0">📊 Monthly Performance — Lead → Estimate → Close</div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="font-size:11px;color:var(--text3)" id="perfDataNote"></div>
-            <select id="perfRange" onchange="localStorage.setItem('fp_perfRange',this.value);renderAnalytics()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600">
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="lastmonth">Last Month</option>
-              <option value="30">Last 30 Days</option>
-              <option value="90">Last 90 Days</option>
-              <option value="180">Last 180 Days</option>
-              <option value="thisquarter">This Quarter</option>
-              <option value="lastquarter">Last Quarter</option>
-              <option value="year">This Year</option>
-              <option value="lastyear">Last Year</option>
-              <option value="all">All Time</option>
-            </select>
-          </div>
+          <div class="card-title" style="margin-bottom:0">Lead → Estimate → Close Funnel</div>
+          <div style="font-size:11px;color:var(--text3)" id="perfDataNote"></div>
         </div>
 
         <!-- Perf KPI bar -->
@@ -2604,8 +2628,50 @@
         </div>
       </div>
 
-    </div><!-- end analyticsDash -->
-  </div>
+    </div><!-- end atab-performance -->
+
+    <!-- ══ TAB 4: BREAKDOWN ═════════════════════════════════ -->
+    <div id="atab-breakdown" class="atab-panel" style="display:none;padding:16px;flex-direction:column;gap:16px">
+
+      <!-- Channel + Campaign -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="card">
+          <div class="card-title">By Channel</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead id="analyticsChannelHead"></thead>
+            <tbody id="analyticsChannelTable"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-title">By Campaign</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead id="analyticsCampaignHead"></thead>
+            <tbody id="analyticsCampaignTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Fence Type + Supplier (future: populated from jobs data) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="card">
+          <div class="card-title">By Fence Type</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead id="analyticsFenceHead"></thead>
+            <tbody id="analyticsFenceTable"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-title">By Supplier</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead id="analyticsSupplierHead"></thead>
+            <tbody id="analyticsSupplierTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- end atab-breakdown -->
+
+  </div><!-- end tab content area -->
 </div>
 <!-- ══ END ANALYTICS SCREEN ══════════════════════════════════ -->
 
@@ -4831,7 +4897,7 @@ function show(id) {
   if (id === 'jobs')      { updateSortIcons(); renderCRM(); }
   if (id === 'summary')   { loadCloud().then(() => { document.getElementById('summarySearch').value = ''; lookupJobSummary(); }); }
   if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList(); }
-  if (id === 'analytics') { renderAnalytics(); }
+  if (id === 'analytics') { renderAnalytics(); if (!localStorage.getItem('fp_analyticsTab')) showAnalyticsTab('overview'); }
   // Refresh SUPPLIERS map whenever supplier tab opened
   if (id === 'invoices') loadInvoicesTab();
   if (id === 'calendar') renderCalendar();
@@ -11559,14 +11625,26 @@ function isClosed(status) {
 }
 
 // ── MAIN RENDER ──────────────────────────────────
+function showAnalyticsTab(tab) {
+  document.querySelectorAll('.atab').forEach(b => b.classList.remove('atab-active'));
+  document.querySelectorAll('.atab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('atab_' + tab)?.classList.add('atab-active');
+  document.getElementById('atab-' + tab)?.classList.add('active');
+  localStorage.setItem('fp_analyticsTab', tab);
+}
+
 function renderAnalytics() {
-  // Restore persisted filter selections
+  // Restore persisted filter + tab
   const savedRange = localStorage.getItem('fp_analyticsRange');
-  const savedPerf  = localStorage.getItem('fp_perfRange');
+  const savedTab   = localStorage.getItem('fp_analyticsTab') || 'overview';
   const arEl = document.getElementById('analyticsRange');
-  const prEl = document.getElementById('perfRange');
   if (arEl && savedRange) arEl.value = savedRange;
-  if (prEl && savedPerf)  prEl.value = savedPerf;
+
+  // Activate saved tab (without recursing into renderAnalytics)
+  document.querySelectorAll('.atab').forEach(b => b.classList.remove('atab-active'));
+  document.querySelectorAll('.atab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('atab_' + savedTab)?.classList.add('atab-active');
+  document.getElementById('atab-' + savedTab)?.classList.add('active');
 
   // Load from localStorage if not in memory
   if (!analyticsData.length) {
@@ -11575,22 +11653,16 @@ function renderAnalytics() {
   }
 
   const empty = document.getElementById('analyticsEmpty');
-  const dash  = document.getElementById('analyticsDash');
-
   if (!analyticsData.length) {
-    empty.style.display = 'block';
-    dash.style.display  = 'none';
-    document.getElementById('analyticsProposalsMeta').textContent = '';
+    if (empty) empty.style.display = 'block';
     return;
   }
+  if (empty) empty.style.display = 'none';
 
-  empty.style.display = 'none';
-  dash.style.display  = 'flex';
+  // ONE global date range — applies to every tab
+  const rangeVal = document.getElementById('analyticsRange').value;
+  const range    = getDateRange(rangeVal);
 
-  const rangeVal  = document.getElementById('analyticsRange').value;
-  const range     = getDateRange(rangeVal);
-
-  // Filter by date range on Created field
   const filtered = analyticsData.filter(r => {
     const d = parseAnalyticsDate(r['Created']);
     if (!d) return false;
@@ -11599,16 +11671,99 @@ function renderAnalytics() {
     return true;
   });
 
-  const rangeLabels = { week:'this week', month:'this month', '30':'last 30 days', '90':'last 90 days', '180':'last 180 days', year:'this year', lastyear:'last year', all:'all time' };
-  document.getElementById('analyticsProposalsMeta').textContent =
-    filtered.length + ' proposals — ' + (rangeLabels[rangeVal] || rangeVal);
+  const rangeLabels = {
+    week:'this week', month:'this month', lastmonth:'last month',
+    '30':'last 30 days', '90':'last 90 days', '180':'last 180 days',
+    thisquarter:'this quarter', lastquarter:'last quarter',
+    year:'this year', lastyear:'last year', all:'all time'
+  };
+  const meta = document.getElementById('analyticsProposalsMeta');
+  if (meta) meta.textContent = filtered.length + ' proposals — ' + (rangeLabels[rangeVal] || rangeVal);
 
+  // Render all tabs with the same filtered data
   renderKPIs(filtered);
   renderMonthChart(filtered);
+  renderPipelineKPIs(filtered);
+  renderPipelineTable(filtered);
   renderBreakdownTable('analyticsChannelTable',  filtered, 'Channel');
   renderBreakdownTable('analyticsCampaignTable', filtered, 'Campaign');
-  renderPipelineTable(filtered);
-  renderPerformance(analyticsData);
+  renderBreakdownFromJobs('analyticsFenceTable',    'analyticsFenceHead',    'fenceType',   'Fence Type');
+  renderBreakdownFromJobs('analyticsSupplierTable', 'analyticsSupplierHead', 'supplier',    'Supplier');
+  renderPerformance(analyticsData, range);  // pass global range — no separate perfRange
+}
+
+// ── PIPELINE KPIs ─────────────────────────────────────────
+function renderPipelineKPIs(rows) {
+  const today = new Date();
+  const open  = rows.filter(r => r['Status'] === 'Open');
+  const totalVal = open.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  const overdue  = open.filter(r => {
+    const sent = parseAnalyticsDate(r['Sent'] || r['Date'] || r['Created']);
+    return sent && Math.floor((today - sent) / 86400000) >= 14;
+  }).length;
+  const c = document.getElementById('pipe_kpi_count');
+  const v = document.getElementById('pipe_kpi_value');
+  const o = document.getElementById('pipe_kpi_overdue');
+  if (c) c.textContent = open.length.toLocaleString();
+  if (v) v.textContent = '$' + Math.round(totalVal).toLocaleString();
+  if (o) o.textContent = overdue.toLocaleString();
+}
+
+// ── BREAKDOWN FROM JOBS (Fence Type / Supplier) ───────────
+function renderBreakdownFromJobs(tbodyId, theadId, field, label) {
+  const thead = document.getElementById(theadId);
+  const tbody = document.getElementById(tbodyId);
+  if (!thead || !tbody) return;
+
+  // Build from local jobs array (all time — not filtered by CSV date range)
+  const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
+  const range    = getDateRange(rangeVal);
+
+  const map = {};
+  jobs.forEach(j => {
+    const d = j.savedAt ? new Date(j.savedAt) : null;
+    if (d) {
+      if (range.start && d < range.start) return;
+      if (range.end   && d > range.end)   return;
+    }
+    const key = (j[field] || '').trim() || '(none)';
+    if (!map[key]) map[key] = { total: 0, closed: 0, revenue: 0 };
+    map[key].total++;
+    const isClosed = ['Complete','Accepted','Invoiced','Deposit Received','Scheduled','In Progress','Ready for Invoice'].includes(j.propStatus);
+    if (isClosed) {
+      map[key].closed++;
+      map[key].revenue += Number(j.calc_final) || Number(j.finalPrice) || 0;
+    }
+  });
+
+  const entries = Object.entries(map)
+    .map(([key, v]) => ({ key, ...v, rate: v.total > 0 ? v.closed / v.total * 100 : 0 }))
+    .sort((a, b) => b.total - a.total);
+
+  thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
+    <th style="${_thStyle('left')}">${label}</th>
+    <th style="${_thStyle('right')}">Estimates</th>
+    <th style="${_thStyle('right')}">Closed</th>
+    <th style="${_thStyle('right')}">Close %</th>
+    <th style="${_thStyle('right')}">Revenue</th>
+  </tr>`;
+
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3);font-size:12px">No data in this date range</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = entries.map((v, i) => {
+    const rateNum   = +v.rate.toFixed(0);
+    const rateColor = rateNum >= 25 ? 'var(--green)' : rateNum >= 15 ? 'var(--amber)' : 'var(--red)';
+    return `<tr style="border-bottom:1px solid var(--border);${i % 2 === 0 ? 'background:var(--surface2)' : ''}">
+      <td style="padding:7px 8px;font-weight:600;color:var(--text)">${escHtml(v.key)}</td>
+      <td style="padding:7px 8px;text-align:right;color:var(--text2)">${v.total}</td>
+      <td style="padding:7px 8px;text-align:right;color:var(--green);font-weight:700">${v.closed}</td>
+      <td style="padding:7px 8px;text-align:right;font-weight:800;color:${rateColor}">${rateNum}%</td>
+      <td style="padding:7px 8px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">$${Math.round(v.revenue).toLocaleString()}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ── KPIs ─────────────────────────────────────────
@@ -11864,13 +12019,16 @@ let _perfChart = null;
 let _perfSortCol = 'month';
 let _perfSortDir = 'asc';
 
-function renderPerformance(filteredProposals) {
+function renderPerformance(filteredProposals, range) {
   if (!filteredProposals || !filteredProposals.length) return;
 
-  const rangeVal = document.getElementById('perfRange')?.value || 'all';
-  const range    = getDateRange(rangeVal);
+  // Use the passed global range (same filter as all other tabs)
+  if (!range) {
+    const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
+    range = getDateRange(rangeVal);
+  }
 
-  // Filter proposals by perfRange using Created date
+  // Filter proposals by global date range
   const proposals = filteredProposals.filter(r => {
     const d = parseAnalyticsDate(r['Created']);
     if (!d) return false;
