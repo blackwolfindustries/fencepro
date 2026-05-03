@@ -6210,17 +6210,22 @@ function renderSiblingPills() {
   const wrap  = document.getElementById('siblingPillsWrap');
   const pills = document.getElementById('siblingPills');
   if (!wrap || !pills) return;
-  const activeId = curIdx >= 0 ? (jobs[curIdx].id || '') : '';
+
+  const activeId = curIdx >= 0 ? (jobs[curIdx]?.id || '') : '';
   const prefix   = activeId.split('-')[0];
   if (!prefix) { wrap.style.display = 'none'; return; }
+
   const siblings = jobs
     .map((j, i) => ({ idx: i, id: j.id || '', letter: (j.id || '').split('-')[2] || '' }))
-    .filter(s => s.id.split('-')[0] === prefix && s.letter)
+    .filter(s => s.id && s.id.split('-')[0] === prefix && s.letter)
     .sort((a, b) => a.letter.localeCompare(b.letter));
+
   if (siblings.length <= 1) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'block';
+
+  // Match active pill by estimate ID, not by curIdx — curIdx can shift after array rebuilds
   pills.innerHTML = siblings.map(s =>
-    `<span class="sib-pill${s.idx === curIdx ? ' active' : ''}" onclick="loadJobLocal(${s.idx})" title="${s.id}">${s.letter}</span>`
+    `<span class="sib-pill${s.id === activeId ? ' active' : ''}" onclick="loadJobLocal(${s.idx})" title="${s.id}">${s.letter}</span>`
   ).join('');
 }
 
@@ -7142,13 +7147,14 @@ async function loadCloud() {
       ];
       persistJobs();
 
-      // Re-find the open estimate by ID and re-populate the form so it stays
-      // in sync with the freshly loaded cloud data (fixes internalNotes loss on refresh)
+      // Re-find the open estimate by ID and re-populate the form
+      // Set curIdx = -1 FIRST so loadJobLocal doesn't snapshot stale form
+      // data back over the freshly loaded cloud record
       if (openId) {
         const newIdx = jobs.findIndex(j => j.id === openId);
         if (newIdx >= 0) {
-          curIdx = newIdx;
-          loadJobLocal(newIdx);
+          curIdx = -1;          // prevent snapshot in loadJobLocal
+          loadJobLocal(newIdx); // now safely loads fresh cloud data into form
         } else {
           curIdx = -1;
         }
