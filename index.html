@@ -6340,15 +6340,36 @@ function clearAudit() {
 
 function loadJobLocal(idx) {
   // ── SNAPSHOT CURRENT ESTIMATE TO MEMORY BEFORE SWITCHING ────
-  // Captures the live form state so switching pills never loses unsaved data
+  // Captures the live form state so switching pills never loses unsaved data.
+  // IMPORTANT: calc_ values are NOT taken from lastCalc (which reflects the
+  // currently-displayed estimate) — they're preserved from the existing job
+  // object to prevent cross-contamination between sibling estimates.
   if (curIdx >= 0 && curIdx !== idx && jobs[curIdx]) {
     const snap = collectData();
     snap.photos    = photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' }));
     snap.docs      = docs.map(d => ({ name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' }));
-    // Rebuild photoUrls from current photos array so Drive URLs are never lost
-    // when switching pills before saving — this is what the proposal reads
     snap.photoUrls = photos.map(p => p.driveUrl || '').filter(Boolean);
-    jobs[curIdx] = normalizeJob({ ...jobs[curIdx], ...snap });
+    // Preserve existing calc values — don't overwrite with lastCalc
+    const existing = jobs[curIdx];
+    snap.calc_final      = existing.calc_final;
+    snap.calc_cash       = existing.calc_cash;
+    snap.calc_gmPct      = existing.calc_gmPct;
+    snap.calc_gmDol      = existing.calc_gmDol;
+    snap.calc_base       = existing.calc_base;
+    snap.calc_matTotal   = existing.calc_matTotal;
+    snap.calc_demoDol    = existing.calc_demoDol;
+    snap.calc_delivery   = existing.calc_delivery;
+    snap.calc_suppCCRate = existing.calc_suppCCRate;
+    snap.calc_effMarkup  = existing.calc_effMarkup;
+    snap.calc_matDel     = existing.calc_matDel;
+    snap.calc_matTax     = existing.calc_matTax;
+    snap.calc_suppFee    = existing.calc_suppFee;
+    snap.calc_concrete   = existing.calc_concrete;
+    snap.calc_custTax    = existing.calc_custTax;
+    snap.calc_finalTax   = existing.calc_finalTax;
+    snap.finalPrice      = existing.finalPrice;
+    snap.cashPrice       = existing.cashPrice;
+    jobs[curIdx] = normalizeJob({ ...existing, ...snap });
     persistJobs();
   }
 
