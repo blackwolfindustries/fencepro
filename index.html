@@ -1061,10 +1061,6 @@
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Estimates</div>
         <div class="sib-pills" id="siblingPills"></div>
       </div>
-      <div id="siblingPillsWrap" style="display:none">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Estimates</div>
-        <div class="sib-pills" id="siblingPills"></div>
-      </div>
       <!-- Recall search — right side of row 1 -->
       <div class="recall-wrap" style="margin-left:auto;position:relative">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Recall Estimate</div>
@@ -6190,6 +6186,7 @@ async function saveJob() {
       // Persist the updated record with server-assigned ID
       persistJobs();
       renderEstList();
+      renderSiblingPills();  // update pills now that real estimate ID is assigned
       setCloud('connected', '✓ Synced to Sheets');
       const saveMsg = res.assignedLetter
         ? '✓ Saved — Estimate ' + res.assignedLetter + ' · ' + newEstimateId
