@@ -4332,11 +4332,19 @@ function normalizeJob(j) {
     franchiseOn: bool(j.franchiseOn, j['Franchise On'], true),
     deliveryOverride: bool(j.deliveryOverride, j['Delivery Override'], false),
     photos: Array.isArray(j.photos) ? j.photos.map(p =>
-      typeof p === 'string' ? { name: p, driveUrl: '' } : { name: p.name||'', driveUrl: p.driveUrl||'' }
-    ) : [],
+      typeof p === 'string' ? { name: p, uploaded: true, driveUrl: '' } : { name: p.name||'', uploaded: true, driveUrl: p.driveUrl||'' }
+    ) : (() => {
+      // Parse from Sheets comma-delimited Photo URLs column when loading from cloud
+      const urls = String(j['Photo URLs'] || '').split(',').map(u => u.trim()).filter(Boolean);
+      return urls.map(u => ({ name: u.split('/').pop() || 'photo', uploaded: true, driveUrl: u }));
+    })(),
     docs: Array.isArray(j.docs) ? j.docs.map(d =>
       ({ name: d.name||'', driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' })
-    ) : [],
+    ) : (() => {
+      // Parse from Sheets comma-delimited Doc URLs column when loading from cloud
+      const urls = String(j['Doc URLs'] || '').split(',').map(u => u.trim()).filter(Boolean);
+      return urls.map(u => ({ name: u.split('/').pop() || 'document', driveUrl: u, docType: 'Other', uploadedAt: '' }));
+    })(),
     completionNotes: s(j.completionNotes, '', ''),
     // ── Quantities ──────────────────────────────
     totalLF:   n(j.totalLF,   j['Total LF'],    0),
