@@ -6341,8 +6341,11 @@ function loadJobLocal(idx) {
   // Captures the live form state so switching pills never loses unsaved data
   if (curIdx >= 0 && curIdx !== idx && jobs[curIdx]) {
     const snap = collectData();
-    snap.photos = photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' }));
-    snap.docs   = docs.map(d => ({ name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' }));
+    snap.photos    = photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' }));
+    snap.docs      = docs.map(d => ({ name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' }));
+    // Rebuild photoUrls from current photos array so Drive URLs are never lost
+    // when switching pills before saving — this is what the proposal reads
+    snap.photoUrls = photos.map(p => p.driveUrl || '').filter(Boolean);
     jobs[curIdx] = normalizeJob({ ...jobs[curIdx], ...snap });
     persistJobs();
   }
@@ -9945,7 +9948,12 @@ function duplicateEstimate() {
   dupe.finalPaymentRef    = '';
   dupe.invoiceId          = '';
   dupe.invoiceNumber      = '';
+  // Clear all photos and docs — duplicate is a pricing copy only,
+  // not a copy of uploaded files. Each estimate has its own independent files.
   dupe.photos             = [];
+  dupe.photoUrls          = [];
+  dupe.docs               = [];
+  dupe.driveFolder        = '';
 
   // Add to jobs array as new entry
   jobs.unshift(dupe);
