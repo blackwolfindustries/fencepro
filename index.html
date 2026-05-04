@@ -11974,7 +11974,7 @@ async function renderBookingTime(allRows, range) {
   }
 
   const data = allRows
-    .filter(r => r['Status'] === 'Accepted' && r['Sent'] && r['Accepted Date'])
+    .filter(r => (r['Status'] === 'Accepted' || r['Status'] === 'Complete') && r['Sent'] && r['Accepted Date'])
     .map(r => {
       const sent     = parseAnalyticsDate(r['Sent']);
       const accepted = parseAnalyticsDate(r['Accepted Date']);
