@@ -2502,6 +2502,10 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       Breakdown
     </button>
+    <button id="atab_booking"     class="atab" onclick="showAnalyticsTab('booking')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Booking Time
+    </button>
   </div>
 
   <!-- TAB PANELS — only one visible at a time, controlled by showAnalyticsTab() -->
@@ -2654,6 +2658,59 @@
         </div>
       </div>
     </div>
+
+    <!-- ══ BOOKING TIME ══ -->
+    <div id="atab-booking" style="display:none;flex-direction:column;gap:16px;padding:16px">
+
+      <!-- KPI tiles -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg Days to Book</div>
+          <div style="font-size:36px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="book_avg">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">days from sent → accepted</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Fastest Booking</div>
+          <div style="font-size:36px;font-weight:900;color:var(--green);font-family:var(--mono)" id="book_min">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">days</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Slowest Booking</div>
+          <div style="font-size:36px;font-weight:900;color:var(--red);font-family:var(--mono)" id="book_max">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">days</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Bookings Analyzed</div>
+          <div style="font-size:36px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="book_count">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">accepted proposals w/ both dates</div>
+        </div>
+      </div>
+
+      <!-- Distribution bar — % booked within X days -->
+      <div class="card">
+        <div class="card-title">Booking Speed Distribution</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px" id="book_dist_bars"></div>
+        <div style="font-size:11px;color:var(--text3)">Percentage of accepted proposals booked within each time window</div>
+      </div>
+
+      <!-- Monthly avg booking time chart -->
+      <div class="card">
+        <div class="card-title">Avg Days to Book — by Month Sent</div>
+        <div style="overflow-x:auto"><canvas id="bookingTimeChart" height="200"></canvas></div>
+      </div>
+
+      <!-- Detail table -->
+      <div class="card">
+        <div class="card-title">Booking Detail — All Accepted Proposals</div>
+        <div style="overflow-x:auto;max-height:400px;overflow-y:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead id="bookingTableHead" style="position:sticky;top:0;background:var(--surface)"></thead>
+            <tbody id="bookingTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- end atab-booking -->
 
   </div><!-- end scroll area -->
 </div>
@@ -11816,7 +11873,7 @@ function isClosed(status) {
 
 // ── MAIN RENDER ──────────────────────────────────
 function showAnalyticsTab(tab) {
-  const tabs = ['overview','pipeline','performance','breakdown'];
+  const tabs = ['overview','pipeline','performance','breakdown','booking'];
   tabs.forEach(t => {
     const btn   = document.getElementById('atab_' + t);
     const panel = document.getElementById('atab-' + t);
@@ -11883,7 +11940,8 @@ function renderAnalytics() {
   renderBreakdownTable('analyticsCampaignTable', filtered, 'Campaign');
   renderBreakdownFromJobs('analyticsFenceTable',    'analyticsFenceHead',    'fenceType',   'Fence Type');
   renderBreakdownFromJobs('analyticsSupplierTable', 'analyticsSupplierHead', 'supplier',    'Supplier');
-  renderPerformance(analyticsData, range);  // pass global range — no separate perfRange
+  renderPerformance(analyticsData, range);
+  renderBookingTime(filtered);
 }
 
 // ── PIPELINE KPIs ─────────────────────────────────────────
@@ -11901,6 +11959,168 @@ function renderPipelineKPIs(rows) {
   if (c) c.textContent = open.length.toLocaleString();
   if (v) v.textContent = '$' + Math.round(totalVal).toLocaleString();
   if (o) o.textContent = overdue.toLocaleString();
+}
+
+// ══════════════════════════════════════════════════════════
+// BOOKING TIME ANALYSIS
+// Sent (col AB) → Accepted Date (col C) = days to book
+// ══════════════════════════════════════════════════════════
+async function renderBookingTime(rows) {
+  const data = rows
+    .filter(r => r['Status'] === 'Accepted' && r['Sent'] && r['Accepted Date'])
+    .map(r => {
+      const sent     = parseAnalyticsDate(r['Sent']);
+      const accepted = parseAnalyticsDate(r['Accepted Date']);
+      if (!sent || !accepted) return null;
+      const days = Math.round((accepted - sent) / 86400000);
+      if (days < 0) return null;
+      return {
+        name:     r['Name']    || r['Customer'] || '',
+        channel:  r['Channel'] || '',
+        value:    parseFloat(r['Value']) || 0,
+        sentDate: sent,
+        accDate:  accepted,
+        days,
+        monthKey: sent.toISOString().slice(0, 7)
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.sentDate - b.sentDate);
+
+  const count   = data.length;
+  const avgDays = count > 0 ? Math.round(data.reduce((s, d) => s + d.days, 0) / count) : 0;
+  const minDays = count > 0 ? Math.min(...data.map(d => d.days)) : 0;
+  const maxDays = count > 0 ? Math.max(...data.map(d => d.days)) : 0;
+
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('book_avg',   count ? avgDays : '—');
+  setEl('book_min',   count ? minDays : '—');
+  setEl('book_max',   count ? maxDays : '—');
+  setEl('book_count', count);
+
+  // ── Distribution bars ─────────────────────────────────
+  const buckets = [
+    { label: 'Same day',  fn: d => d.days === 0 },
+    { label: '1–3 days',  fn: d => d.days >= 1  && d.days <= 3  },
+    { label: '4–7 days',  fn: d => d.days >= 4  && d.days <= 7  },
+    { label: '8–14 days', fn: d => d.days >= 8  && d.days <= 14 },
+    { label: '15+ days',  fn: d => d.days >= 15 }
+  ];
+  const distColors = ['var(--green)','var(--green)','var(--orange)','#D97706','var(--red)'];
+  buckets.forEach((b, i) => {
+    b.count = data.filter(b.fn).length;
+    b.pct   = count > 0 ? Math.round(b.count / count * 100) : 0;
+    b.color = distColors[i];
+  });
+
+  const distWrap = document.getElementById('book_dist_bars');
+  if (distWrap) {
+    distWrap.innerHTML = buckets.map(b =>
+      `<div style="text-align:center">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">${b.label}</div>
+        <div style="height:80px;background:var(--border);border-radius:4px;position:relative;overflow:hidden">
+          <div style="position:absolute;bottom:0;left:0;right:0;height:${b.pct}%;background:${b.color};border-radius:4px;transition:height .4s"></div>
+        </div>
+        <div style="font-size:18px;font-weight:900;color:${b.color};font-family:var(--mono);margin-top:6px">${b.pct}%</div>
+        <div style="font-size:11px;color:var(--text3)">${b.count} proposal${b.count !== 1 ? 's' : ''}</div>
+      </div>`
+    ).join('');
+  }
+
+  // ── Monthly avg chart ─────────────────────────────────
+  if (!window.Chart) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js');
+  }
+  const monthMap = {};
+  data.forEach(d => {
+    if (!monthMap[d.monthKey]) monthMap[d.monthKey] = [];
+    monthMap[d.monthKey].push(d.days);
+  });
+  const months      = Object.keys(monthMap).sort();
+  const monthAvgs   = months.map(m => {
+    const arr = monthMap[m];
+    return Math.round(arr.reduce((s, v) => s + v, 0) / arr.length);
+  });
+  const monthLabels = months.map(m => {
+    const [y, mo] = m.split('-');
+    return new Date(+y, +mo - 1, 1).toLocaleString('default', { month: 'short', year: '2-digit' });
+  });
+
+  const canvas = document.getElementById('bookingTimeChart');
+  if (canvas) {
+    if (canvas._chartInst) canvas._chartInst.destroy();
+    canvas._chartInst = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: monthLabels,
+        datasets: [
+          {
+            label: 'Avg Days to Book',
+            data:  monthAvgs,
+            backgroundColor: monthAvgs.map(v =>
+              v <= 3 ? 'rgba(22,163,74,.7)' : v <= 7 ? 'rgba(242,101,34,.7)' : 'rgba(220,38,38,.7)'
+            ),
+            borderRadius: 4
+          },
+          {
+            label: 'Overall Avg (' + avgDays + 'd)',
+            data:  months.map(() => avgDays),
+            type:  'line',
+            borderColor: 'rgba(37,99,235,.7)',
+            borderWidth: 2,
+            borderDash:  [6, 4],
+            pointRadius: 0,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + ' days' } }
+        },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'Days', font: { size: 11 } }, ticks: { font: { size: 11 } } },
+          x: { ticks: { font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  // ── Detail table ──────────────────────────────────────
+  const thead = document.getElementById('bookingTableHead');
+  const tbody = document.getElementById('bookingTableBody');
+  if (!thead || !tbody) return;
+
+  thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
+    <th style="${_thStyle('left')}">Customer</th>
+    <th style="${_thStyle('left')}">Channel</th>
+    <th style="${_thStyle('right')}">Value</th>
+    <th style="${_thStyle('right')}">Sent</th>
+    <th style="${_thStyle('right')}">Accepted</th>
+    <th style="${_thStyle('right')}">Days to Book</th>
+  </tr>`;
+
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No accepted proposals with both Sent and Accepted Date in this range</td></tr>';
+    return;
+  }
+
+  const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+  tbody.innerHTML = data
+    .slice().sort((a, b) => a.days - b.days)
+    .map((d, i) => {
+      const c = d.days <= 3 ? 'var(--green)' : d.days <= 7 ? 'var(--orange)' : d.days <= 14 ? '#D97706' : 'var(--red)';
+      return `<tr style="border-bottom:1px solid var(--border);${i%2===0?'background:var(--surface)':''}">
+        <td style="padding:7px 8px;font-weight:600">${escHtml(d.name)}</td>
+        <td style="padding:7px 8px;color:var(--text2)">${escHtml(d.channel)}</td>
+        <td style="padding:7px 8px;text-align:right;font-family:var(--mono)">$${Math.round(d.value).toLocaleString()}</td>
+        <td style="padding:7px 8px;text-align:right;color:var(--text2)">${fmt(d.sentDate)}</td>
+        <td style="padding:7px 8px;text-align:right;color:var(--text2)">${fmt(d.accDate)}</td>
+        <td style="padding:7px 8px;text-align:right;font-weight:800;font-family:var(--mono);color:${c}">${d.days}d</td>
+      </tr>`;
+    }).join('');
 }
 
 // ── BREAKDOWN FROM JOBS (Fence Type / Supplier) ───────────
