@@ -2985,6 +2985,39 @@
 </div>
 
 <!-- ══ SCHEDULE JOB MODAL ════════════════════════════════════ -->
+<!-- ══ DELETE ESTIMATE MODAL ══════════════════════════════ -->
+<div class="moverlay hidden" id="mDeleteEstimate">
+  <div class="modal" style="max-width:440px">
+    <div class="mtitle" id="mDel_title">🗑 Delete Estimate</div>
+
+    <!-- BLOCKED state -->
+    <div id="mDel_blocked" style="display:none">
+      <div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:#991B1B;margin-bottom:6px">⛔ Cannot Delete</div>
+        <div style="font-size:13px;color:#7F1D1D;line-height:1.6" id="mDel_block_reason"></div>
+      </div>
+      <div style="text-align:right">
+        <button class="btn" onclick="closeM('mDeleteEstimate')">Close</button>
+      </div>
+    </div>
+
+    <!-- CONFIRM state -->
+    <div id="mDel_confirm" style="display:none">
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px" id="mDel_summary"></div>
+      <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:12px 14px;margin-bottom:16px" id="mDel_last_warning" style="display:none">
+        <div style="font-size:12px;font-weight:700;color:#92400E">⚠️ Last Estimate</div>
+        <div style="font-size:12px;color:#78350F;margin-top:4px">This is the only estimate for this job. Deleting it will remove the entire job record from the system.</div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="closeM('mDeleteEstimate')">Cancel</button>
+        <button class="btn" id="mDel_confirm_btn"
+          style="background:var(--red);color:#fff;border-color:var(--red);font-weight:700"
+          onclick="executeDelete()">🗑 Delete Permanently</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="moverlay hidden" id="mSchedule">
   <div class="mbox" style="max-width:420px">
     <div class="mtitle">📅 Schedule Job</div>
@@ -5047,58 +5080,200 @@ let dropdownIdx = -1;
 
 // ── CONTACT BACKUP / RESTORE ──────────────────────────────
 // ── JOBS BACKUP / RESTORE ─────────────────────────────────
-// ── DELETE CURRENT ESTIMATE ───────────────────────────────
+// ════════════════════════════════════════════════
+// DELETE ESTIMATE — with eligibility check
+// ════════════════════════════════════════════════
+
+// Statuses that lock an estimate — customer has accepted, money involved
+const LOCKED_STATUSES = [
+  'Accepted', 'Deposit Received', 'Scheduled',
+  'In Progress', 'Ready for Invoice', 'Invoiced',
+  'Paid in Full', 'Complete'
+];
+
+// Pending delete context — set by confirmAndDelete, read by executeDelete
+let _pendingDelete = null;
+
+function checkDeleteEligibility(job) {
+  const status   = job.propStatus || job['Status'] || 'Draft';
+  const estId    = job.id || '';
+  const jobNum   = estId.split('-')[0];
+  const letter   = estId.split('-')[2] || '';
+
+  // Rule 1 — status lock
+  if (LOCKED_STATUSES.includes(status)) {
+    return {
+      allowed: false,
+      reason: `Estimate ${estId} has status <strong>${status}</strong>. Once a customer has accepted a proposal, the estimate is locked and cannot be deleted.`
+    };
+  }
+
+  // Rule 2 — linked invoice
+  const linkedInvoice = invoices.find(inv => {
+    const invEstId = inv['Estimate ID'] || inv.estimateId || '';
+    const invJobId = inv['Job ID']      || inv.jobId      || '';
+    return invEstId === estId || invJobId === jobNum;
+  });
+  if (linkedInvoice) {
+    const invNum = linkedInvoice['Invoice Number'] || linkedInvoice.invoiceNumber || linkedInvoice['Invoice ID'] || '';
+    return {
+      allowed: false,
+      reason: `Estimate ${estId} has invoice <strong>${invNum}</strong> linked to it. Delete the invoice first before removing the estimate.`
+    };
+  }
+
+  // Find siblings — other estimates under same job number
+  const siblings = jobs.filter(j =>
+    j.id && j.id !== estId && j.id.split('-')[0] === jobNum
+  );
+  const isLastEstimate = siblings.length === 0;
+
+  return {
+    allowed:         true,
+    siblings,
+    isLastEstimate,
+    estId,
+    jobNum,
+    letter,
+    status,
+    job
+  };
+}
+
+function confirmAndDelete(job, jobIdx) {
+  if (!job) return;
+
+  const check = checkDeleteEligibility(job);
+
+  // Show the modal
+  openM('mDeleteEstimate');
+
+  const titleEl      = document.getElementById('mDel_title');
+  const blockedEl    = document.getElementById('mDel_blocked');
+  const confirmEl    = document.getElementById('mDel_confirm');
+  const reasonEl     = document.getElementById('mDel_block_reason');
+  const summaryEl    = document.getElementById('mDel_summary');
+  const lastWarnEl   = document.getElementById('mDel_last_warning');
+
+  // Reset state
+  blockedEl.style.display  = 'none';
+  confirmEl.style.display  = 'none';
+
+  if (!check.allowed) {
+    // BLOCKED
+    titleEl.textContent      = '⛔ Cannot Delete ' + (job.id || 'Estimate');
+    reasonEl.innerHTML       = check.reason;
+    blockedEl.style.display  = 'block';
+    _pendingDelete           = null;
+    return;
+  }
+
+  // ALLOWED — build confirmation message
+  titleEl.textContent = '🗑 Delete ' + check.estId;
+
+  let summary = '';
+  if (check.isLastEstimate) {
+    summary = `You are about to permanently delete <strong>${check.estId}</strong> and the entire job record for job <strong>${check.jobNum}</strong>. No other estimates exist for this job.`;
+    lastWarnEl.style.display = 'block';
+  } else {
+    const siblingLetters = check.siblings.map(s => s.id.split('-')[2]).sort().join(', ');
+    summary = `You are about to permanently delete <strong>${check.estId}</strong>.<br><br>Estimate${check.siblings.length > 1 ? 's' : ''} <strong>${siblingLetters}</strong> will remain for job ${check.jobNum}.`;
+    lastWarnEl.style.display = 'none';
+  }
+  summary += '<br><br>Drive folders and uploaded files are not affected — they remain in Google Drive.';
+  if (check.status === 'Sent') {
+    summary += '<br><br><em style="color:var(--amber)">Note: This estimate has been sent to the customer. The proposal link will stop working after deletion.</em>';
+  }
+  summaryEl.innerHTML  = summary;
+  confirmEl.style.display = 'block';
+
+  // Store context for executeDelete
+  _pendingDelete = { job, jobIdx };
+}
+
+async function executeDelete() {
+  if (!_pendingDelete) return;
+  const { job, jobIdx } = _pendingDelete;
+  _pendingDelete = null;
+
+  closeM('mDeleteEstimate');
+
+  // Find the actual current index in case array shifted
+  const actualIdx = jobIdx !== undefined ? jobIdx : curIdx;
+
+  // Navigate to a sibling before removing if possible
+  const jobNum   = (job.id || '').split('-')[0];
+  const siblings = jobs.filter((j, i) => j.id && j.id !== job.id && j.id.split('-')[0] === jobNum && i !== actualIdx);
+
+  // Remove from local array
+  const removeIdx = jobs.findIndex(j => j.id === job.id);
+  if (removeIdx >= 0) {
+    jobs.splice(removeIdx, 1);
+    if (curIdx === removeIdx)       curIdx = -1;
+    else if (curIdx > removeIdx)    curIdx--;
+  }
+  persistJobs();
+
+  // If sibling exists, load it — otherwise reset form
+  if (siblings.length > 0) {
+    const sibIdx = jobs.findIndex(j => j.id === siblings[0].id);
+    if (sibIdx >= 0) { curIdx = -1; loadJobLocal(sibIdx); }
+    else newEst();
+  } else {
+    newEst();
+  }
+
+  renderBoard();
+  renderEstList();
+  renderJobsList();
+  showToast('🗑 ' + (job.id || 'Estimate') + ' deleted');
+
+  // Sync to cloud
+  if (settings.scriptUrl && job.id) {
+    try {
+      await cloudCall({
+        action: 'deleteJob',
+        data: {
+          estimateId: job.id,
+          jobId:      job.jobId || job.id.split('-')[0]
+        }
+      });
+      // Also delete any job costs for this estimate
+      const jobCostData = JSON.parse(localStorage.getItem('fp_jobCosts') || '{}');
+      const prefix = job.id.split('-')[0];
+      if (jobCostData[prefix]) {
+        const costsToDelete = jobCostData[prefix].costs.filter(c => c.estimateId === job.id);
+        costsToDelete.forEach(c => {
+          cloudCall({ action: 'deleteJobCost', data: { costId: c.id } }).catch(() => {});
+        });
+        // Remove from local too if this was the last estimate
+        const remainingEstimates = jobs.filter(j => j.id && j.id.split('-')[0] === prefix);
+        if (remainingEstimates.length === 0) {
+          delete jobCostData[prefix];
+          localStorage.setItem('fp_jobCosts', JSON.stringify(jobCostData));
+        }
+      }
+    } catch(e) {
+      console.warn('Cloud delete failed:', e.message);
+    }
+  }
+
+  // Silently confirm from cloud after a moment
+  if (settings.scriptUrl) setTimeout(() => loadCloud(), 1500);
+}
 
 async function boardDeleteEstimate(jobIdx, event) {
   event.stopPropagation();
   const job = jobs[jobIdx];
   if (!job) return;
-  const label = job.id || job.custName || 'this estimate';
-  if (!confirm('Delete ' + label + '?\n\nThis removes it from the app and Google Sheets.\nThis cannot be undone.')) return;
-  jobs.splice(jobIdx, 1);
-  if (curIdx === jobIdx) curIdx = -1;
-  else if (curIdx > jobIdx) curIdx--;
-  persistJobs();
-  renderBoard(); renderEstList(); renderJobsList();
-  showToast('🗑 ' + label + ' deleted');
-  if (settings.scriptUrl && job.id) {
-    try { await cloudCall({ action: 'deleteJob', data: { estimateId: job.id, jobId: job.jobId || job.id.split('-')[0] } }); } catch(e) {}
-  }
+  confirmAndDelete(job, jobIdx);
 }
+
 async function deleteCurrentEstimate() {
   if (curIdx < 0) { alert('No estimate loaded — open an estimate first'); return; }
   const job = jobs[curIdx];
   if (!job) return;
-
-  const label = job.id || job.custName || 'this estimate';
-  if (!confirm('Permanently delete ' + label + '?\n\nThis will remove it from both this app and Google Sheets. This cannot be undone.')) return;
-
-  // Remove from local array
-  jobs.splice(curIdx, 1);
-  curIdx = -1;
-  persistJobs();
-
-  // Remove from cloud
-  if (settings.scriptUrl && job.id) {
-    try {
-      await cloudCall({ action: 'deleteJob', data: { estimateId: job.id, jobId: job.jobId || job.id.split('-')[0] } });
-      status('Estimate deleted from Sheets ✓');
-    } catch(e) {
-      status('Deleted locally — cloud delete failed');
-    }
-  } else {
-    status('Estimate deleted ✓');
-  }
-
-  // Reset form and refresh board immediately
-  newEst();
-  renderBoard();
-  renderEstList();
-  renderJobsList();
-  // Silently reload from cloud to confirm delete propagated
-  if (settings.scriptUrl) {
-    setTimeout(() => loadCloud(), 1000);
-  }
+  confirmAndDelete(job, curIdx);
 }
 
 // ── CLEAR LOCAL ESTIMATE CACHE ─────────────────────────────
