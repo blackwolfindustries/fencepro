@@ -1819,7 +1819,7 @@
     <div style="margin-left:16px;position:relative">
       <input id="summarySearch" placeholder="🔍 Name, job #, address..." autocomplete="off"
         oninput="onSummarySearch()" onkeydown="onSummaryKey(event)"
-        onfocus="onSummarySearch()" onblur="setTimeout(()=>hideSummarySearch(),200)"
+        onfocus="onSummarySearch()" onblur="setTimeout(()=>hideSummarySearch(),300)"
         style="width:260px;padding:6px 10px;font-size:13px;border-radius:6px;border:1.5px solid var(--border2);background:var(--surface);color:var(--text);outline:none;font-family:var(--sans)">
       <div id="summarySearchDrop" style="
         display:none;position:absolute;top:100%;left:0;width:340px;
@@ -1829,7 +1829,7 @@
       "></div>
       <span style="font-size:12px;color:var(--text3);margin-left:8px" id="summaryFound"></span>
     </div>
-    <button class="btn btn-sm" style="margin-left:auto" onclick="loadCloud();lookupJobSummary()">↻ Refresh</button>
+    <button class="btn btn-sm" style="margin-left:auto" onclick="loadCloud().then(()=>lookupJobSummary(_lastSummaryPrefix))">↻ Refresh</button>
   </div>
 
   <div style="padding:18px;overflow-y:auto;flex:1;background:var(--bg);display:flex;flex-direction:column;gap:14px">
@@ -1946,133 +1946,56 @@
       </div>
     </div>
 
-    <!-- ══ JOB COSTS ══════════════════════════════════════════ -->
-    <div id="jobCostsSection" style="display:none">
-
-      <!-- Section header -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.07em">💰 Job Costs</span>
-          <span id="jobCostsBadge" style="display:none;background:var(--orange-bg);color:var(--orange);font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px"></span>
-        </div>
-        <button id="jobCostsAddBtn" class="btn btn-sm btn-a" onclick="openAddCostModal()" style="font-size:11px;padding:4px 12px;display:none">+ Add Cost</button>
-      </div>
-
-      <!-- No accepted estimates — locked state -->
-      <div id="jobCostsLocked" style="display:none;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rl);padding:16px 18px;display:none;align-items:center;gap:12px">
-        <span style="font-size:22px;flex-shrink:0">🔒</span>
-        <div style="font-size:12px;color:var(--text3);line-height:1.6">
-          <strong style="color:var(--text2)">No accepted estimates for this job.</strong><br>
-          Job costs can only be applied to an estimate with status <em>Accepted</em>, <em>In Progress</em>, or <em>Complete</em>.
-        </div>
-      </div>
-
-      <!-- Pin selector — shown when at least one valid estimate exists -->
-      <div id="jobCostsPinRow" style="display:none;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:12px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:12px;font-weight:700;color:var(--text2);white-space:nowrap">📌 Applied to:</span>
-        <select id="jobCostsPinSelect"
-          onchange="onPinChange(this.value)"
-          style="flex:1;min-width:200px;padding:6px 10px;font-size:12px;border:1.5px solid var(--orange);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600;outline:none;cursor:pointer">
-        </select>
-        <span id="jobCostsPinWarning" style="display:none;font-size:11px;color:var(--amber);font-weight:600">⚠️ Pinned estimate status changed</span>
-      </div>
-
-      <!-- Margin summary banner — shown when costs exist and estimate pinned -->
-      <div id="marginBanner" style="display:none;background:linear-gradient(135deg,#1B2B4B 0%,#253659 100%);border-radius:var(--rl);overflow:hidden;box-shadow:0 4px 12px rgba(27,43,75,.15);margin-bottom:12px">
-        <div style="display:flex;flex-wrap:wrap">
-          <div style="flex:1;min-width:120px;padding:12px 16px;border-right:1px solid rgba(255,255,255,.1)">
-            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Contract Revenue</div>
-            <div style="font-size:18px;font-weight:800;color:#F26522;font-family:var(--mono)" id="mb_revenue">—</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:2px" id="mb_est_label"></div>
-          </div>
-          <div style="flex:1;min-width:120px;padding:12px 16px;border-right:1px solid rgba(255,255,255,.1)">
-            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Total Job Costs</div>
-            <div style="font-size:18px;font-weight:800;color:#FB923C;font-family:var(--mono)" id="mb_costs">—</div>
-          </div>
-          <div style="flex:1;min-width:120px;padding:12px 16px;border-right:1px solid rgba(255,255,255,.1)">
-            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Gross Profit $</div>
-            <div style="font-size:18px;font-weight:800;font-family:var(--mono)" id="mb_gp">—</div>
-          </div>
-          <div style="flex:1;min-width:120px;padding:12px 16px">
-            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Actual Margin %</div>
-            <div style="font-size:18px;font-weight:800;font-family:var(--mono)" id="mb_pct">—</div>
-          </div>
-        </div>
-        <!-- Cost breakdown by category -->
-        <div id="mb_breakdown" style="padding:8px 16px 10px;border-top:1px solid rgba(255,255,255,.08);display:flex;flex-wrap:wrap;gap:8px 20px"></div>
-      </div>
-
-      <!-- No costs yet state -->
-      <div id="jobCostsEmpty" style="display:none;background:var(--surface);border:1.5px dashed var(--border);border-radius:var(--rl);padding:20px;text-align:center;color:var(--text3);font-size:12px">
-        No job costs recorded yet — click <strong style="color:var(--orange)">+ Add Cost</strong> to track labor and material expenses for this job.
-      </div>
-
-      <!-- Costs table -->
-      <div id="jobCostsTable" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;box-shadow:var(--shadow-sm)">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead>
-            <tr style="background:var(--surface2)">
-              <th style="padding:9px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-bottom:1px solid var(--border)">Type</th>
-              <th style="padding:9px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-bottom:1px solid var(--border)">Description</th>
-              <th style="padding:9px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-bottom:1px solid var(--border)">Date</th>
-              <th style="padding:9px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-bottom:1px solid var(--border)">Amount</th>
-              <th style="padding:9px 14px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-bottom:1px solid var(--border);width:60px"></th>
-            </tr>
-          </thead>
-          <tbody id="jobCostsTbody"></tbody>
-          <tfoot>
-            <tr style="background:var(--surface2)">
-              <td colspan="3" style="padding:9px 14px;font-size:12px;font-weight:700;color:var(--text2);border-top:1px solid var(--border)">Total</td>
-              <td style="padding:9px 14px;text-align:right;font-size:14px;font-weight:800;color:var(--orange);font-family:var(--mono);border-top:1px solid var(--border)" id="jobCostsTotal">$0.00</td>
-              <td style="border-top:1px solid var(--border)"></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </div>
-
     <!-- ══ ADD / EDIT COST MODAL ══════════════════════════════ -->
     <div id="mAddCost" class="moverlay hidden">
-      <div class="modal" style="width:420px">
-        <div class="mtitle" id="addCostTitle">💰 Add Job Cost</div>
+      <div class="modal" style="width:440px">
+        <div class="mtitle" id="addCostTitle">💰 Add Expense</div>
 
         <div style="display:flex;flex-direction:column;gap:12px">
-          <!-- Type -->
+          <!-- Category buttons -->
           <div>
-            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Cost Type</div>
-            <select id="costType" style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
-              <option value="">— Select type —</option>
-              <option value="Labor">Labor</option>
-              <option value="Material">Material</option>
-              <option value="Subcontractor">Subcontractor</option>
-              <option value="Equipment">Equipment</option>
-              <option value="Disposal/Carting">Disposal / Carting</option>
-              <option value="Other">Other</option>
-            </select>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Category</div>
+            <div style="display:flex;gap:8px">
+              <button type="button" class="cost-cat-btn" data-cat="Material" onclick="setCostCat('Material')"
+                style="flex:1;padding:9px 4px;font-size:12px;font-weight:700;border-radius:var(--r);border:2px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s">🧱 Material</button>
+              <button type="button" class="cost-cat-btn" data-cat="Labor" onclick="setCostCat('Labor')"
+                style="flex:1;padding:9px 4px;font-size:12px;font-weight:700;border-radius:var(--r);border:2px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s">👷 Labor</button>
+              <button type="button" class="cost-cat-btn" data-cat="Other" onclick="setCostCat('Other')"
+                style="flex:1;padding:9px 4px;font-size:12px;font-weight:700;border-radius:var(--r);border:2px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s">📦 Other</button>
+            </div>
+            <input type="hidden" id="costType">
+            <div id="costCatErr" style="font-size:11px;color:var(--red);margin-top:4px;min-height:14px"></div>
+          </div>
+
+          <!-- Vendor -->
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Vendor <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
+            <input id="costVendor" type="text" placeholder="e.g. Home Depot, ABC Crew, Sunbelt Rentals..."
+              style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
           </div>
 
           <!-- Description -->
           <div>
             <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Description <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
-            <input id="costDesc" type="text" placeholder="e.g. Cedar boards — Home Depot, Crew Day 1..."
+            <input id="costDesc" type="text" placeholder="e.g. Cedar pickets, Crew Day 1, Equipment rental..."
               style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
           </div>
 
-          <!-- Date -->
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Date</div>
-            <input id="costDate" type="date"
-              style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
-          </div>
-
-          <!-- Amount -->
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Amount</div>
-            <div style="position:relative">
-              <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:600;color:var(--text3)">$</span>
-              <input id="costAmount" type="text" inputmode="decimal" placeholder="0.00"
-                onblur="fmtCostAmount(this)"
-                style="width:100%;padding:8px 10px 8px 22px;font-size:14px;font-weight:700;font-family:var(--mono);border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text)">
+          <!-- Date + Amount row -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Date</div>
+              <input id="costDate" type="date"
+                style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Amount</div>
+              <div style="position:relative">
+                <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:600;color:var(--text3)">$</span>
+                <input id="costAmount" type="text" inputmode="decimal" placeholder="0.00"
+                  onblur="fmtCostAmount(this)"
+                  style="width:100%;padding:8px 10px 8px 22px;font-size:14px;font-weight:700;font-family:var(--mono);border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text)">
+              </div>
             </div>
           </div>
         </div>
@@ -2081,12 +2004,12 @@
 
         <div class="mactions">
           <button class="btn" onclick="closeM('mAddCost')">Cancel</button>
-          <button class="btn btn-a" onclick="saveJobCost()">Save Cost</button>
+          <button class="btn btn-a" onclick="saveJobCostEntry()">Save Expense</button>
         </div>
       </div>
     </div>
 
-    <!-- Empty state -->
+        <!-- Empty state -->
     <div id="summaryEmpty" style="text-align:center;padding:60px 20px;color:var(--text3)">
       <div style="font-size:40px;margin-bottom:12px">📊</div>
       <div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">Enter a job number above</div>
@@ -4977,7 +4900,21 @@ function show(id) {
   document.querySelectorAll('.mob-nav-btn').forEach((b,i) => b.classList.toggle('active', i === map[id]));
   if (id === 'board')     { renderBoard(); renderEstList(); }
   if (id === 'jobs')      { updateSortIcons(); renderCRM(); }
-  if (id === 'summary')   { loadCloud().then(() => { document.getElementById('summarySearch').value = ''; lookupJobSummary(); }); }
+  if (id === 'summary')   {
+    // Restore search input to last searched job
+    if (_lastSummaryPrefix) {
+      const inp = document.getElementById('summarySearch');
+      if (inp && !inp.value) inp.value = _lastSummaryPrefix;
+    }
+    // Only reload from cloud if jobs array is empty or data is > 2 min stale
+    const lastLoad = parseInt(localStorage.getItem('fp_lastCloudLoad') || '0');
+    const stale = (Date.now() - lastLoad) > 120000;
+    if (!jobs.length || stale) {
+      loadCloud().then(() => lookupJobSummary(_lastSummaryPrefix));
+    } else {
+      lookupJobSummary(_lastSummaryPrefix);
+    }
+  }
   if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList(); }
   if (id === 'analytics') { renderAnalytics(); if (!localStorage.getItem('fp_analyticsTab')) showAnalyticsTab('overview'); }
   // Refresh SUPPLIERS map whenever supplier tab opened
@@ -5517,8 +5454,8 @@ async function loadCloudContacts() {
 
 // ════════════════════════════════════════════════
 // LOAD CLOUD JOB COSTS
-// Cloud is source of truth. Merges into fp_jobCosts,
-// preserving local-only pinnedEstimateId preference.
+// Cloud is source of truth. Populates fp_jobCosts2
+// keyed by estimateId (new per-estimate model).
 // ════════════════════════════════════════════════
 async function loadCloudJobCosts() {
   const url = settings.scriptUrl;
@@ -5528,42 +5465,45 @@ async function loadCloudJobCosts() {
     const data = await res.json();
     if (!data.costs || !Array.isArray(data.costs)) return;
 
-    // Read current local state so we can preserve pinnedEstimateId per job
-    const local = JSON.parse(localStorage.getItem('fp_jobCosts') || '{}');
-
-    // Group cloud costs by jobId
-    const cloudByJob = {};
+    // Group cloud costs by estimateId (new model)
+    const local2 = JSON.parse(localStorage.getItem('fp_jobCosts2') || '{}');
+    const cloudByEst = {};
     data.costs.forEach(c => {
-      const jId = String(c.jobId || '').trim();
-      if (!jId) return;
-      if (!cloudByJob[jId]) cloudByJob[jId] = [];
-      cloudByJob[jId].push({
+      const eId = String(c.estimateId || c.jobId || '').trim();
+      if (!eId) return;
+      if (!cloudByEst[eId]) cloudByEst[eId] = [];
+      cloudByEst[eId].push({
         id:         c.costId,
         type:       c.type,
+        vendor:     '',           // vendor not yet in cloud schema — blank on import
         desc:       c.desc,
         date:       c.date,
         amount:     c.amount,
-        estimateId: c.estimateId || '',
-        createdAt:  c.createdAt  || ''
+        estimateId: eId,
+        createdAt:  c.createdAt || ''
       });
     });
 
-    // Merge: cloud costs win, but preserve local pinnedEstimateId
-    // Also preserve any local-only costs (not yet synced — id not in cloud set)
-    const merged = { ...local };
+    // Merge: cloud wins, preserve local-only (not yet synced) entries
     const cloudCostIds = new Set(data.costs.map(c => c.costId));
-
-    Object.entries(cloudByJob).forEach(([jId, cloudCosts]) => {
-      const existing     = local[jId] || { pinnedEstimateId: null, costs: [] };
-      const localOnlyCosts = (existing.costs || []).filter(c => !cloudCostIds.has(c.id));
-      merged[jId] = {
-        pinnedEstimateId: existing.pinnedEstimateId || null,
-        costs: [...cloudCosts, ...localOnlyCosts]
-      };
+    const merged2 = { ...local2 };
+    Object.entries(cloudByEst).forEach(([eId, cloudCosts]) => {
+      const existing = local2[eId] || { costs: [] };
+      const localOnly = (existing.costs || []).filter(c => !cloudCostIds.has(c.id));
+      merged2[eId] = { costs: [...cloudCosts, ...localOnly] };
     });
+    localStorage.setItem('fp_jobCosts2', JSON.stringify(merged2));
 
-    localStorage.setItem('fp_jobCosts', JSON.stringify(merged));
-    console.log('Job costs synced from Sheets:', data.costs.length, 'entries across', Object.keys(cloudByJob).length, 'jobs');
+    // Keep legacy fp_jobCosts in sync too (for any code still reading it)
+    const legacyMerged = {};
+    Object.entries(merged2).forEach(([eId, estData]) => {
+      const prefix = eId.split('-')[0] || eId;
+      if (!legacyMerged[prefix]) legacyMerged[prefix] = { pinnedEstimateId: null, costs: [] };
+      legacyMerged[prefix].costs.push(...(estData.costs||[]));
+    });
+    localStorage.setItem('fp_jobCosts', JSON.stringify(legacyMerged));
+
+    console.log('Job costs synced from Sheets:', data.costs.length, 'entries across', Object.keys(cloudByEst).length, 'estimates');
   } catch(e) {
     console.log('Cloud job costs sync failed (non-fatal):', e.message);
   }
@@ -7480,9 +7420,11 @@ async function loadCloud() {
       renderEstList();
       renderJobsList();
       setCloud('connected', jobs.length + ' jobs loaded');
+      localStorage.setItem('fp_lastCloudLoad', Date.now().toString());
       // Also pull contacts and job costs from Sheets
       loadCloudContacts();
       loadCloudJobCosts();
+      migrateLegacyJobCosts(); // one-time migration from fp_jobCosts → fp_jobCosts2
     }
   } catch(e) {
     console.error('loadCloud error:', e);
@@ -8242,18 +8184,20 @@ function showToast(msg, duration=2500) {
 // ════════════════════════════════════════════════
 
 function lookupJobSummary(prefixArg) {
-  const prefix = prefixArg !== undefined ? String(prefixArg).trim() : '';
+  const prefix = prefixArg !== undefined ? String(prefixArg).trim() : (_lastSummaryPrefix || '');
   const cards  = document.getElementById('summaryCards');
   const empty  = document.getElementById('summaryEmpty');
   const found  = document.getElementById('summaryFound');
   const combined = document.getElementById('combinedResult');
+
+  // Update tracked prefix
+  if (prefixArg !== undefined) _lastSummaryPrefix = prefix;
 
   if (!prefix || prefix.length < 3) {
     cards.innerHTML = '';
     empty.style.display = 'block';
     combined.style.display = 'none';
     found.textContent = '';
-    document.getElementById('jobCostsSection').style.display = 'none';
     return;
   }
 
@@ -8268,7 +8212,6 @@ function lookupJobSummary(prefixArg) {
     empty.style.display = 'none';
     combined.style.display = 'none';
     found.textContent = '';
-    document.getElementById('jobCostsSection').style.display = 'none';
     return;
   }
 
@@ -8310,7 +8253,7 @@ function lookupJobSummary(prefixArg) {
     const sc = statusColors[status] || 'var(--surface2);color:var(--text3)';
 
     return `
-    <div data-card="true" style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;box-shadow:var(--shadow-sm);cursor:pointer;transition:all .15s" onclick="toggleSummaryCard(this,${i})">
+    <div data-card="true" style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;box-shadow:var(--shadow-sm);cursor:pointer;transition:all .15s" onclick="toggleSummaryCard(this,${i},event)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:8px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:800;color:var(--navy)">
@@ -8346,18 +8289,42 @@ function lookupJobSummary(prefixArg) {
         <span>Mat SM: $${Math.round(matRetail).toLocaleString()} · Lab: $${Math.round(labRetail).toLocaleString()}</span>
         <span>${supplier}</span>
       </div>
+
+      ${VALID_COST_STATUSES.includes(status) ? `
+      <!-- Job Costs toggle — only for accepted+ estimates -->
+      <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <button onclick="event.stopPropagation();toggleEstCosts('${j.id}')"
+            style="display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;padding:0;font-family:var(--sans)">
+            <svg id="est-costs-arrow-${j.id.replace(/[^a-zA-Z0-9]/g,'_')}" width="12" height="12" viewBox="0 0 12 12" fill="none"
+              style="transform:rotate(-90deg);transition:transform .2s;flex-shrink:0">
+              <path d="M2 4l4 4 4-4" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.06em">💰 Job Costs</span>
+            ${(()=>{const ec=JSON.parse(localStorage.getItem('fp_jobCosts2')||'{}')[j.id];const cnt=(ec&&ec.costs)?ec.costs.length:0;return cnt>0?`<span style="background:var(--orange-bg);color:var(--orange);font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px">${cnt}</span>`:'';})()}
+          </button>
+          <button onclick="event.stopPropagation();openAddCostModal('${j.id}')"
+            class="btn btn-sm btn-a" style="font-size:11px;padding:3px 10px">+ Add Expense</button>
+        </div>
+        <div id="est-costs-panel-${j.id.replace(/[^a-zA-Z0-9]/g,'_')}" style="display:none;margin-top:10px">
+          <div id="est-costs-${j.id.replace(/[^a-zA-Z0-9]/g,'_')}"></div>
+        </div>
+      </div>` : ''}
     </div>`;
   }).join('');
 
   // Store matches for combine
   document.getElementById('summaryCards')._matches = matches;
   document.getElementById('summaryInstructions').style.display = matches.length > 0 ? 'flex' : 'none';
-
-  // Show Job Costs section for this job
-  renderJobCosts(prefix, matches);
 }
 
-function toggleSummaryCard(cardEl, idx) {
+function toggleSummaryCard(cardEl, idx, event) {
+  // Don't toggle if user clicked a button, input, select, or the label itself
+  if (event) {
+    const tag = event.target.tagName;
+    if (['BUTTON','INPUT','SELECT','A','SVG','PATH'].includes(tag)) return;
+    if (event.target.closest('button, label, input, select, a')) return;
+  }
   // Find the hidden checkbox inside this card and toggle it
   const cb = cardEl.querySelector('input[type=checkbox]');
   if (!cb) return;
@@ -9836,6 +9803,7 @@ function hideRecall() {
 
 // ── JOB SUMMARY SEARCH ────────────────────────────────────────
 let summarySearchIdx = -1;
+let _lastSummaryPrefix = ''; // remembers last searched job across tab switches
 
 function onSummarySearch() {
   const q  = (document.getElementById('summarySearch').value || '').toLowerCase().trim();
@@ -9908,6 +9876,7 @@ function onSummaryKey(e) {
 
 function selectSummaryJob(prefix) {
   hideSummarySearch();
+  _lastSummaryPrefix = prefix;
   document.getElementById('summarySearch').value = prefix;
   document.getElementById('summaryFound').textContent = '';
   lookupJobSummary(prefix);
@@ -9919,94 +9888,110 @@ function hideSummarySearch() {
 }
 
 // ════════════════════════════════════════════════
-// JOB COSTS — track labor/material costs per job
-// Data: fp_jobCosts → { [prefix]: { pinnedEstimateId, costs: [...] } }
+// JOB COSTS — per-estimate cost tracking
+// Storage: fp_jobCosts2 → { [estimateId]: { costs: [...] } }
+// Each estimate has fully independent costs keyed by its ID
 // ════════════════════════════════════════════════
 
-const VALID_COST_STATUSES = ['Accepted', 'In Progress', 'Complete'];
+// Statuses that allow cost entry
+const VALID_COST_STATUSES = [
+  'Accepted','Deposit Received','Scheduled',
+  'In Progress','Ready for Invoice','Invoiced','Complete'
+];
 
-function getJobCostData(prefix) {
-  const all = JSON.parse(localStorage.getItem('fp_jobCosts') || '{}');
-  return all[prefix] || { pinnedEstimateId: null, costs: [] };
+// ── Storage helpers ─────────────────────────────
+function getEstCostData(estimateId) {
+  const all = JSON.parse(localStorage.getItem('fp_jobCosts2') || '{}');
+  return all[estimateId] || { costs: [] };
 }
 
-function saveJobCostData(prefix, data) {
-  const all = JSON.parse(localStorage.getItem('fp_jobCosts') || '{}');
-  const previous = all[prefix] || { pinnedEstimateId: null, costs: [] };
-  all[prefix] = data;
-  localStorage.setItem('fp_jobCosts', JSON.stringify(all));
+function saveEstCostData(estimateId, data) {
+  const all = JSON.parse(localStorage.getItem('fp_jobCosts2') || '{}');
+  const previous = all[estimateId] || { costs: [] };
+  all[estimateId] = data;
+  localStorage.setItem('fp_jobCosts2', JSON.stringify(all));
 
-  // Sync any new or changed costs to cloud (fire-and-forget)
+  // Cloud sync — fire-and-forget
   if (settings.scriptUrl) {
-    const prevIds = new Set((previous.costs || []).map(c => c.id));
     const prevMap = {};
     (previous.costs || []).forEach(c => { prevMap[c.id] = c; });
-
     data.costs.forEach(c => {
-      // Sync if this cost is new OR its amount/type/desc/date changed
       const prev = prevMap[c.id];
-      const changed = !prev ||
-        prev.amount !== c.amount ||
-        prev.type   !== c.type   ||
-        prev.desc   !== c.desc   ||
-        prev.date   !== c.date;
+      const changed = !prev || prev.amount !== c.amount || prev.type !== c.type ||
+        prev.vendor !== c.vendor || prev.desc !== c.desc || prev.date !== c.date;
       if (changed) {
+        const prefix = estimateId.split('-')[0] || '';
         cloudCall({
           action: 'saveJobCost',
           data: {
             costId:     c.id,
             jobId:      prefix,
-            estimateId: c.estimateId || '',
-            type:       c.type       || '',
-            desc:       c.desc       || '',
-            date:       c.date       || '',
-            amount:     c.amount     || 0,
-            createdAt:  c.createdAt  || new Date().toISOString()
+            estimateId: estimateId,
+            type:       c.type   || '',
+            desc:       (c.vendor ? c.vendor + (c.desc ? ' — ' + c.desc : '') : c.desc) || '',
+            date:       c.date   || '',
+            amount:     c.amount || 0,
+            createdAt:  c.createdAt || new Date().toISOString()
           }
-        }).catch(e => console.warn('Job cost sync failed:', c.id, e));
+        }).catch(e => console.warn('Cost sync failed:', c.id, e));
       }
     });
   }
 }
 
-// Backward-compat helper
-function getJobCosts(prefix) { return getJobCostData(prefix).costs; }
+// ── Active modal state ──────────────────────────
+let _costEstimateId = '';  // which estimate the modal is operating on
+let _costEditId     = null; // null = new entry, string = editing existing
 
-let _costPrefix  = '';
-let _costEditId  = null;
-let _costMatches = [];
-
-function onPinChange(estId) {
-  const data = getJobCostData(_costPrefix);
-  data.pinnedEstimateId = estId;
-  saveJobCostData(_costPrefix, data);
-  renderJobCosts(_costPrefix, _costMatches);
+// ── Category button toggle ──────────────────────
+function setCostCat(cat) {
+  document.getElementById('costType').value = cat;
+  document.getElementById('costCatErr').textContent = '';
+  document.querySelectorAll('.cost-cat-btn').forEach(btn => {
+    const active = btn.dataset.cat === cat;
+    btn.style.background      = active ? 'var(--orange)'   : 'var(--surface)';
+    btn.style.color           = active ? '#fff'            : 'var(--text2)';
+    btn.style.borderColor     = active ? 'var(--orange)'   : 'var(--border2)';
+  });
 }
 
-function openAddCostModal(editId) {
-  _costEditId = editId || null;
+// ── Open add/edit modal ─────────────────────────
+function openAddCostModal(estimateId, editId) {
+  _costEstimateId = estimateId || _costEstimateId;
+  _costEditId     = editId || null;
+
   const title = document.getElementById('addCostTitle');
-  const err   = document.getElementById('addCostErr');
-  err.textContent = '';
+  document.getElementById('addCostErr').textContent  = '';
+  document.getElementById('costCatErr').textContent  = '';
+
+  // Reset category buttons
+  setCostCat('');
+  document.querySelectorAll('.cost-cat-btn').forEach(btn => {
+    btn.style.background  = 'var(--surface)';
+    btn.style.color       = 'var(--text2)';
+    btn.style.borderColor = 'var(--border2)';
+  });
 
   if (editId) {
-    const costs = getJobCostData(_costPrefix).costs;
+    const costs = getEstCostData(_costEstimateId).costs;
     const entry = costs.find(c => c.id === editId);
     if (!entry) return;
-    title.textContent = '✏️ Edit Job Cost';
-    document.getElementById('costType').value   = entry.type   || '';
+    title.textContent = '✏️ Edit Expense';
+    setCostCat(entry.type || '');
+    document.getElementById('costVendor').value = entry.vendor || '';
     document.getElementById('costDesc').value   = entry.desc   || '';
     document.getElementById('costDate').value   = entry.date   || '';
     document.getElementById('costAmount').value = entry.amount ? entry.amount.toFixed(2) : '';
   } else {
-    title.textContent = '💰 Add Job Cost';
+    title.textContent = '💰 Add Expense';
     document.getElementById('costType').value   = '';
+    document.getElementById('costVendor').value = '';
     document.getElementById('costDesc').value   = '';
     document.getElementById('costDate').value   = new Date().toISOString().split('T')[0];
     document.getElementById('costAmount').value = '';
   }
   openM('mAddCost');
-  setTimeout(() => document.getElementById('costType').focus(), 80);
+  setTimeout(() => document.querySelectorAll('.cost-cat-btn')[0].focus(), 80);
 }
 
 function fmtCostAmount(el) {
@@ -10015,230 +10000,245 @@ function fmtCostAmount(el) {
   else el.value = '';
 }
 
-function saveJobCost() {
+// ── Save from modal ─────────────────────────────
+function saveJobCostEntry() {
   const err    = document.getElementById('addCostErr');
+  const catErr = document.getElementById('costCatErr');
   const type   = document.getElementById('costType').value.trim();
+  const vendor = document.getElementById('costVendor').value.trim();
   const desc   = document.getElementById('costDesc').value.trim();
   const date   = document.getElementById('costDate').value.trim();
   const amtRaw = document.getElementById('costAmount').value.replace(/[^0-9.]/g, '');
   const amount = parseFloat(amtRaw);
 
-  err.textContent = '';
-  if (!type)                                   { err.textContent = 'Please select a cost type.'; return; }
+  err.textContent = ''; catErr.textContent = '';
+  if (!type)                                   { catErr.textContent = 'Please select a category.'; return; }
   if (!date)                                   { err.textContent = 'Please enter a date.'; return; }
   if (!amtRaw || isNaN(amount) || amount <= 0) { err.textContent = 'Please enter a valid amount greater than $0.'; return; }
 
-  const data = getJobCostData(_costPrefix);
-  // Derive the currently pinned estimate ID so the cost row knows which estimate it belongs to
-  const pinnedEstimateId = data.pinnedEstimateId || (_costMatches.length === 1 ? _costMatches[0].id : '');
+  const data = getEstCostData(_costEstimateId);
   if (_costEditId) {
     const idx = data.costs.findIndex(c => c.id === _costEditId);
     if (idx >= 0) {
-      data.costs[idx] = {
-        ...data.costs[idx],
-        type, desc, date, amount,
-        estimateId: data.costs[idx].estimateId || pinnedEstimateId
-      };
+      data.costs[idx] = { ...data.costs[idx], type, vendor, desc, date, amount };
     }
   } else {
     data.costs.push({
-      id:         'cost_' + Date.now(),
-      type, desc, date, amount,
-      estimateId: pinnedEstimateId,
+      id:        'cost_' + Date.now(),
+      type, vendor, desc, date, amount,
+      estimateId: _costEstimateId,
       createdAt:  new Date().toISOString()
     });
   }
-  saveJobCostData(_costPrefix, data);
+  saveEstCostData(_costEstimateId, data);
   closeM('mAddCost');
-  renderJobCosts(_costPrefix, _costMatches);
-  showToast(_costEditId ? '\u2713 Cost updated' : '\u2713 Cost added');
+  renderEstimateCosts(_costEstimateId);
+  showToast(_costEditId ? '✓ Expense updated' : '✓ Expense added');
 }
 
-function deleteJobCost(prefix, id) {
-  if (!confirm('Delete this cost entry?')) return;
-  const data = getJobCostData(prefix);
-  data.costs = data.costs.filter(c => c.id !== id);
-  saveJobCostData(prefix, data);
-  // Sync deletion to cloud (fire-and-forget)
+// ── Delete a cost entry ─────────────────────────
+function deleteEstCost(estimateId, costId) {
+  const wrap = document.getElementById('cost-del-confirm-' + costId);
+  if (wrap) {
+    // Show inline confirm
+    wrap.style.display = 'flex';
+    return;
+  }
+}
+
+function confirmDeleteEstCost(estimateId, costId) {
+  const data = getEstCostData(estimateId);
+  data.costs = data.costs.filter(c => c.id !== costId);
+  saveEstCostData(estimateId, data);
   if (settings.scriptUrl) {
-    cloudCall({ action: 'deleteJobCost', data: { costId: id } })
-      .catch(e => console.warn('Job cost delete sync failed:', id, e));
+    cloudCall({ action: 'deleteJobCost', data: { costId } })
+      .catch(e => console.warn('Cost delete sync failed:', costId, e));
   }
-  renderJobCosts(prefix, _costMatches);
-  showToast('🗑 Cost deleted');
+  renderEstimateCosts(estimateId);
+  showToast('🗑 Expense deleted');
 }
 
-function renderJobCosts(prefix, matches) {
-  _costPrefix  = prefix;
-  _costMatches = matches || [];
+function cancelDeleteEstCost(costId) {
+  const wrap = document.getElementById('cost-del-confirm-' + costId);
+  if (wrap) wrap.style.display = 'none';
+}
 
-  const section = document.getElementById('jobCostsSection');
-  section.style.display = 'block';
+// ── Render costs section for one estimate ───────
+function renderEstimateCosts(estimateId) {
+  const container = document.getElementById('est-costs-' + estimateId.replace(/[^a-zA-Z0-9]/g,'_'));
+  if (!container) return;
 
-  const locked  = document.getElementById('jobCostsLocked');
-  const pinRow  = document.getElementById('jobCostsPinRow');
-  const pinSel  = document.getElementById('jobCostsPinSelect');
-  const pinWarn = document.getElementById('jobCostsPinWarning');
-  const addBtn  = document.getElementById('jobCostsAddBtn');
-  const banner  = document.getElementById('marginBanner');
-  const tbody   = document.getElementById('jobCostsTbody');
-  const table   = document.getElementById('jobCostsTable');
-  const empty   = document.getElementById('jobCostsEmpty');
-  const badge   = document.getElementById('jobCostsBadge');
-  const totalEl = document.getElementById('jobCostsTotal');
+  const data  = getEstCostData(estimateId);
+  const costs = data.costs || [];
 
-  const typeIcon = {
-    'Labor':'\U0001f477','Material':'\U0001f9f1','Subcontractor':'\U0001f527',
-    'Equipment':'\U0001f69c','Disposal/Carting':'\U0001f69b','Other':'\U0001f4e6'
-  };
+  // Find the estimate object for contract price
+  const est = jobs.find(j => j.id === estimateId);
+  const revenue = est ? (est.calc_final || est.finalPrice || 0) : 0;
 
-  const parseP = v => {
-    if (!v && v !== 0) return 0;
-    if (typeof v === 'number') return isNaN(v) ? 0 : v;
-    return Number(String(v).replace(/[^0-9.-]/g,'')) || 0;
-  };
+  const catIcon = { Material:'🧱', Labor:'👷', Other:'📦' };
 
-  const validEstimates = _costMatches.filter(j =>
-    VALID_COST_STATUSES.includes(j.propStatus || '')
-  );
+  // Group costs by category
+  const byType = { Material: [], Labor: [], Other: [] };
+  costs.forEach(c => {
+    const cat = ['Material','Labor','Other'].includes(c.type) ? c.type : 'Other';
+    byType[cat].push(c);
+  });
 
-  // ── LOCKED: no valid estimates ─────────────────────────
-  if (validEstimates.length === 0) {
-    locked.style.display = 'flex';
-    pinRow.style.display = 'none';
-    addBtn.style.display = 'none';
-    banner.style.display = 'none';
-    table.style.display  = 'none';
-    empty.style.display  = 'none';
-    badge.style.display  = 'none';
-    return;
-  }
+  const totalMat = byType.Material.reduce((s,c) => s + (c.amount||0), 0);
+  const totalLab = byType.Labor.reduce((s,c) => s + (c.amount||0), 0);
+  const totalOth = byType.Other.reduce((s,c) => s + (c.amount||0), 0);
+  const totalAll = totalMat + totalLab + totalOth;
 
-  locked.style.display = 'none';
-  addBtn.style.display = 'inline-flex';
+  const fmt = n => '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtR = n => '$' + Math.round(n).toLocaleString();
 
-  // ── PIN SELECTOR ───────────────────────────────────────
-  const data = getJobCostData(prefix);
-  let pinnedId = data.pinnedEstimateId;
-
-  const pinnedStillValid = validEstimates.some(j => j.id === pinnedId);
-  if (!pinnedStillValid) pinnedId = null;
-  if (!pinnedId && validEstimates.length === 1) pinnedId = validEstimates[0].id;
-
-  if (pinnedId !== data.pinnedEstimateId) {
-    data.pinnedEstimateId = pinnedId;
-    saveJobCostData(prefix, data);
-  }
-
-  pinRow.style.display = 'flex';
-  pinSel.innerHTML = validEstimates.map(j => {
-    const letter   = (j.id || '?').split('-')[2] || '?';
-    const status   = j.propStatus || '';
-    const fence    = j.fenceType || '';
-    const finals   = [j.calc_final, j.finalPrice].filter(v => v > 0);
-    const price    = finals.length ? Math.max(...finals) : 0;
-    const priceStr = price > 0 ? ' — $' + Math.round(price).toLocaleString() : '';
-    const sel      = j.id === pinnedId ? 'selected' : '';
-    return `<option value="${j.id}" ${sel}>Estimate ${letter}${fence ? ' · ' + fence : ''}${priceStr} (${status})</option>`;
-  }).join('');
-
-  // Show warning if the previously saved pin is no longer a valid status
-  const allEstIds = _costMatches.map(j => j.id);
-  const origPin   = JSON.parse(localStorage.getItem('fp_jobCosts') || '{}')[prefix]?.pinnedEstimateId;
-  pinWarn.style.display = (origPin && !pinnedStillValid && allEstIds.includes(origPin)) ? 'inline' : 'none';
-
-  // ── COSTS TABLE ────────────────────────────────────────
-  const costs = data.costs;
-  badge.style.display = costs.length > 0 ? 'inline-block' : 'none';
-  badge.textContent   = costs.length + ' entr' + (costs.length === 1 ? 'y' : 'ies');
-
-  if (costs.length === 0) {
-    empty.style.display  = 'block';
-    table.style.display  = 'none';
-    banner.style.display = 'none';
-    return;
-  }
-
-  empty.style.display = 'none';
-  table.style.display = 'block';
-
-  const totalCosts = costs.reduce((s, c) => s + (c.amount || 0), 0);
-  totalEl.textContent = '$' + totalCosts.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-
-  const sorted = [...costs].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  tbody.innerHTML = sorted.map(c => {
-    const icon    = typeIcon[c.type] || '\U0001f4e6';
-    const dateStr = c.date ? new Date(c.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '\u2014';
-    const amt     = '$' + (c.amount||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-    const eid     = c.id.replace(/'/g, "\\'");
-    const pfx     = prefix.replace(/'/g, "\\'");
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:9px 14px;white-space:nowrap">
-        <span style="font-size:12px">${icon}</span>
-        <span style="font-size:12px;font-weight:700;color:var(--text2);margin-left:5px">${c.type}</span>
-      </td>
-      <td style="padding:9px 14px;font-size:12px;color:var(--text3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.desc || '\u2014'}</td>
-      <td style="padding:9px 14px;font-size:12px;font-family:var(--mono);color:var(--text2);white-space:nowrap">${dateStr}</td>
-      <td style="padding:9px 14px;text-align:right;font-size:13px;font-weight:700;font-family:var(--mono);color:var(--text)">${amt}</td>
-      <td style="padding:9px 14px;text-align:center;white-space:nowrap">
-        <button onclick="openAddCostModal('${eid}')" title="Edit"
-          style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:var(--text3)"
-          onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='var(--text3)'">\u270f\ufe0f</button>
-        <button onclick="deleteJobCost('${pfx}','${eid}')" title="Delete"
-          style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:var(--text3)"
-          onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">\U0001f5d1</button>
-      </td>
-    </tr>`;
-  }).join('');
-
-  // ── MARGIN BANNER ──────────────────────────────────────
-  const pinned = pinnedId ? validEstimates.find(j => j.id === pinnedId) : null;
-  if (!pinned) { banner.style.display = 'none'; return; }
-
-  const revenue  = pinned.calc_final || pinned.finalPrice || 0;
-  const gp       = revenue - totalCosts;
-  const gpPct    = revenue > 0 ? (gp / revenue) * 100 : null;
+  // Margin calc
+  const gp    = revenue - totalAll;
+  const gpPct = revenue > 0 ? (gp / revenue) * 100 : null;
   const gpColor  = gp >= 0 ? '#4ADE80' : '#F87171';
-  const pctColor = gpPct === null ? 'rgba(255,255,255,.7)' : gpPct >= 30 ? '#4ADE80' : gpPct >= 15 ? '#FCD34D' : '#F87171';
+  const pctColor = gpPct === null ? 'rgba(255,255,255,.6)' :
+                   gpPct >= 30 ? '#4ADE80' : gpPct >= 15 ? '#FCD34D' : '#F87171';
 
-  const estLetter = (pinned.id || '').split('-')[2] || '';
-  document.getElementById('mb_est_label').textContent = 'Estimate ' + estLetter + ' \u00b7 ' + (pinned.propStatus || '');
-  document.getElementById('mb_revenue').textContent   = revenue > 0 ? '$' + Math.round(revenue).toLocaleString() : '\u2014';
-  document.getElementById('mb_costs').textContent     = '$' + Math.round(totalCosts).toLocaleString();
-
-  const gpEl = document.getElementById('mb_gp');
-  gpEl.textContent = revenue > 0 ? (gp >= 0 ? '+' : '-') + '$' + Math.round(Math.abs(gp)).toLocaleString() : '\u2014';
-  gpEl.style.color = gpColor;
-
-  const pctEl = document.getElementById('mb_pct');
-  pctEl.textContent = gpPct !== null ? gpPct.toFixed(1) + '%' : '\u2014';
-  pctEl.style.color = pctColor;
-
-  banner.style.display = 'block';
-
-  const byType = {};
-  costs.forEach(c => { byType[c.type] = (byType[c.type] || 0) + (c.amount || 0); });
-  document.getElementById('mb_breakdown').innerHTML = Object.entries(byType)
-    .sort((a, b) => b[1] - a[1])
-    .map(([type, amt]) => {
-      const icon = typeIcon[type] || '\U0001f4e6';
-      const pct  = totalCosts > 0 ? ((amt / totalCosts) * 100).toFixed(0) : 0;
-      return `<span style="font-size:11px;color:rgba(255,255,255,.65)">
-        ${icon} <strong style="color:#fff">${type}</strong>
-        $${Math.round(amt).toLocaleString()}
-        <span style="color:rgba(255,255,255,.4)">(${pct}%)</span>
-      </span>`;
+  const renderRows = (entries, cat) => {
+    if (entries.length === 0) return '';
+    return entries.map(c => {
+      const safeId  = c.id.replace(/[^a-zA-Z0-9_]/g,'_');
+      const dateStr = c.date ? new Date(c.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}) : '—';
+      const label   = [c.vendor, c.desc].filter(Boolean).join(' — ') || '—';
+      return `<tr style="border-bottom:1px solid var(--border)" id="cost-row-${safeId}">
+        <td style="padding:8px 12px;font-size:12px;font-weight:700;color:var(--text2);white-space:nowrap">${catIcon[cat]||'📦'} ${cat}</td>
+        <td style="padding:8px 12px;font-size:12px;color:var(--text3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${label}">${label}</td>
+        <td style="padding:8px 12px;font-size:11px;font-family:var(--mono);color:var(--text3);white-space:nowrap">${dateStr}</td>
+        <td style="padding:8px 12px;text-align:right;font-size:13px;font-weight:700;font-family:var(--mono);color:var(--text)">${fmt(c.amount||0)}</td>
+        <td style="padding:8px 8px;text-align:center;white-space:nowrap">
+          <button onclick="openAddCostModal('${estimateId}','${c.id}')" title="Edit"
+            style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;color:var(--text3)"
+            onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='var(--text3)'">✏️</button>
+          <button onclick="deleteEstCost('${estimateId}','${c.id}')" title="Delete"
+            style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;color:var(--text3)"
+            onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">🗑</button>
+          <div id="cost-del-confirm-${c.id}" style="display:none;align-items:center;gap:4px;margin-top:2px">
+            <span style="font-size:10px;color:var(--red);font-weight:700">Delete?</span>
+            <button onclick="confirmDeleteEstCost('${estimateId}','${c.id}')"
+              style="font-size:10px;padding:2px 6px;background:var(--red);color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:700">Yes</button>
+            <button onclick="cancelDeleteEstCost('${c.id}')"
+              style="font-size:10px;padding:2px 6px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:4px;cursor:pointer">No</button>
+          </div>
+        </td>
+      </tr>`;
     }).join('');
+  };
+
+  const allRows = renderRows(byType.Material,'Material') +
+                  renderRows(byType.Labor,'Labor') +
+                  renderRows(byType.Other,'Other');
+
+  const hasCosts = costs.length > 0;
+
+  container.innerHTML = `
+    ${hasCosts ? `
+    <!-- Margin banner -->
+    <div style="background:linear-gradient(135deg,#1B2B4B 0%,#253659 100%);border-radius:var(--r);overflow:hidden;box-shadow:0 3px 10px rgba(27,43,75,.2);margin-bottom:10px">
+      <div style="display:flex;flex-wrap:wrap">
+        <div style="flex:1;min-width:100px;padding:10px 14px;border-right:1px solid rgba(255,255,255,.1)">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:.07em;text-transform:uppercase;margin-bottom:2px">Contract Price</div>
+          <div style="font-size:16px;font-weight:800;color:#F26522;font-family:var(--mono)">${revenue > 0 ? fmtR(revenue) : '—'}</div>
+        </div>
+        <div style="flex:1;min-width:100px;padding:10px 14px;border-right:1px solid rgba(255,255,255,.1)">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:.07em;text-transform:uppercase;margin-bottom:2px">Total Costs</div>
+          <div style="font-size:16px;font-weight:800;color:#FB923C;font-family:var(--mono)">${fmtR(totalAll)}</div>
+        </div>
+        <div style="flex:1;min-width:100px;padding:10px 14px;border-right:1px solid rgba(255,255,255,.1)">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:.07em;text-transform:uppercase;margin-bottom:2px">Gross Profit</div>
+          <div style="font-size:16px;font-weight:800;font-family:var(--mono);color:${gpColor}">${revenue > 0 ? (gp >= 0 ? '+' : '') + fmtR(gp) : '—'}</div>
+        </div>
+        <div style="flex:1;min-width:100px;padding:10px 14px">
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:.07em;text-transform:uppercase;margin-bottom:2px">Actual GM%</div>
+          <div style="font-size:16px;font-weight:800;font-family:var(--mono);color:${pctColor}">${gpPct !== null ? gpPct.toFixed(1) + '%' : '—'}</div>
+        </div>
+      </div>
+      <div style="padding:6px 14px 8px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:16px;flex-wrap:wrap">
+        ${totalMat > 0 ? `<span style="font-size:11px;color:rgba(255,255,255,.6)">🧱 Mat <strong style="color:#fff">${fmtR(totalMat)}</strong></span>` : ''}
+        ${totalLab > 0 ? `<span style="font-size:11px;color:rgba(255,255,255,.6)">👷 Labor <strong style="color:#fff">${fmtR(totalLab)}</strong></span>` : ''}
+        ${totalOth > 0 ? `<span style="font-size:11px;color:rgba(255,255,255,.6)">📦 Other <strong style="color:#fff">${fmtR(totalOth)}</strong></span>` : ''}
+      </div>
+    </div>
+
+    <!-- Costs table -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:var(--surface2)">
+            <th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);border-bottom:1px solid var(--border)">Category</th>
+            <th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);border-bottom:1px solid var(--border)">Vendor / Description</th>
+            <th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);border-bottom:1px solid var(--border)">Date</th>
+            <th style="padding:7px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);border-bottom:1px solid var(--border)">Amount</th>
+            <th style="padding:7px 8px;border-bottom:1px solid var(--border);width:70px"></th>
+          </tr>
+        </thead>
+        <tbody>${allRows}</tbody>
+        <tfoot>
+          <tr style="background:var(--surface2)">
+            <td colspan="3" style="padding:8px 12px;font-size:12px;font-weight:700;color:var(--text2);border-top:1px solid var(--border)">Total</td>
+            <td style="padding:8px 12px;text-align:right;font-size:14px;font-weight:800;color:var(--orange);font-family:var(--mono);border-top:1px solid var(--border)">${fmt(totalAll)}</td>
+            <td style="border-top:1px solid var(--border)"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>` : `
+    <!-- Empty state -->
+    <div style="background:var(--surface);border:1.5px dashed var(--border);border-radius:var(--r);padding:16px;text-align:center;color:var(--text3);font-size:12px;margin-bottom:10px">
+      No expenses recorded yet — click <strong style="color:var(--orange)">+ Add Expense</strong> to track costs for this estimate.
+    </div>`}
+  `;
+}
+
+// ── Toggle costs panel visibility ───────────────
+function toggleEstCosts(estimateId) {
+  const safeId = estimateId.replace(/[^a-zA-Z0-9]/g,'_');
+  const panel  = document.getElementById('est-costs-panel-' + safeId);
+  const arrow  = document.getElementById('est-costs-arrow-' + safeId);
+  if (!panel) return;
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.style.transform = open ? 'rotate(-90deg)' : 'rotate(0deg)';
+  if (!open) renderEstimateCosts(estimateId); // render on first open
+}
+
+// ── Migrate legacy fp_jobCosts data → fp_jobCosts2 ──
+// Called once on startup if old data exists and new doesn't
+function migrateLegacyJobCosts() {
+  const oldData = localStorage.getItem('fp_jobCosts');
+  const newData = localStorage.getItem('fp_jobCosts2');
+  if (!oldData || newData) return;
+  try {
+    const old = JSON.parse(oldData);
+    const migrated = {};
+    Object.entries(old).forEach(([prefix, jobData]) => {
+      const pinnedId = jobData.pinnedEstimateId;
+      (jobData.costs || []).forEach(c => {
+        const estId = c.estimateId || pinnedId || prefix;
+        if (!migrated[estId]) migrated[estId] = { costs: [] };
+        migrated[estId].costs.push({
+          id:        c.id,
+          type:      c.type   || 'Other',
+          vendor:    '',
+          desc:      c.desc   || '',
+          date:      c.date   || '',
+          amount:    c.amount || 0,
+          estimateId: estId,
+          createdAt: c.createdAt || new Date().toISOString()
+        });
+      });
+    });
+    localStorage.setItem('fp_jobCosts2', JSON.stringify(migrated));
+    console.log('Migrated legacy job costs to fp_jobCosts2');
+  } catch(e) {
+    console.warn('Legacy job cost migration failed:', e);
+  }
 }
 
 
-// assigns the next letter (A→B→C etc), loads it
-// ready to edit — no retyping needed
-// ════════════════════════════════════════════════
-// Clones current estimate, blanks the ID so server
-// assigns the next letter (A→B→C etc), loads it
-// ready to edit — no retyping needed
-// ════════════════════════════════════════════════
 function duplicateEstimate() {
   if (curIdx < 0) { alert('No estimate loaded — open an estimate first'); return; }
 
@@ -12139,22 +12139,30 @@ function renderBreakdownFromJobs(tbodyId, theadId, field, label) {
   const tbody = document.getElementById(tbodyId);
   if (!thead || !tbody) return;
 
-  // Build from local jobs array (all time — not filtered by CSV date range)
+  // Build from local jobs array, filtered by Sent date (same as global filter)
   const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
   const range    = getDateRange(rangeVal);
 
+  // Statuses that count as "closed/won" — matches FencePro actual status values
+  const CLOSED_STATUSES = new Set([
+    'Accepted','Deposit Received','Scheduled','In Progress',
+    'Ready for Invoice','Invoiced','Paid in Full'
+  ]);
+
   const map = {};
   jobs.forEach(j => {
-    const d = j.savedAt ? new Date(j.savedAt) : null;
-    if (d) {
+    if (!j.id) return;
+    // Use savedAt for date filtering — consistent with renderKPIs approach
+    const dateStr = j.savedAt || '';
+    const d = dateStr ? new Date(dateStr) : null;
+    if (d && !isNaN(d)) {
       if (range.start && d < range.start) return;
       if (range.end   && d > range.end)   return;
     }
     const key = (j[field] || '').trim() || '(none)';
     if (!map[key]) map[key] = { total: 0, closed: 0, revenue: 0 };
     map[key].total++;
-    const isClosed = ['Complete','Accepted','Invoiced','Deposit Received','Scheduled','In Progress','Ready for Invoice'].includes(j.propStatus);
-    if (isClosed) {
+    if (CLOSED_STATUSES.has(j.propStatus)) {
       map[key].closed++;
       map[key].revenue += Number(j.calc_final) || Number(j.finalPrice) || 0;
     }
