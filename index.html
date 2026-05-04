@@ -2695,7 +2695,7 @@
 
       <!-- Monthly avg booking time chart -->
       <div class="card">
-        <div class="card-title">Avg Days to Book — by Month Sent</div>
+        <div class="card-title">Avg Days to Book — by Month Accepted</div>
         <div style="overflow-x:auto"><canvas id="bookingTimeChart" height="200"></canvas></div>
       </div>
 
@@ -11941,7 +11941,7 @@ function renderAnalytics() {
   renderBreakdownFromJobs('analyticsFenceTable',    'analyticsFenceHead',    'fenceType',   'Fence Type');
   renderBreakdownFromJobs('analyticsSupplierTable', 'analyticsSupplierHead', 'supplier',    'Supplier');
   renderPerformance(analyticsData, range);
-  renderBookingTime(filtered);
+  renderBookingTime(analyticsData, range); // filters internally on Accepted Date
 }
 
 // ── PIPELINE KPIs ─────────────────────────────────────────
@@ -11965,13 +11965,23 @@ function renderPipelineKPIs(rows) {
 // BOOKING TIME ANALYSIS
 // Sent (col AB) → Accepted Date (col C) = days to book
 // ══════════════════════════════════════════════════════════
-async function renderBookingTime(rows) {
-  const data = rows
+async function renderBookingTime(allRows, range) {
+  // Filter on Accepted Date — we want "proposals accepted in this period"
+  // not "proposals sent in this period that happened to get accepted"
+  if (!range) {
+    const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
+    range = getDateRange(rangeVal);
+  }
+
+  const data = allRows
     .filter(r => r['Status'] === 'Accepted' && r['Sent'] && r['Accepted Date'])
     .map(r => {
       const sent     = parseAnalyticsDate(r['Sent']);
       const accepted = parseAnalyticsDate(r['Accepted Date']);
       if (!sent || !accepted) return null;
+      // Apply range filter on Accepted Date
+      if (range.start && accepted < range.start) return null;
+      if (range.end   && accepted > range.end)   return null;
       const days = Math.round((accepted - sent) / 86400000);
       if (days < 0) return null;
       return {
@@ -11981,11 +11991,11 @@ async function renderBookingTime(rows) {
         sentDate: sent,
         accDate:  accepted,
         days,
-        monthKey: sent.toISOString().slice(0, 7)
+        monthKey: accepted.toISOString().slice(0, 7) // group by month accepted
       };
     })
     .filter(Boolean)
-    .sort((a, b) => a.sentDate - b.sentDate);
+    .sort((a, b) => a.accDate - b.accDate);
 
   const count   = data.length;
   const avgDays = count > 0 ? Math.round(data.reduce((s, d) => s + d.days, 0) / count) : 0;
