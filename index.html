@@ -732,41 +732,32 @@
     .card{border:1px solid #ddd;break-inside:avoid;box-shadow:none}
     .idbanner{background:#1B2B4B;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 
-    /* ── ANALYTICS SUB-TABS ──────────────────────────── */
-  .atab-bar {
+    .atab-bar {
     background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 0 16px;
+    border-bottom: 2px solid var(--border);
+    padding: 0 8px;
     display: flex;
-    gap: 4px;
+    gap: 0;
     flex-shrink: 0;
   }
   .atab {
-    padding: 11px 20px;
-    font-size: 12.5px;
+    padding: 12px 22px;
+    font-size: 13px;
     font-weight: 700;
     font-family: var(--sans);
     color: var(--text3);
     background: none;
     border: none;
     border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
     cursor: pointer;
     transition: color .15s, border-color .15s, background .15s;
     white-space: nowrap;
     border-radius: 6px 6px 0 0;
-    letter-spacing: .02em;
+    letter-spacing: .01em;
   }
-  .atab:hover {
-    color: var(--navy);
-    background: rgba(0,0,0,.04);
-  }
-  .atab.atab-active {
-    color: var(--orange);
-    border-bottom-color: var(--orange);
-    background: rgba(242,101,34,.06);
-  }
-  .atab-panel { display: none !important; }
-  .atab-panel.active { display: flex !important; }
+  .atab:hover { color: var(--navy); background: rgba(0,0,0,.03); }
+  .atab.atab-active { color: var(--orange); border-bottom-color: var(--orange); background: rgba(242,101,34,.05); }
 
   /* ── PROPOSAL PRINT ── */
     body.printing-proposal .screen,
@@ -2467,13 +2458,11 @@
 <!-- ══ ANALYTICS SCREEN ══════════════════════════════════════ -->
 <div id="s-analytics" class="screen">
 
-  <!-- ── ANALYTICS HEADER — global filter lives here ──────── -->
-  <div class="screen-header" style="flex-wrap:wrap;gap:8px">
+  <!-- HEADER ROW -->
+  <div class="screen-header" style="gap:10px;flex-wrap:wrap">
     <span class="screen-title">📈 Analytics</span>
-
-    <!-- Global date range — ONE filter, applies to ALL tabs -->
-    <div style="display:flex;align-items:center;gap:6px;margin-left:12px">
-      <span style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Range</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.05em;text-transform:uppercase">Range</span>
       <select id="analyticsRange" onchange="localStorage.setItem('fp_analyticsRange',this.value);renderAnalytics()"
         style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600">
         <option value="week">This Week</option>
@@ -2490,100 +2479,94 @@
       </select>
       <span id="analyticsProposalsMeta" style="font-size:11px;color:var(--text3)"></span>
     </div>
-
-    <!-- Upload button -->
-    <div style="margin-left:auto">
-      <label class="btn btn-sm" style="cursor:pointer" title="Upload proposals CSV from your CRM">
-        ⬆ Upload CSV
-        <input type="file" id="analyticsFileInput" accept=".csv" style="display:none" onchange="handleAnalyticsFile(this.files[0]);this.value=''">
-      </label>
-    </div>
+    <label class="btn btn-sm" style="cursor:pointer;margin-left:auto">
+      ⬆ Upload CSV
+      <input type="file" id="analyticsFileInput" accept=".csv" style="display:none" onchange="handleAnalyticsFile(this.files[0]);this.value=''">
+    </label>
   </div>
 
-  <!-- ── ANALYTICS SUB-TABS ────────────────────────────────── -->
-  <div class="atab-bar">
-    <button id="atab_overview"    class="atab atab-active" onclick="showAnalyticsTab('overview')">📊 Overview</button>
-    <button id="atab_pipeline"    class="atab"             onclick="showAnalyticsTab('pipeline')">🔁 Pipeline</button>
-    <button id="atab_performance" class="atab"             onclick="showAnalyticsTab('performance')">📈 Performance</button>
-    <button id="atab_breakdown"   class="atab"             onclick="showAnalyticsTab('breakdown')">🔍 Breakdown</button>
+  <div style="display:flex;gap:0;background:var(--surface);border-bottom:2px solid var(--border);padding:0 8px;flex-shrink:0">
+    <button id="atab_overview"    class="atab atab-active" onclick="showAnalyticsTab('overview')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Overview
+    </button>
+    <button id="atab_pipeline"    class="atab" onclick="showAnalyticsTab('pipeline')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Pipeline
+    </button>
+    <button id="atab_performance" class="atab" onclick="showAnalyticsTab('performance')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Performance
+    </button>
+    <button id="atab_breakdown"   class="atab" onclick="showAnalyticsTab('breakdown')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Breakdown
+    </button>
   </div>
 
-  <!-- ── TAB CONTENT AREA ──────────────────────────────────── -->
+  <!-- TAB PANELS — only one visible at a time, controlled by showAnalyticsTab() -->
   <div style="flex:1;overflow-y:auto;background:var(--bg)">
 
-    <!-- Upload prompt — shown when no data loaded -->
-    <div id="analyticsEmpty" style="text-align:center;padding:60px 20px;color:var(--text3)">
-      <div style="font-size:48px;margin-bottom:16px">📈</div>
-      <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px">No Proposals Data Loaded</div>
-      <div style="font-size:13px;margin-bottom:20px">Upload your proposals CSV from your CRM to start seeing analytics</div>
-      <label class="btn btn-a" style="cursor:pointer;display:inline-flex">
-        ⬆ Upload Proposals CSV
-        <input type="file" accept=".csv" style="display:none" onchange="handleAnalyticsFile(this.files[0]);this.value=''">
-      </label>
-    </div>
-
-    <!-- ══ TAB 1: OVERVIEW ══════════════════════════════════ -->
-    <div id="atab-overview" class="atab-panel active" style="padding:16px;flex-direction:column;gap:16px">
-
-      <!-- KPI Bar — 6 tiles -->
+    <!-- ══ OVERVIEW ══ -->
+    <div id="atab-overview" style="display:flex;flex-direction:column;gap:16px;padding:16px">
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px">
-        <div class="card" style="padding:14px 16px;text-align:center">
+        <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Proposals</div>
           <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_total">—</div>
         </div>
-        <div class="card" style="padding:14px 16px;text-align:center">
+        <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Close Rate</div>
           <div style="font-size:28px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="kpi_closerate">—</div>
         </div>
-        <div class="card" style="padding:14px 16px;text-align:center">
+        <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Closed Revenue</div>
           <div style="font-size:22px;font-weight:900;color:var(--green);font-family:var(--mono)" id="kpi_revenue">—</div>
         </div>
-        <div class="card" style="padding:14px 16px;text-align:center">
+        <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Accepted Backlog</div>
           <div style="font-size:22px;font-weight:900;color:var(--blue);font-family:var(--mono)" id="kpi_backlog">—</div>
           <div style="font-size:9px;color:var(--text3);margin-top:2px">Won — not yet complete</div>
         </div>
-        <div class="card" style="padding:14px 16px;text-align:center">
+        <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg Job Value</div>
           <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_avg">—</div>
         </div>
-        <div class="card" style="padding:14px 16px;text-align:center">
+        <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Open Pipeline</div>
           <div style="font-size:22px;font-weight:900;color:var(--blue);font-family:var(--mono)" id="kpi_pipeline">—</div>
         </div>
       </div>
-
-      <!-- Monthly Trend Chart -->
       <div class="card">
         <div class="card-title">Monthly Trends — Proposals Sent vs Closed vs Close Rate</div>
-        <div style="overflow-x:auto">
-          <canvas id="analyticsMonthChart" height="200"></canvas>
-        </div>
+        <div style="overflow-x:auto"><canvas id="analyticsMonthChart" height="200"></canvas></div>
       </div>
+      <div id="analyticsEmpty" style="display:none;text-align:center;padding:40px 20px;color:var(--text3)">
+        <div style="font-size:40px;margin-bottom:12px">📈</div>
+        <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">No Proposals Data Loaded</div>
+        <div style="font-size:13px;margin-bottom:16px">Upload your proposals CSV to see analytics</div>
+        <label class="btn btn-a" style="cursor:pointer;display:inline-flex">
+          ⬆ Upload CSV
+          <input type="file" accept=".csv" style="display:none" onchange="handleAnalyticsFile(this.files[0]);this.value=''">
+        </label>
+      </div>
+    </div>
 
-    </div><!-- end atab-overview -->
-
-    <!-- ══ TAB 2: PIPELINE ══════════════════════════════════ -->
-    <div id="atab-pipeline" class="atab-panel" style="padding:16px;flex-direction:column;gap:16px">
-
-      <!-- Pipeline KPI mini bar -->
+    <!-- ══ PIPELINE ══ -->
+    <div id="atab-pipeline" style="display:none;flex-direction:column;gap:16px;padding:16px">
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-        <div class="card" style="padding:14px 16px;text-align:center">
+        <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Open Proposals</div>
           <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="pipe_kpi_count">—</div>
         </div>
-        <div class="card" style="padding:14px 16px;text-align:center">
+        <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Open Value</div>
           <div style="font-size:22px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="pipe_kpi_value">—</div>
         </div>
-        <div class="card" style="padding:14px 16px;text-align:center">
+        <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Overdue (&gt;14 days)</div>
           <div style="font-size:28px;font-weight:900;color:var(--red);font-family:var(--mono)" id="pipe_kpi_overdue">—</div>
         </div>
       </div>
-
-      <!-- Pipeline follow-up table -->
       <div class="card">
         <div class="card-title">Open Pipeline — Follow Up</div>
         <div style="overflow-x:auto;max-height:500px;overflow-y:auto">
@@ -2593,50 +2576,40 @@
           </table>
         </div>
       </div>
+    </div>
 
-    </div><!-- end atab-pipeline -->
-
-    <!-- ══ TAB 3: PERFORMANCE ═══════════════════════════════ -->
-    <div id="atab-performance" class="atab-panel" style="padding:16px;flex-direction:column;gap:16px">
-
+    <!-- ══ PERFORMANCE ══ -->
+    <div id="atab-performance" style="display:none;flex-direction:column;gap:16px;padding:16px">
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
           <div class="card-title" style="margin-bottom:0">Lead → Estimate → Close Funnel</div>
           <div style="font-size:11px;color:var(--text3)" id="perfDataNote"></div>
         </div>
-
-        <!-- Perf KPI bar -->
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px">
-          <div style="background:var(--surface2);border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
+          <div style="background:var(--surface2,var(--surface));border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
             <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Leads</div>
             <div style="font-size:24px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="perf_leads">—</div>
           </div>
-          <div style="background:var(--surface2);border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
+          <div style="background:var(--surface2,var(--surface));border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
             <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Estimates Sent</div>
             <div style="font-size:24px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="perf_estimates">—</div>
           </div>
-          <div style="background:var(--surface2);border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
+          <div style="background:var(--surface2,var(--surface));border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
             <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Jobs Closed</div>
             <div style="font-size:24px;font-weight:900;color:var(--green);font-family:var(--mono)" id="perf_closed">—</div>
           </div>
-          <div style="background:var(--surface2);border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
-            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Conversion Rate</div>
+          <div style="background:var(--surface2,var(--surface));border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
+            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Conversion %</div>
             <div style="font-size:24px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="perf_conversion">—</div>
             <div style="font-size:10px;color:var(--text3);margin-top:2px">Leads → Estimates</div>
           </div>
-          <div style="background:var(--surface2);border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
-            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Closure Rate</div>
+          <div style="background:var(--surface2,var(--surface));border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
+            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Closure %</div>
             <div style="font-size:24px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="perf_closure">—</div>
             <div style="font-size:10px;color:var(--text3);margin-top:2px">Estimates → Jobs</div>
           </div>
         </div>
-
-        <!-- Month-over-month chart -->
-        <div style="overflow-x:auto;margin-bottom:16px">
-          <canvas id="perfMonthChart" height="200"></canvas>
-        </div>
-
-        <!-- Month-over-month table -->
+        <div style="overflow-x:auto;margin-bottom:16px"><canvas id="perfMonthChart" height="200"></canvas></div>
         <div style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead id="perfTableHead"></thead>
@@ -2644,13 +2617,10 @@
           </table>
         </div>
       </div>
+    </div>
 
-    </div><!-- end atab-performance -->
-
-    <!-- ══ TAB 4: BREAKDOWN ═════════════════════════════════ -->
-    <div id="atab-breakdown" class="atab-panel" style="padding:16px;flex-direction:column;gap:16px">
-
-      <!-- Channel + Campaign -->
+    <!-- ══ BREAKDOWN ══ -->
+    <div id="atab-breakdown" style="display:none;flex-direction:column;gap:16px;padding:16px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="card">
           <div class="card-title">By Channel</div>
@@ -2667,8 +2637,6 @@
           </table>
         </div>
       </div>
-
-      <!-- Fence Type + Supplier (future: populated from jobs data) -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="card">
           <div class="card-title">By Fence Type</div>
@@ -2685,10 +2653,9 @@
           </table>
         </div>
       </div>
+    </div>
 
-    </div><!-- end atab-breakdown -->
-
-  </div><!-- end tab content area -->
+  </div><!-- end scroll area -->
 </div>
 <!-- ══ END ANALYTICS SCREEN ══════════════════════════════════ -->
 
@@ -11849,12 +11816,14 @@ function isClosed(status) {
 
 // ── MAIN RENDER ──────────────────────────────────
 function showAnalyticsTab(tab) {
-  document.querySelectorAll('.atab').forEach(b => b.classList.remove('atab-active'));
-  document.querySelectorAll('.atab-panel').forEach(p => p.classList.remove('active'));
-  const btn   = document.getElementById('atab_' + tab);
-  const panel = document.getElementById('atab-' + tab);
-  if (btn)   btn.classList.add('atab-active');
-  if (panel) panel.classList.add('active');
+  const tabs = ['overview','pipeline','performance','breakdown'];
+  tabs.forEach(t => {
+    const btn   = document.getElementById('atab_' + t);
+    const panel = document.getElementById('atab-' + t);
+    const on    = t === tab;
+    if (btn)   btn.classList.toggle('atab-active', on);
+    if (panel) panel.style.display = on ? 'flex' : 'none';
+  });
   localStorage.setItem('fp_analyticsTab', tab);
 }
 
