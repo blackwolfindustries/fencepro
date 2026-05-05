@@ -7398,9 +7398,10 @@ async function loadCloud() {
         const id = String(j.id || '').trim();
         return id && !cloudIds.has(id);
       });
+      const isValidId = j => { const p = String(j.id||'').split('-'); return p.length >= 4 && /^[A-Z]$/.test(p[2]); };
       jobs = [
-        ...data.jobs.map(normalizeJob),
-        ...localOnlyJobs
+        ...data.jobs.map(normalizeJob).filter(isValidId),
+        ...localOnlyJobs.filter(isValidId)
       ];
       persistJobs();
 
