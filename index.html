@@ -6600,61 +6600,9 @@ function clearAudit() {
 }
 
 function loadJobLocal(idx) {
-  // ── SNAPSHOT CURRENT ESTIMATE TO MEMORY BEFORE SWITCHING ────
-  // Captures the live form state so switching pills never loses unsaved data.
-  // IMPORTANT: calc_ values are NOT taken from lastCalc (which reflects the
-  // currently-displayed estimate) — they're preserved from the existing job
-  // object to prevent cross-contamination between sibling estimates.
-  // Snapshot current form state into jobs[curIdx] before switching
-  // Guard: verify curIdx still points to the job whose ID matches the form's estId
-  // This prevents corrupting the wrong job if the array shifted since last render
-  const formEstId = document.getElementById('estId')?.textContent?.trim() || '';
-  const snapshotOk = curIdx >= 0 && curIdx !== idx && jobs[curIdx] &&
-                     (!formEstId || jobs[curIdx].id === formEstId);
-  if (snapshotOk) {
-    const snap = collectData();
-    snap.photos    = photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' }));
-    snap.docs      = docs.map(d => ({ name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' }));
-    snap.photoUrls = photos.map(p => p.driveUrl || '').filter(Boolean);
-    // Preserve existing calc values — don't overwrite with lastCalc
-    const existing = jobs[curIdx];
-    snap.calc_final      = existing.calc_final;
-    snap.calc_cash       = existing.calc_cash;
-    snap.calc_gmPct      = existing.calc_gmPct;
-    snap.calc_gmDol      = existing.calc_gmDol;
-    snap.calc_base       = existing.calc_base;
-    snap.calc_matTotal   = existing.calc_matTotal;
-    snap.calc_demoDol    = existing.calc_demoDol;
-    snap.calc_delivery   = existing.calc_delivery;
-    snap.calc_suppCCRate = existing.calc_suppCCRate;
-    snap.calc_effMarkup  = existing.calc_effMarkup;
-    snap.calc_matDel     = existing.calc_matDel;
-    snap.calc_matTax     = existing.calc_matTax;
-    snap.calc_suppFee    = existing.calc_suppFee;
-    snap.calc_concrete   = existing.calc_concrete;
-    snap.calc_custTax    = existing.calc_custTax;
-    snap.calc_finalTax   = existing.calc_finalTax;
-    snap.finalPrice      = existing.finalPrice;
-    snap.cashPrice       = existing.cashPrice;
-    // Never let the snapshot overwrite status/workflow fields from the form —
-    // these are only changed deliberately, not snapshotted during pill switches
-    snap.propStatus        = existing.propStatus;
-    snap.contractPrice     = existing.contractPrice;
-    snap.contractPriceType = existing.contractPriceType;
-    snap.depositPaid       = existing.depositPaid;
-    snap.depositRequired   = existing.depositRequired;
-    snap.depositDate       = existing.depositDate;
-    snap.depositMethod     = existing.depositMethod;
-    snap.depositRef        = existing.depositRef;
-    snap.scheduledDate     = existing.scheduledDate;
-    snap.scheduledCrew     = existing.scheduledCrew;
-    snap.balanceDue        = existing.balanceDue;
-    snap.finalPaymentAmount= existing.finalPaymentAmount;
-    snap.finalPaymentDate  = existing.finalPaymentDate;
-    snap.finalPaymentMethod= existing.finalPaymentMethod;
-    jobs[curIdx] = normalizeJob({ ...existing, ...snap });
-    persistJobs();
-  }
+  // Load the target estimate directly from jobs[] — no form snapshot.
+  // The jobs[] array always has the authoritative saved data.
+  // Unsaved edits are intentionally discarded on pill switch (save first if needed).
 
   const d = jobs[idx];
   curIdx  = idx;
