@@ -6222,10 +6222,13 @@ function recalc() {
 // SAVE / LOAD
 // ════════════════════════════════════════════════
 function collectData() {
-  const existingId = val('jobNo').trim(); // only set after first cloud save
+  // Use full estimate ID (e.g. '938-Josh-B-2026') — NOT jobNo which is just the numeric prefix
+  const fullEstId  = (document.getElementById('estId')?.textContent || '').trim();
+  const validEstId = /^\d+-\S+-[A-Z]-\d{4}$/.test(fullEstId) ? fullEstId : '';
+  const existingId = validEstId || '';
   return {
-    id:          existingId || '',  // blank = new estimate, server assigns ID
-    jobNo:       existingId || '',
+    id:          existingId,        // blank = new estimate, server assigns ID
+    jobNo:       existingId,
     jobId:       existingId ? existingId.split('-')[0] : '',  // numeric prefix — the parent Job ID
     jobPrefix:   val('jobPrefix'),
     savedAt:     new Date().toISOString(),
@@ -6673,11 +6676,11 @@ function loadJobLocal(idx) {
   setVal('custChannel', g('custChannel','Channel'));
   setVal('custCampaign',g('custCampaign','Campaign'));
 
-  document.getElementById('estId').textContent      = d.id || '';
-  document.getElementById('estContactUID').value    = d.contactUID || d['Contact UID'] || '';
-  document.getElementById('jobNo').value            = d.jobNo || d.id || '';
-  document.getElementById('jobPrefix').value        = (d.id || '').split('-')[0] || '';
+  document.getElementById('estId').textContent       = d.id || 'Enter job # to begin';  // FULL ID — used by collectData
   document.getElementById('idAssembled').textContent = d.id || '';
+  document.getElementById('estContactUID').value     = d.contactUID || d['Contact UID'] || '';
+  document.getElementById('jobNo').value             = d.jobNo || '';  // numeric prefix only (938)
+  document.getElementById('jobPrefix').value         = (d.id || '').split('-')[0] || '';
   document.getElementById('franchTog').checked      = d.franchiseOn !== false;
   document.getElementById('deliveryOverride').checked = d.deliveryOverride || d['Delivery Override'] === 'Yes' || false;
 
@@ -7398,9 +7401,21 @@ async function loadCloud() {
         const id = String(j.id || '').trim();
         return id && !cloudIds.has(id);
       });
+      // Build a map of local statuses so we can rescue them if cloud returns 'Draft' incorrectly
+      const localStatusMap = {};
+      jobs.forEach(j => { if (j.id && j.propStatus && j.propStatus !== 'Draft') localStatusMap[j.id] = j.propStatus; });
+
       const isValidId = j => { const p = String(j.id||'').split('-'); return p.length >= 4 && /^[A-Z]$/.test(p[2]); };
       jobs = [
-        ...data.jobs.map(normalizeJob).filter(isValidId),
+        ...data.jobs.map(j => {
+          const norm = normalizeJob(j);
+          // If cloud says Draft but we have a better local status, keep the local one
+          // This handles the case where old Sheets rows have bad status data
+          if (norm.propStatus === 'Draft' && localStatusMap[norm.id]) {
+            norm.propStatus = localStatusMap[norm.id];
+          }
+          return norm;
+        }).filter(isValidId),
         ...localOnlyJobs.filter(isValidId)
       ];
       persistJobs();
@@ -9740,7 +9755,9 @@ function onRecallSearch() {
     const status = String(job.propStatus || 'Draft').trim();
     const color  = SCOLS[status] || 'var(--text3)';
     const price  = job.finalPrice ? '$' + Math.round(job.finalPrice).toLocaleString() : (job.calc_final ? '$' + Math.round(job.calc_final).toLocaleString() : '—');
-    const addr   = (job.jobAddr || '').split(',')[0];
+    const addrRaw = (job.jobAddr || '').split(',')[0].trim();
+    // Don't show timestamps or ISO dates as address
+    const addr = /^\d{4}-\d{2}-\d{2}T|^\d{4}-\d{2}-\d{2}$/.test(addrRaw) ? '' : addrRaw;
     const prefix = jobId.split('-')[0] || '';
     return `<div class="recall-item" data-idx="${idx}" onmousedown="recallEstimate(${idx})"
       style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:2px">
@@ -9841,7 +9858,9 @@ function onSummarySearch() {
     const jobId  = job.id || '';
     const prefix = jobId.split('-')[0] || '';
     const name   = job.custName || 'Unnamed';
-    const addr   = (job.jobAddr || '').split(',')[0];
+    const addrRaw = (job.jobAddr || '').split(',')[0].trim();
+    // Don't show timestamps or ISO dates as address
+    const addr = /^\d{4}-\d{2}-\d{2}T|^\d{4}-\d{2}-\d{2}$/.test(addrRaw) ? '' : addrRaw;
     // Count how many estimates exist for this job prefix
     const estCount = jobs.filter(j => String(j.id||'').split('-')[0] === prefix).length;
     return `<div class="summary-search-item" data-prefix="${escHtml(prefix)}" onmousedown="selectSummaryJob('${escHtml(prefix)}')"
