@@ -6700,20 +6700,7 @@ function loadJobLocal(idx) {
 
 function setVal(id, val) {
   const el = document.getElementById(id);
-  if (!el || val === undefined || val === null) return;
-  const v = String(val).trim();
-  if (el.tagName === 'SELECT') {
-    // For selects, only set if the option actually exists — prevents blank/wrong value
-    const opts = Array.from(el.options).map(o => o.value);
-    if (opts.includes(v)) {
-      el.value = v;
-    } else if (v && opts.includes(val)) {
-      el.value = val; // try untrimmed too
-    }
-    // If no match found, leave current value — don't corrupt the field
-  } else {
-    el.value = v;
-  }
+  if (el && val !== undefined && val !== null) el.value = String(val).trim();
 }
 
 function newEst() {
