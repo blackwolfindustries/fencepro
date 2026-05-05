@@ -5884,12 +5884,12 @@ function assembleId() {
         });
         if (latest.custZip) onZip();
         if (latest.contactUID) document.getElementById('estContactUID').value = latest.contactUID;
-        document.getElementById('propStatus').value = 'Draft';
+        // NOTE: do NOT set propStatus here — assembleId() only builds the ID string,
+        // status is set by newEst() for new estimates and loadJobLocal() for existing ones
   const dpEl = document.getElementById('depositPct');
   const dvEl = document.getElementById('depositOverride');
   if (dpEl) dpEl.value = 50;
   if (dvEl) dvEl.value = '';
-        updateBadge();
 
         // Show existing estimates for this job number
         const letters = existing.map(j => (j.id||'').split('-')[2] || '?').filter(Boolean).join(', ');
