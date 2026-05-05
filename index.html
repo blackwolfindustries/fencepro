@@ -6615,6 +6615,22 @@ function loadJobLocal(idx) {
     snap.calc_finalTax   = existing.calc_finalTax;
     snap.finalPrice      = existing.finalPrice;
     snap.cashPrice       = existing.cashPrice;
+    // Never let the snapshot overwrite status/workflow fields from the form —
+    // these are only changed deliberately, not snapshotted during pill switches
+    snap.propStatus        = existing.propStatus;
+    snap.contractPrice     = existing.contractPrice;
+    snap.contractPriceType = existing.contractPriceType;
+    snap.depositPaid       = existing.depositPaid;
+    snap.depositRequired   = existing.depositRequired;
+    snap.depositDate       = existing.depositDate;
+    snap.depositMethod     = existing.depositMethod;
+    snap.depositRef        = existing.depositRef;
+    snap.scheduledDate     = existing.scheduledDate;
+    snap.scheduledCrew     = existing.scheduledCrew;
+    snap.balanceDue        = existing.balanceDue;
+    snap.finalPaymentAmount= existing.finalPaymentAmount;
+    snap.finalPaymentDate  = existing.finalPaymentDate;
+    snap.finalPaymentMethod= existing.finalPaymentMethod;
     jobs[curIdx] = normalizeJob({ ...existing, ...snap });
     persistJobs();
   }
