@@ -4258,7 +4258,10 @@ const FIN_RATES = {
 let jobs = (() => {
   try {
     const raw = JSON.parse(localStorage.getItem('fp_jobs') || '[]');
-    return raw.map(normalizeJob);
+    return raw.map(normalizeJob).filter(j => {
+      const p = String(j.id || '').split('-');
+      return p.length >= 4 && /^[A-Z]$/.test(p[2]); // must be valid: 937-Name-A-2026
+    });
   } catch(e) {
     return [];
   }
@@ -4410,6 +4413,24 @@ function normalizeJob(j) {
 // ════════════════════════════════════════════════
 function persistJobs() {
   localStorage.setItem('fp_jobs', JSON.stringify(jobs));
+}
+
+// Remove ghost/malformed records created by the snapshot bug
+// Valid estimate IDs look like: 937-Frank-A-2026 (4 segments, letter in position 2)
+// Ghosts look like: '937', '', '937-Frank-2026' (missing letter segment)
+function purgeGhostRecords() {
+  const before = jobs.length;
+  jobs = jobs.filter(j => {
+    const id = String(j.id || '').trim();
+    if (!id) return false;
+    const parts = id.split('-');
+    // Must have at least 4 segments and the 3rd segment must be a single uppercase letter
+    return parts.length >= 4 && /^[A-Z]$/.test(parts[2]);
+  });
+  if (jobs.length !== before) {
+    console.log(`Purged ${before - jobs.length} ghost record(s) from jobs[]`);
+    persistJobs();
+  }
 }
 
 // ════════════════════════════════════════════════
@@ -7449,6 +7470,7 @@ async function loadCloud() {
       loadCloudContacts();
       loadCloudJobCosts();
       migrateLegacyJobCosts(); // one-time migration from fp_jobCosts → fp_jobCosts2
+      purgeGhostRecords();       // remove any malformed records from snapshot bug
     }
   } catch(e) {
     console.error('loadCloud error:', e);
@@ -9763,6 +9785,8 @@ function onRecallSearch() {
     const price  = job.finalPrice ? '$' + Math.round(job.finalPrice).toLocaleString() : (job.calc_final ? '$' + Math.round(job.calc_final).toLocaleString() : '—');
     const addr   = (job.jobAddr || '').split(',')[0];
     const prefix = jobId.split('-')[0] || '';
+    const savedRaw = job.savedAt || '';
+    const savedFmt = savedRaw ? (() => { try { return new Date(savedRaw).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch(e){ return ''; } })() : '';
     return `<div class="recall-item" data-idx="${idx}" onmousedown="recallEstimate(${idx})"
       style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:2px">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -9770,7 +9794,7 @@ function onRecallSearch() {
         <span style="font-size:11px;font-weight:700;color:var(--accent)">${escHtml(price)}</span>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:11px;color:var(--text3)">${escHtml(jobId||'Unsaved')}${addr ? ' · ' + escHtml(addr) : ''}</span>
+        <span style="font-size:11px;color:var(--text3)">${escHtml(jobId||'Unsaved')}${addr ? ' · ' + escHtml(addr) : ''}${savedFmt ? ' · ' + savedFmt : ''}</span>
         <span style="font-size:10px;font-weight:700;color:${color};text-transform:uppercase">${escHtml(status)}</span>
       </div>
     </div>`;
