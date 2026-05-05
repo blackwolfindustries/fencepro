@@ -6449,13 +6449,21 @@ function renderSiblingPills() {
     .filter(s => s.id && s.id.split('-')[0] === prefix && s.letter)
     .sort((a, b) => a.letter.localeCompare(b.letter));
 
-  if (siblings.length <= 1) { wrap.style.display = 'none'; return; }
+  // Show pills whenever there are siblings (even just 1 — so pill is always visible)
+  if (siblings.length === 0) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'block';
 
-  // Match active pill by estimate ID, not by curIdx — curIdx can shift after array rebuilds
+  // Use estimate ID in onclick — look up fresh index at click time, not baked-in stale index
   pills.innerHTML = siblings.map(s =>
-    `<span class="sib-pill${s.id === activeId ? ' active' : ''}" onclick="loadJobLocal(${s.idx})" title="${s.id}">${s.letter}</span>`
+    `<span class="sib-pill${s.id === activeId ? ' active' : ''}" onclick="switchToEstimate('${s.id}')" title="${s.id}">${s.letter}</span>`
   ).join('');
+}
+
+// Switch to an estimate by ID — always does a fresh index lookup so stale indices never cause issues
+function switchToEstimate(estimateId) {
+  const idx = jobs.findIndex(j => j.id === estimateId);
+  if (idx < 0) { console.warn('switchToEstimate: ID not found:', estimateId); return; }
+  loadJobLocal(idx);
 }
 
 // ── PROPOSAL AUDIT TRAIL ──────────────────────────────────────
@@ -6576,7 +6584,13 @@ function loadJobLocal(idx) {
   // IMPORTANT: calc_ values are NOT taken from lastCalc (which reflects the
   // currently-displayed estimate) — they're preserved from the existing job
   // object to prevent cross-contamination between sibling estimates.
-  if (curIdx >= 0 && curIdx !== idx && jobs[curIdx]) {
+  // Snapshot current form state into jobs[curIdx] before switching
+  // Guard: verify curIdx still points to the job whose ID matches the form's estId
+  // This prevents corrupting the wrong job if the array shifted since last render
+  const formEstId = document.getElementById('estId')?.textContent?.trim() || '';
+  const snapshotOk = curIdx >= 0 && curIdx !== idx && jobs[curIdx] &&
+                     (!formEstId || jobs[curIdx].id === formEstId);
+  if (snapshotOk) {
     const snap = collectData();
     snap.photos    = photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' }));
     snap.docs      = docs.map(d => ({ name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' }));
@@ -6686,7 +6700,20 @@ function loadJobLocal(idx) {
 
 function setVal(id, val) {
   const el = document.getElementById(id);
-  if (el && val !== undefined && val !== null) el.value = val;
+  if (!el || val === undefined || val === null) return;
+  const v = String(val).trim();
+  if (el.tagName === 'SELECT') {
+    // For selects, only set if the option actually exists — prevents blank/wrong value
+    const opts = Array.from(el.options).map(o => o.value);
+    if (opts.includes(v)) {
+      el.value = v;
+    } else if (v && opts.includes(val)) {
+      el.value = val; // try untrimmed too
+    }
+    // If no match found, leave current value — don't corrupt the field
+  } else {
+    el.value = v;
+  }
 }
 
 function newEst() {
