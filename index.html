@@ -1470,24 +1470,18 @@
 
   <div class="sep"></div>
 
-  <!-- Action buttons -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0">
-    <button class="btn btn-a btn-sm" style="justify-content:center" onclick="saveJob()">💾 Save</button>
-    <button class="btn btn-g btn-sm" style="justify-content:center" onclick="convertJob()">📄 Proposal</button>
-    <button id="wf_send" class="btn btn-sm" style="justify-content:center;grid-column:span 2;background:#2563EB;color:#fff;border-color:#2563EB" onclick="generateProposalLink()">📧 Send Proposal Link</button>
-  </div>
-
-  <!-- Workflow pipeline buttons -->
-  <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
-    <button id="wf_accept"  class="btn btn-sm" style="justify-content:center;background:#16A34A;color:#fff;border-color:#16A34A;width:100%" onclick="openAcceptProposal()">✅ Accept Proposal</button>
-    <button id="wf_deposit" class="btn btn-sm" style="justify-content:center;background:#2563EB;color:#fff;border-color:#2563EB;width:100%" onclick="openRecordDeposit()">💰 Record Deposit</button>
-    <button id="wf_schedule"class="btn btn-sm" style="justify-content:center;background:#D97706;color:#fff;border-color:#D97706;width:100%" onclick="openScheduleJob()">📅 Schedule Job</button>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
-      <button id="wf_progress" class="btn btn-sm" style="justify-content:center;background:#7C3AED;color:#fff;border-color:#7C3AED" onclick="markInProgress()">🔨 In Progress</button>
-      <button id="wf_complete" class="btn btn-sm" style="justify-content:center;background:#16A34A;color:#fff;border-color:#16A34A" onclick="markJobComplete()">✅ Complete Job</button>
-    </div>
-    <button id="wf_invoice" class="btn btn-sm" style="justify-content:center;width:100%" onclick="openInvoice()">🧾 Generate Invoice</button>
-    <button id="wf_payment" class="btn btn-sm" style="justify-content:center;background:#1B2B4B;color:#fff;border-color:#1B2B4B;width:100%" onclick="openRecordFinalPayment()">💵 Record Final Payment</button>
+  <!-- Workflow buttons — single column, in order -->
+  <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+    <button class="btn btn-a btn-sm" style="justify-content:center;width:100%" onclick="saveJob()">💾 Save</button>
+    <button class="btn btn-g btn-sm" style="justify-content:center;width:100%" onclick="convertJob()">📄 Proposal</button>
+    <button id="wf_send"     class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="generateProposalLink()">📧 Send Proposal Link</button>
+    <button id="wf_accept"   class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="openAcceptProposal()">✅ Accept Proposal</button>
+    <button id="wf_deposit"  class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="openRecordDeposit()">💰 Record Deposit</button>
+    <button id="wf_schedule" class="btn btn-sm" style="justify-content:center;width:100%;background:#D97706;color:#fff;border-color:#D97706" onclick="openScheduleJob()">📅 Schedule Job</button>
+    <button id="wf_progress" class="btn btn-sm" style="justify-content:center;width:100%;background:#7C3AED;color:#fff;border-color:#7C3AED" onclick="markInProgress()">🔨 In Progress</button>
+    <button id="wf_complete" class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="markJobComplete()">✅ Complete Job</button>
+    <button id="wf_invoice"  class="btn btn-sm" style="justify-content:center;width:100%" onclick="openInvoice()">🧾 Generate Invoice</button>
+    <button id="wf_payment"  class="btn btn-sm" style="justify-content:center;width:100%;background:#1B2B4B;color:#fff;border-color:#1B2B4B" onclick="openRecordFinalPayment()">💵 Record Final Payment</button>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;flex-shrink:0">
