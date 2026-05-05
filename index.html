@@ -6643,7 +6643,15 @@ function loadJobLocal(idx) {
   setVal('totalLF',     g('totalLF',    'Total LF'));
   setVal('numGates',    g('numGates',   'Num Gates'));
   setVal('markupPct',   g('markupPct',  'Markup Pct'));
-  setVal('propStatus',  g('propStatus', 'Status'));
+  // Set propStatus directly — use existing job value, fallback to 'Draft'
+  // Must set before updateBadge() which reads this field
+  const statusVal = String(d.propStatus || d['Status'] || 'Draft').trim();
+  const statusEl  = document.getElementById('propStatus');
+  if (statusEl) {
+    // Find exact matching option (case-insensitive fallback)
+    const matchedOpt = Array.from(statusEl.options).find(o => o.value === statusVal || o.text === statusVal);
+    statusEl.value = matchedOpt ? matchedOpt.value : 'Draft';
+  }
   setVal('matCost',     g('matCost',    'Material Cost'));
   setVal('laborCost',   g('laborCost',  'Labor Cost'));
   setVal('demoLF',      g('demoLF',     'Demo LF'));
