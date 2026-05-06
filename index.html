@@ -1139,7 +1139,16 @@
     </div>
 
     <!-- Row 2: Prices -->
-    <div class="price-banner-row" style="display:flex">
+    <div class="price-banner-row" style="display:flex;align-items:stretch">
+      <!-- CC / Cash toggle pill -->
+      <div id="kpiToggleWrap" style="display:flex;align-items:center;padding:0 12px;border-right:1px solid rgba(255,255,255,.1);flex-shrink:0">
+        <div style="display:flex;background:rgba(0,0,0,.25);border-radius:8px;padding:3px;gap:2px">
+          <button id="kpiToggleCC" onclick="setKpiMode('cc')"
+            style="padding:4px 10px;border-radius:6px;border:none;font-size:10px;font-weight:800;letter-spacing:.04em;cursor:pointer;transition:.15s;background:#F26522;color:#fff">CC</button>
+          <button id="kpiToggleCash" onclick="setKpiMode('cash')"
+            style="padding:4px 10px;border-radius:6px;border:none;font-size:10px;font-weight:800;letter-spacing:.04em;cursor:pointer;transition:.15s;background:transparent;color:rgba(255,255,255,.5)">CASH</button>
+        </div>
+      </div>
       <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">CC / Finance Price</div>
         <div style="font-size:20px;font-weight:800;color:#F26522;font-family:var(--mono)" id="s_final">$0</div>
@@ -6253,15 +6262,23 @@ function recalc() {
   const crmMarkupDol = finalRnd - base;
 
   // Store for saving
+  // Cash scenario KPIs (computed here so toggle function needs no DOM reads)
+  const cashFranFeeDol  = cashPrc * franFee;
+  const cashMuDol       = cashPrc - base;
+  const cashGmDol       = cashMuDol - cashFranFeeDol;
+  const cashGmPct       = cashPrc > 0 ? (cashGmDol / cashPrc) * 100 : 0;
+
   lastCalc = {
     suppCCRate:supp.cc, delivery:effectiveDelivery, deliveryOverridden,
     matDel, matTax, suppFee, concTotal,
     base, effMu, final:finalRnd, cash:cashPrc,
-    custTax, finalTax, gmPct, gmDol,
+    custTax, finalTax, gmPct, gmDol, franFeeDol, franFee,
+    cashGmPct, cashGmDol, cashFranFeeDol,
     crmMaterial:matTotal, crmLabor:laborCost,
     crmDemo:demoDol, crmDiscount:discount,
     crmAddOns:addOns, crmMarkupPct:markupPct,
-    crmMarkupDol, crmFinalPrice:finalRnd
+    crmMarkupDol, crmFinalPrice:finalRnd,
+    totalLF, payMethod
   };
 
   // ── UPDATE UI ──────────────────────────────────
@@ -6328,6 +6345,13 @@ function recalc() {
   document.getElementById('taxfinalrow').style.display = isRepairType ? 'flex' : 'none';
   if (isRepairType) { setText('s_ctax', d(custTax)); setText('s_ctfinal','$'+Math.round(finalTax).toLocaleString()); }
 
+  // Hide CC/Cash toggle when payment method is CASH (both prices are identical)
+  const toggleWrap = document.getElementById('kpiToggleWrap');
+  if (toggleWrap) toggleWrap.style.display = (payMethod === 'CASH') ? 'none' : 'flex';
+
+  // Re-apply current KPI mode so banner reflects correct scenario after recalc
+  setKpiMode(payMethod === 'CASH' ? 'cc' : kpiMode);
+
   // CRM summary table (matches your D5:E12)
   setText('crm_mat',    '$' + matTotal.toFixed(2));
   updateDepositPreview();
@@ -6343,6 +6367,63 @@ function recalc() {
   calcCashMarkup();
 
   status('Calculated · ' + new Date().toLocaleTimeString());
+}
+
+// ════════════════════════════════════════════════
+// CC / CASH KPI TOGGLE
+// ════════════════════════════════════════════════
+let kpiMode = 'cc'; // 'cc' or 'cash'
+
+function setKpiMode(mode) {
+  if (!lastCalc || !lastCalc.final) return;
+  kpiMode = mode;
+
+  const ccBtn   = document.getElementById('kpiToggleCC');
+  const cashBtn = document.getElementById('kpiToggleCash');
+  if (ccBtn && cashBtn) {
+    ccBtn.style.background   = mode === 'cc'   ? '#F26522' : 'transparent';
+    ccBtn.style.color        = mode === 'cc'   ? '#fff'    : 'rgba(255,255,255,.5)';
+    cashBtn.style.background = mode === 'cash' ? '#4ADE80' : 'transparent';
+    cashBtn.style.color      = mode === 'cash' ? '#1a1a1a' : 'rgba(255,255,255,.5)';
+  }
+
+  const c = lastCalc;
+  const isCash = mode === 'cash';
+
+  const price   = isCash ? c.cash      : c.final;
+  const gmDol   = isCash ? c.cashGmDol : c.gmDol;
+  const gmPct   = isCash ? c.cashGmPct : c.gmPct;
+  const ffDol   = isCash ? c.cashFranFeeDol : c.franFeeDol;
+  const plf     = c.totalLF > 0 ? price / c.totalLF : 0;
+  const matPct  = price > 0 ? (c.crmMaterial / price) * 100 : 0;
+  const labPct  = price > 0 ? ((c.crmLabor + c.crmDemo) / price) * 100 : 0;
+
+  // Highlight active price cell, dim the other
+  const finalCell = document.getElementById('s_final');
+  const cashCell  = document.getElementById('s_cash');
+  if (finalCell) finalCell.parentElement.style.opacity = isCash ? '0.45' : '1';
+  if (cashCell)  cashCell.parentElement.style.opacity  = isCash ? '1'    : '0.45';
+
+  // Update all KPI cells
+  setText('s_gmd_banner', '$' + Math.round(gmDol).toLocaleString());
+  setText('s_gm',         gmPct.toFixed(1) + '%');
+  setText('s_ff_banner',  ffDol > 0 ? '$' + Math.round(ffDol).toLocaleString() : '—');
+  setText('s_plf',        c.totalLF > 0 ? '$' + (price / c.totalLF).toFixed(2) + '/LF' : '—');
+  setText('s_mat_pct',    price > 0 ? matPct.toFixed(1) + '%' : '—');
+  setText('s_lab_pct',    price > 0 ? labPct.toFixed(1) + '%' : '—');
+
+  // Also update detailed breakdown sidebar
+  setText('s_gmd',  '$' + Math.round(gmDol).toLocaleString());
+  const overhead   = gmDol * (typeof CFG !== 'undefined' ? CFG.OVERHEAD_PCT  : 0.15);
+  const commission = gmDol * (typeof CFG !== 'undefined' ? CFG.COMMISSION    : 0.06);
+  const netProfit  = gmDol - overhead - commission;
+  setText('s_oh',  '$' + Math.round(overhead).toLocaleString());
+  setText('s_com', '$' + Math.round(commission).toLocaleString());
+  setText('s_np',  '$' + Math.round(netProfit).toLocaleString());
+
+  // Add mode label under GM% so it's always clear which scenario is showing
+  const gmLabel = document.querySelector('#s_gm')?.previousElementSibling;
+  if (gmLabel) gmLabel.textContent = 'Gross Margin % ' + (isCash ? '(Cash)' : '(CC)');
 }
 
 // ════════════════════════════════════════════════
