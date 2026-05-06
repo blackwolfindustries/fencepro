@@ -1495,9 +1495,31 @@
       </div>
       <div style="height:1px;background:rgba(255,255,255,.15);margin:4px 0"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:15px;font-weight:800;color:#fff">Final Price</span>
+        <span style="font-size:15px;font-weight:800;color:#fff">Final Price (CC)</span>
         <span style="font-family:var(--mono);color:var(--orange);font-size:22px;font-weight:900;letter-spacing:-.5px" id="crm_final">—</span>
       </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <span style="font-size:13px;font-weight:700;color:#4ADE80">Cash / Check Price</span>
+        <span style="font-family:var(--mono);color:#4ADE80;font-size:18px;font-weight:800;letter-spacing:-.5px" id="crm_cash">—</span>
+      </div>
+
+      <!-- Reverse Cash Markup Calculator -->
+      <div style="height:1px;background:rgba(255,255,255,.15);margin:8px 0 6px"></div>
+      <div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">🔁 Cash Price → Markup Calculator</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:6px">Enter the cash price you want to offer — get the markup % to enter in SM</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div style="position:relative;flex:1">
+          <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.5);font-size:13px">$</span>
+          <input type="number" id="cashCalcInput" placeholder="e.g. 4800"
+            oninput="calcCashMarkup()"
+            style="width:100%;padding:7px 8px 7px 20px;border-radius:7px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-size:13px;font-family:var(--mono)">
+        </div>
+        <div style="text-align:right;min-width:70px">
+          <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em">Markup %</div>
+          <div style="font-family:var(--mono);color:#F26522;font-size:18px;font-weight:800" id="cashCalcResult">—</div>
+        </div>
+      </div>
+      <div id="cashCalcWarn" style="display:none;font-size:10px;color:#FCA5A5;margin-top:4px"></div>
     </div>
   </div>
 
@@ -6314,8 +6336,72 @@ function recalc() {
   setText('crm_mupct',  markupPct.toFixed(1) + '%');
   setText('crm_muDol',  '$' + crmMarkupDol.toFixed(2));
   setText('crm_final',  '$' + finalRnd.toLocaleString());
+  setText('crm_cash',   '$' + Math.round(cashPrc).toLocaleString());
+  // Keep reverse calculator in sync with current base cost
+  calcCashMarkup();
 
   status('Calculated · ' + new Date().toLocaleTimeString());
+}
+
+// ════════════════════════════════════════════════
+// REVERSE CASH MARKUP CALCULATOR
+// Given a desired cash price, compute the markup %
+// the user needs to enter in SM to hit that price.
+//
+// Cash price formula:  cashPrice = base × (1 + mu/100)  → rounded up to nearest $5
+// Inverse:             mu% = (desiredCash / base - 1) × 100
+// ════════════════════════════════════════════════
+function calcCashMarkup() {
+  const inputEl  = document.getElementById('cashCalcInput');
+  const resultEl = document.getElementById('cashCalcResult');
+  const warnEl   = document.getElementById('cashCalcWarn');
+  if (!inputEl || !resultEl) return;
+
+  const desired = parseFloat(inputEl.value);
+  const base    = lastCalc ? lastCalc.base : 0;
+
+  // Clear state
+  warnEl.style.display = 'none';
+  warnEl.textContent   = '';
+
+  if (!desired || isNaN(desired)) {
+    resultEl.textContent = '—';
+    resultEl.style.color = '#F26522';
+    return;
+  }
+
+  if (!base || base <= 0) {
+    resultEl.textContent = '—';
+    warnEl.style.display = 'block';
+    warnEl.textContent   = 'Enter costs above first to calculate base';
+    return;
+  }
+
+  if (desired < base) {
+    resultEl.textContent = '—';
+    resultEl.style.color = '#EF4444';
+    warnEl.style.display = 'block';
+    warnEl.textContent   = '⚠️ Price is below your base cost — you would lose money';
+    return;
+  }
+
+  const mu = (desired / base - 1) * 100;
+
+  // Color code: green = above target markup, yellow = close, red = below
+  const targetMu = lastCalc ? (lastCalc.crmMarkupPct || 40) : 40;
+  if (mu >= targetMu) {
+    resultEl.style.color = '#4ADE80';
+  } else if (mu >= targetMu * 0.85) {
+    resultEl.style.color = '#FCD34D';
+    warnEl.style.display = 'block';
+    warnEl.textContent   = '⚠️ Below your target markup of ' + targetMu.toFixed(1) + '%';
+  } else {
+    resultEl.style.color = '#EF4444';
+    warnEl.style.display = 'block';
+    warnEl.textContent   = '🚨 Significantly below target markup of ' + targetMu.toFixed(1) + '%';
+  }
+
+  resultEl.textContent = mu.toFixed(1) + '%';
 }
 
 // ════════════════════════════════════════════════
