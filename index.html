@@ -7002,9 +7002,12 @@ async function saveProposalPDF() {
     const canvas = await html2canvas(captureEl, {
       scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff',
       scrollX: 0, scrollY: 0,
-      windowWidth: captureEl.scrollWidth, windowHeight: captureEl.scrollHeight,
-      height: captureEl.scrollHeight, width: captureEl.scrollWidth,
-      onclone: clonedDoc => {
+      // Do NOT pass explicit height/width — let html2canvas measure the clone
+      // after onclone has expanded the image grid. Passing captureEl.scrollHeight
+      // here clips to the live-DOM height which doesn't include the fully-loaded
+      // grid images in the clone.
+      windowWidth: captureEl.scrollWidth,
+      onclone: async clonedDoc => {
         const el = clonedDoc.getElementById(isCombined ? 'prop_combined_view' : 'proposalDoc');
         if (el) { el.style.height='auto'; el.style.minHeight='auto'; el.style.overflow='visible'; el.style.boxShadow='none'; }
         const terms = clonedDoc.getElementById('prop_terms');
@@ -7018,35 +7021,59 @@ async function saveProposalPDF() {
           const sec   = clonedDoc.getElementById('prop_photosSection');
           const track = clonedDoc.getElementById('prop_carousel_track');
           if (sec) {
-            sec.style.display    = 'block';
+            sec.style.display      = 'block';
+            sec.style.overflow     = 'visible';
+            sec.style.height       = 'auto';
             sec.style.marginBottom = '24px';
           }
           if (track) {
             const count = propCarouselPhotos.length;
             // 1 photo: full width. 2: side by side. 3+: 2-column grid
-            const cols   = count === 1 ? '1fr' : 'repeat(2, 1fr)';
-            // Height scales with count — fewer photos get taller cells for better visual weight
-            const imgH   = count <= 2 ? '280px' : count <= 4 ? '220px' : '180px';
+            const cols = count === 1 ? '1fr' : 'repeat(2, 1fr)';
+            // Use a natural aspect-ratio so the container sizes to the images,
+            // not a fixed pixel height that collapses before images load.
             track.style.cssText = `
-              display: grid;
+              display: grid !important;
               grid-template-columns: ${cols};
-              gap: 10px;
+              gap: 12px;
               padding: 0;
               background: transparent;
-              min-height: auto;
+              min-height: 0;
               height: auto;
+              overflow: visible;
+              position: static;
             `;
+            // Build img tags — prefer dataUrl (already loaded in memory) over
+            // remote Drive URLs which require a network round-trip inside the clone.
             track.innerHTML = propCarouselPhotos.map(p => {
               const src = p.dataUrl || getDriveThumbUrl(p.driveUrl, 800);
               return `<img src="${src}" style="
                 width: 100%;
-                height: ${imgH};
+                height: auto;
+                aspect-ratio: 4/3;
                 object-fit: cover;
                 border-radius: 6px;
                 border: 1px solid #E2E5EA;
                 display: block;
               ">`;
             }).join('');
+
+            // ── CRITICAL: wait for every image in the clone to fully load
+            // before returning control to html2canvas. Without this, the
+            // canvas is captured before images paint and the section collapses.
+            const imgs = Array.from(track.querySelectorAll('img'));
+            await Promise.all(imgs.map(img =>
+              img.complete
+                ? Promise.resolve()
+                : new Promise(resolve => {
+                    img.onload  = resolve;
+                    img.onerror = resolve; // resolve on error so we don't hang
+                  })
+            ));
+
+            // Force the track and its parent to re-measure after images load
+            track.style.height = track.scrollHeight + 'px';
+            if (sec) sec.style.height = sec.scrollHeight + 'px';
           }
         }
       }
