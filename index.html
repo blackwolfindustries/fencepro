@@ -7790,7 +7790,7 @@ function renderBoard() {
         <div class="jcard-meta">${(job.jobAddr||'').split(',')[0]}</div>
         <div class="jcard-price">${job.finalPrice ? '$' + Math.round(job.finalPrice).toLocaleString() : (job.calc_final ? '$' + Math.round(job.calc_final).toLocaleString() : '—')}</div>
         ${job.driveFolder?`<div class="jcard-meta mt6"><a href="${job.driveFolder}" target="_blank" style="color:var(--blue)">📁 Drive folder</a></div>`:''}
-        ${(job.depositPaid > 0 || job.depositMethod || job.depositDate || job.depositRef) ? `<button class="jcard-reverse-dep" onclick="openReverseDeposit(${idx},event)" title="Reverse deposit">↩ Reverse Deposit</button>` : ''}
+        ${job.depositPaid > 0 ? `<button class="jcard-reverse-dep" onclick="openReverseDeposit(${idx},event)" title="Reverse deposit">↩ Reverse Deposit</button>` : ''}
         <button class="jcard-del" onclick="boardDeleteEstimate(${idx},event)" title="Delete estimate">✕</button>`;
       card.addEventListener('dragstart', e => { _dragJobIdx=idx; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',String(idx)); });
       card.addEventListener('dragend', () => { card.classList.remove('dragging'); document.querySelectorAll('.bcards.drag-over').forEach(el=>el.classList.remove('drag-over')); _dragJobIdx=null; });
