@@ -7272,8 +7272,42 @@ async function saveProposalPDF() {
         const el = clonedDoc.getElementById(isCombined ? 'prop_combined_view' : 'proposalDoc');
         if (el) { el.style.height='auto'; el.style.minHeight='auto'; el.style.overflow='visible'; el.style.boxShadow='none'; }
         const terms = clonedDoc.getElementById('prop_terms');
-        if (terms) { terms.style.height='auto'; terms.style.overflow='visible'; terms.style.maxHeight='none'; }
-        clonedDoc.querySelectorAll('[contenteditable]').forEach(e => { e.style.height='auto'; e.style.overflow='visible'; e.style.maxHeight='none'; });
+        if (terms) {
+          terms.style.height    = 'auto';
+          terms.style.minHeight = '0';
+          terms.style.maxHeight = 'none';
+          terms.style.overflow  = 'visible';
+          terms.style.whiteSpace = 'pre-wrap';
+          // Also expand every ancestor up to the proposal doc so nothing clips
+          let node = terms.parentElement;
+          while (node && node !== el) {
+            node.style.height    = 'auto';
+            node.style.minHeight = '0';
+            node.style.maxHeight = 'none';
+            node.style.overflow  = 'visible';
+            node = node.parentElement;
+          }
+        }
+        // Expand ALL contenteditable elements and their parents
+        clonedDoc.querySelectorAll('[contenteditable]').forEach(e => {
+          e.style.height    = 'auto';
+          e.style.minHeight = '0';
+          e.style.maxHeight = 'none';
+          e.style.overflow  = 'visible';
+          e.style.whiteSpace = 'pre-wrap';
+          // Parent too
+          if (e.parentElement) {
+            e.parentElement.style.height    = 'auto';
+            e.parentElement.style.maxHeight = 'none';
+            e.parentElement.style.overflow  = 'visible';
+          }
+        });
+        // Catch-all: any element with overflow:hidden or a fixed height
+        clonedDoc.querySelectorAll('*').forEach(e => {
+          const cs = window.getComputedStyle ? null : null; // can't use in clone
+          if (e.style.overflow === 'hidden')   e.style.overflow = 'visible';
+          if (e.style.maxHeight && e.style.maxHeight !== 'none') e.style.maxHeight = 'none';
+        });
         if (!isCombined && propCarouselPhotos.length > 0) {
           // Hide all carousel chrome
           ['prop_carousel_prev','prop_carousel_next','prop_carousel_counter','prop_carousel_dots'].forEach(id => {
@@ -11341,6 +11375,7 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
 
   const overlay = document.createElement('div');
   overlay.id = 'fp_prop_picker';
+  overlay.dataset.currentId = currentId; // track which estimate opened the picker
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
 
   const box = document.createElement('div');
@@ -11366,22 +11401,38 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
     const color  = colors[i] || '#333';
     const price  = est.calc_final ? ' — $' + Math.round(est.calc_final).toLocaleString() : '';
 
+    // Pre-select only the current estimate — avoids the bug where
+    // "Send selected estimate only" defaulted to the first in the sorted list
+    const isActive = est.id === currentId;
     const btn = document.createElement('button');
     btn.dataset.estId     = est.id;
-    btn.dataset.selected  = 'true';
-    btn.style.cssText     = 'flex:1;min-width:100px;padding:12px 8px;border-radius:10px;border:3px solid '+color+';background:'+color+';color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;line-height:1.4;transition:.15s';
-    btn.innerHTML         = 'Option ' + letter + '<br><span style="font-size:11px;font-weight:400;opacity:.85">' + (est.fenceType||'Fence') + price + '</span>';
+    btn.dataset.selected  = isActive ? 'true' : 'false';
+    // Selected = solid filled. Deselected = faded/greyed out so it's obvious.
+    const applyStyle = (b, selected) => {
+      if (selected) {
+        b.style.background  = color;
+        b.style.color       = '#fff';
+        b.style.border      = '3px solid ' + color;
+        b.style.opacity     = '1';
+        b.style.boxShadow   = '0 3px 10px ' + color + '55';
+      } else {
+        b.style.background  = '#f0f0f0';
+        b.style.color       = '#bbb';
+        b.style.border      = '3px solid #ddd';
+        b.style.opacity     = '0.55';
+        b.style.boxShadow   = 'none';
+      }
+    };
+
+    btn.style.cssText = 'flex:1;min-width:100px;padding:12px 8px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;line-height:1.4;transition:all .15s';
+    btn.innerHTML     = (isActive ? '✓ ' : '') + 'Option ' + letter + '<br><span style="font-size:11px;font-weight:400">' + (est.fenceType||'Fence') + price + '</span>';
+    applyStyle(btn, isActive);
 
     btn.onclick = function() {
-      if (this.dataset.selected === 'true') {
-        this.dataset.selected = 'false';
-        this.style.background = '#fff';
-        this.style.color      = color;
-      } else {
-        this.dataset.selected = 'true';
-        this.style.background = color;
-        this.style.color      = '#fff';
-      }
+      const nowSelected = this.dataset.selected !== 'true';
+      this.dataset.selected = nowSelected ? 'true' : 'false';
+      this.innerHTML = (nowSelected ? '✓ ' : '') + 'Option ' + letter + '<br><span style="font-size:11px;font-weight:400">' + (est.fenceType||'Fence') + price + '</span>';
+      applyStyle(this, nowSelected);
     };
     toggleRow.appendChild(btn);
   });
@@ -11435,8 +11486,14 @@ function fpSendPickerLink(mode) {
   const ids = selectedBtns.map(b => b.dataset.estId);
 
   if (mode === 'single') {
-    // Send whichever single estimate is selected (or current if none)
-    const id = ids[0] || jobs[curIdx]?.id;
+    // Send the estimate that was active when the picker was opened (currentId),
+    // NOT ids[0] which is always the first alphabetically-sorted estimate.
+    // ids[0] was the previous bug — it always sent estimate A regardless of
+    // which estimate the user was on.
+    const currentId = picker.dataset.currentId || jobs[curIdx]?.id;
+    // If user deselected the current estimate and selected a different one,
+    // respect that — but only if exactly one is selected.
+    const id = ids.length === 1 ? ids[0] : currentId;
     picker.remove();
     generateProposalLink('single', [id]);
     return;
