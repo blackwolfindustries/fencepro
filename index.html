@@ -7439,18 +7439,31 @@ async function loadCloud() {
         const id = String(j.id || '').trim();
         return id && !cloudIds.has(id);
       });
-      // Build a map of local statuses so we can rescue them if cloud returns 'Draft' incorrectly
+      // Build a map of local statuses — used to rescue cases where cloud returns a
+      // lower-ranked status than what we have locally (e.g. Jobs tab has stale data).
+      // Status priority: higher rank = further along in the workflow.
+      const STATUS_RANK = {
+        'Draft':0,'Committed':1,'Sent':2,'Accepted':3,
+        'Deposit Received':4,'Scheduled':5,'In Progress':6,
+        'Ready for Invoice':7,'Invoiced':8,'Paid in Full':9,'Lost':2
+      };
       const localStatusMap = {};
-      jobs.forEach(j => { if (j.id && j.propStatus && j.propStatus !== 'Draft') localStatusMap[j.id] = j.propStatus; });
+      jobs.forEach(j => { if (j.id && j.propStatus) localStatusMap[j.id] = j.propStatus; });
 
       const isValidId = j => { const p = String(j.id||'').split('-'); return p.length >= 4 && /^[A-Z]$/.test(p[2]); };
       jobs = [
         ...data.jobs.map(j => {
           const norm = normalizeJob(j);
-          // If cloud says Draft but we have a better local status, keep the local one
-          // This handles the case where old Sheets rows have bad status data
-          if (norm.propStatus === 'Draft' && localStatusMap[norm.id]) {
-            norm.propStatus = localStatusMap[norm.id];
+          // If local has a higher-ranked status than cloud, keep local.
+          // This guards against the Jobs tab having a stale status overriding
+          // the Estimates tab authoritative status (col 58).
+          const localSt = localStatusMap[norm.id];
+          if (localSt && norm.id) {
+            const cloudRank = STATUS_RANK[norm.propStatus] ?? -1;
+            const localRank = STATUS_RANK[localSt]         ?? -1;
+            if (localRank > cloudRank) {
+              norm.propStatus = localSt;
+            }
           }
           return norm;
         }).filter(isValidId),
