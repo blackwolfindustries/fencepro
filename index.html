@@ -1164,10 +1164,12 @@
       <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Gross Margin $</div>
         <div style="font-size:16px;font-weight:700;color:#4ADE80;font-family:var(--mono)" id="s_gmd_banner">—</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:2px">Net after franchise: <span style="color:#FB923C;font-family:var(--mono);font-weight:700" id="s_gmd_net">—</span></div>
       </div>
       <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Gross Margin %</div>
-        <div style="font-size:16px;font-weight:700;color:rgba(255,255,255,.9);font-family:var(--mono)" id="s_gm">—</div>
+        <div style="font-size:16px;font-weight:700;color:#4ADE80;font-family:var(--mono)" id="s_gm">—</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:2px">Net after franchise: <span style="color:#FB923C;font-family:var(--mono);font-weight:700" id="s_gm_net">—</span></div>
       </div>
       <div class="pbc" style="flex:1;padding:10px 16px">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Franchise Fee (8.5%)</div>
@@ -6263,17 +6265,25 @@ function recalc() {
 
   // Store for saving
   // Cash scenario KPIs (computed here so toggle function needs no DOM reads)
-  const cashFranFeeDol  = cashPrc * franFee;
-  const cashMuDol       = cashPrc - base;
-  const cashGmDol       = cashMuDol - cashFranFeeDol;
-  const cashGmPct       = cashPrc > 0 ? (cashGmDol / cashPrc) * 100 : 0;
+  const cashFranFeeDol   = cashPrc * franFee;
+  const cashMuDol        = cashPrc - base;
+  const cashGmDol        = cashMuDol - cashFranFeeDol;   // net (after franchise)
+  const cashGmPct        = cashPrc > 0 ? (cashGmDol / cashPrc) * 100 : 0;
+  const cashGrossGmDol   = cashMuDol;                     // gross (before franchise)
+  const cashGrossGmPct   = cashPrc > 0 ? (cashGrossGmDol / cashPrc) * 100 : 0;
+  // CC gross GM (before franchise fee)
+  const grossGmDol       = gmDol + franFeeDol;
+  const grossGmPct       = finalRnd > 0 ? (grossGmDol / finalRnd) * 100 : 0;
 
   lastCalc = {
     suppCCRate:supp.cc, delivery:effectiveDelivery, deliveryOverridden,
     matDel, matTax, suppFee, concTotal,
     base, effMu, final:finalRnd, cash:cashPrc,
-    custTax, finalTax, gmPct, gmDol, franFeeDol, franFee,
+    custTax, finalTax,
+    gmPct, gmDol, grossGmDol, grossGmPct,           // CC: net and gross
+    franFeeDol, franFee,
     cashGmPct, cashGmDol, cashFranFeeDol,
+    cashGrossGmDol, cashGrossGmPct,                  // Cash: net and gross
     crmMaterial:matTotal, crmLabor:laborCost,
     crmDemo:demoDol, crmDiscount:discount,
     crmAddOns:addOns, crmMarkupPct:markupPct,
@@ -6318,8 +6328,10 @@ function recalc() {
   setText('s_emu',  effMu.toFixed(1)+'%');
   setText('s_final','$'+Math.round(finalRnd).toLocaleString());
   setText('s_cash', '$'+Math.round(cashPrc).toLocaleString());
-  setText('s_gm',   gmPct.toFixed(1)+'%');
-  setText('s_gmd_banner', '$'+Math.round(gmDol).toLocaleString());
+  setText('s_gmd_banner', '$' + Math.round(grossGmDol).toLocaleString());
+  setText('s_gmd_net',    '$' + Math.round(gmDol).toLocaleString());
+  setText('s_gm',         grossGmPct.toFixed(1) + '%');
+  setText('s_gm_net',     gmPct.toFixed(1) + '%');
   setText('s_ff_banner',  '$'+Math.round(franFeeDol).toLocaleString());
   setText('s_plf',  totalLF > 0 ? '$'+(finalRnd/totalLF).toFixed(2)+'/LF' : '—');
   setText('s_sn',   suppName);
@@ -6390,13 +6402,14 @@ function setKpiMode(mode) {
   const c = lastCalc;
   const isCash = mode === 'cash';
 
-  const price   = isCash ? c.cash      : c.final;
-  const gmDol   = isCash ? c.cashGmDol : c.gmDol;
-  const gmPct   = isCash ? c.cashGmPct : c.gmPct;
-  const ffDol   = isCash ? c.cashFranFeeDol : c.franFeeDol;
-  const plf     = c.totalLF > 0 ? price / c.totalLF : 0;
-  const matPct  = price > 0 ? (c.crmMaterial / price) * 100 : 0;
-  const labPct  = price > 0 ? ((c.crmLabor + c.crmDemo) / price) * 100 : 0;
+  const price      = isCash ? c.cash      : c.final;
+  const netGmDol   = isCash ? c.cashGmDol : c.gmDol;       // after franchise fee
+  const netGmPct   = isCash ? c.cashGmPct : c.gmPct;
+  const ffDol      = isCash ? c.cashFranFeeDol : c.franFeeDol;
+  const grossGmDol = netGmDol + ffDol;                       // before franchise fee
+  const grossGmPct = price > 0 ? (grossGmDol / price) * 100 : 0;
+  const matPct     = price > 0 ? (c.crmMaterial / price) * 100 : 0;
+  const labPct     = price > 0 ? ((c.crmLabor + c.crmDemo) / price) * 100 : 0;
 
   // Highlight active price cell, dim the other
   const finalCell = document.getElementById('s_final');
@@ -6404,24 +6417,26 @@ function setKpiMode(mode) {
   if (finalCell) finalCell.parentElement.style.opacity = isCash ? '0.45' : '1';
   if (cashCell)  cashCell.parentElement.style.opacity  = isCash ? '1'    : '0.45';
 
-  // Update all KPI cells
-  setText('s_gmd_banner', '$' + Math.round(gmDol).toLocaleString());
-  setText('s_gm',         gmPct.toFixed(1) + '%');
+  // Main KPI cells — gross GM as big number, net as sub-line
+  setText('s_gmd_banner', '$' + Math.round(grossGmDol).toLocaleString());
+  setText('s_gmd_net',    '$' + Math.round(netGmDol).toLocaleString());
+  setText('s_gm',         grossGmPct.toFixed(1) + '%');
+  setText('s_gm_net',     netGmPct.toFixed(1) + '%');
   setText('s_ff_banner',  ffDol > 0 ? '$' + Math.round(ffDol).toLocaleString() : '—');
   setText('s_plf',        c.totalLF > 0 ? '$' + (price / c.totalLF).toFixed(2) + '/LF' : '—');
   setText('s_mat_pct',    price > 0 ? matPct.toFixed(1) + '%' : '—');
   setText('s_lab_pct',    price > 0 ? labPct.toFixed(1) + '%' : '—');
 
-  // Also update detailed breakdown sidebar
-  setText('s_gmd',  '$' + Math.round(gmDol).toLocaleString());
-  const overhead   = gmDol * (typeof CFG !== 'undefined' ? CFG.OVERHEAD_PCT  : 0.15);
-  const commission = gmDol * (typeof CFG !== 'undefined' ? CFG.COMMISSION    : 0.06);
-  const netProfit  = gmDol - overhead - commission;
+  // Detailed breakdown sidebar — use gross GM as the top-line, net flows from there
+  setText('s_gmd',  '$' + Math.round(grossGmDol).toLocaleString());
+  const overhead   = netGmDol * (typeof CFG !== 'undefined' ? CFG.OVERHEAD_PCT : 0.15);
+  const commission = netGmDol * (typeof CFG !== 'undefined' ? CFG.COMMISSION   : 0.06);
+  const netProfit  = netGmDol - overhead - commission;
   setText('s_oh',  '$' + Math.round(overhead).toLocaleString());
   setText('s_com', '$' + Math.round(commission).toLocaleString());
   setText('s_np',  '$' + Math.round(netProfit).toLocaleString());
 
-  // Add mode label under GM% so it's always clear which scenario is showing
+  // Mode label so it's always clear which scenario is showing
   const gmLabel = document.querySelector('#s_gm')?.previousElementSibling;
   if (gmLabel) gmLabel.textContent = 'Gross Margin % ' + (isCash ? '(Cash)' : '(CC)');
 }
