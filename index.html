@@ -7471,14 +7471,21 @@ async function loadCloud() {
       ];
       persistJobs();
 
-      // Re-find the open estimate by ID and re-populate the form
-      // Set curIdx = -1 FIRST so loadJobLocal doesn't snapshot stale form
-      // data back over the freshly loaded cloud record
+      // Re-find the open estimate by ID and re-populate the form.
+      // IMPORTANT: only call loadJobLocal() (which calls show('est')) if the user
+      // is currently ON the estimator tab. On any other tab (board, jobs, etc.)
+      // just silently update curIdx so the data is fresh without hijacking the tab.
+      const activeScreenId = document.querySelector('.screen.active')?.id || '';
+      const onEstimatorTab = activeScreenId === 's-est';
       if (openId) {
         const newIdx = jobs.findIndex(j => j.id === openId);
         if (newIdx >= 0) {
-          curIdx = -1;          // prevent snapshot in loadJobLocal
-          loadJobLocal(newIdx); // now safely loads fresh cloud data into form
+          if (onEstimatorTab) {
+            curIdx = -1;          // prevent snapshot in loadJobLocal
+            loadJobLocal(newIdx); // only switch to est tab if already on it
+          } else {
+            curIdx = newIdx;      // keep data in sync without changing tabs
+          }
         } else {
           curIdx = -1;
         }
