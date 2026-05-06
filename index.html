@@ -1514,9 +1514,11 @@
             oninput="calcCashMarkup()"
             style="width:100%;padding:7px 8px 7px 20px;border-radius:7px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-size:13px;font-family:var(--mono)">
         </div>
-        <div style="text-align:right;min-width:70px">
+        <div style="text-align:right;min-width:90px">
           <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em">Markup %</div>
-          <div style="font-family:var(--mono);color:#F26522;font-size:18px;font-weight:800" id="cashCalcResult">—</div>
+          <div style="font-family:var(--mono);color:#F26522;font-size:16px;font-weight:800" id="cashCalcResult">—</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-top:4px">Markup $</div>
+          <div style="font-family:var(--mono);color:#F26522;font-size:16px;font-weight:800" id="cashCalcDol">—</div>
         </div>
       </div>
       <div id="cashCalcWarn" style="display:none;font-size:10px;color:#FCA5A5;margin-top:4px"></div>
@@ -6364,44 +6366,55 @@ function calcCashMarkup() {
   warnEl.style.display = 'none';
   warnEl.textContent   = '';
 
+  const dolEl = document.getElementById('cashCalcDol');
+
   if (!desired || isNaN(desired)) {
-    resultEl.textContent = '—';
-    resultEl.style.color = '#F26522';
+    resultEl.textContent = '—'; resultEl.style.color = '#F26522';
+    if (dolEl) { dolEl.textContent = '—'; dolEl.style.color = '#F26522'; }
     return;
   }
 
   if (!base || base <= 0) {
     resultEl.textContent = '—';
+    if (dolEl) dolEl.textContent = '—';
     warnEl.style.display = 'block';
     warnEl.textContent   = 'Enter costs above first to calculate base';
     return;
   }
 
   if (desired < base) {
-    resultEl.textContent = '—';
-    resultEl.style.color = '#EF4444';
+    resultEl.textContent = '—'; resultEl.style.color = '#EF4444';
+    if (dolEl) { dolEl.textContent = '—'; dolEl.style.color = '#EF4444'; }
     warnEl.style.display = 'block';
     warnEl.textContent   = '⚠️ Price is below your base cost — you would lose money';
     return;
   }
 
-  const mu = (desired / base - 1) * 100;
+  const mu    = (desired / base - 1) * 100;
+  const muDol = desired - base;
 
-  // Color code: green = above target markup, yellow = close, red = below
+  // Color code: green = at/above target, yellow = within 15% below, red = significantly below
   const targetMu = lastCalc ? (lastCalc.crmMarkupPct || 40) : 40;
+  let col;
   if (mu >= targetMu) {
-    resultEl.style.color = '#4ADE80';
+    col = '#4ADE80';
   } else if (mu >= targetMu * 0.85) {
-    resultEl.style.color = '#FCD34D';
+    col = '#FCD34D';
     warnEl.style.display = 'block';
     warnEl.textContent   = '⚠️ Below your target markup of ' + targetMu.toFixed(1) + '%';
   } else {
-    resultEl.style.color = '#EF4444';
+    col = '#EF4444';
     warnEl.style.display = 'block';
     warnEl.textContent   = '🚨 Significantly below target markup of ' + targetMu.toFixed(1) + '%';
   }
 
+  resultEl.style.color = col;
   resultEl.textContent = mu.toFixed(1) + '%';
+
+  if (dolEl) {
+    dolEl.style.color  = col;
+    dolEl.textContent  = '$' + Math.round(muDol).toLocaleString();
+  }
 }
 
 // ════════════════════════════════════════════════
