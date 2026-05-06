@@ -7456,6 +7456,12 @@ async function loadCloud() {
       // Snapshot the currently-open estimate ID before replacing the array
       const openId = curIdx >= 0 ? (jobs[curIdx]?.id || '') : '';
 
+      // Snapshot live form notes for the open estimate — the user may have typed
+      // notes that haven't been saved yet. We stash them so they survive the
+      // jobs[] replacement below.
+      const liveInternalNotes = openId ? (document.getElementById('internalNotes')?.value || '') : '';
+      const liveScopeNotes    = openId ? (document.getElementById('scopeNotes')?.value    || '') : '';
+
       const cloudIds = new Set(data.jobs.map(j => String(j['Estimate ID'] || j['Job ID'] || '').trim()).filter(Boolean));
       const localOnlyJobs = jobs.filter(j => {
         const id = String(j.id || '').trim();
@@ -7472,6 +7478,34 @@ async function loadCloud() {
       const localStatusMap = {};
       jobs.forEach(j => { if (j.id && j.propStatus) localStatusMap[j.id] = j.propStatus; });
 
+      // Build a map of local notes — rescue internalNotes and scopeNotes that were
+      // saved locally but not yet synced to cloud (or cloud returned empty due to
+      // a prior sync failure). Local non-empty notes always win over cloud empty.
+      // The live form snapshot (typed-but-unsaved) takes highest priority.
+      const localNotesMap = {};
+      jobs.forEach(j => {
+        if (!j.id) return;
+        if (j.internalNotes && j.internalNotes.trim()) {
+          if (!localNotesMap[j.id]) localNotesMap[j.id] = {};
+          localNotesMap[j.id].internalNotes = j.internalNotes;
+        }
+        if (j.scopeNotes && j.scopeNotes.trim()) {
+          if (!localNotesMap[j.id]) localNotesMap[j.id] = {};
+          localNotesMap[j.id].scopeNotes = j.scopeNotes;
+        }
+      });
+      // Override with live form values for the currently-open estimate (highest priority)
+      if (openId) {
+        if (liveInternalNotes.trim()) {
+          if (!localNotesMap[openId]) localNotesMap[openId] = {};
+          localNotesMap[openId].internalNotes = liveInternalNotes;
+        }
+        if (liveScopeNotes.trim()) {
+          if (!localNotesMap[openId]) localNotesMap[openId] = {};
+          localNotesMap[openId].scopeNotes = liveScopeNotes;
+        }
+      }
+
       const isValidId = j => { const p = String(j.id||'').split('-'); return p.length >= 4 && /^[A-Z]$/.test(p[2]); };
       jobs = [
         ...data.jobs.map(j => {
@@ -7485,6 +7519,17 @@ async function loadCloud() {
             const localRank = STATUS_RANK[localSt]         ?? -1;
             if (localRank > cloudRank) {
               norm.propStatus = localSt;
+            }
+          }
+          // If local has non-empty notes but cloud returned empty, keep local notes.
+          // This rescues notes saved locally but not yet synced (or cloud sync failed).
+          const localNotes = localNotesMap[norm.id];
+          if (localNotes) {
+            if (localNotes.internalNotes && !norm.internalNotes) {
+              norm.internalNotes = localNotes.internalNotes;
+            }
+            if (localNotes.scopeNotes && !norm.scopeNotes) {
+              norm.scopeNotes = localNotes.scopeNotes;
             }
           }
           return norm;
