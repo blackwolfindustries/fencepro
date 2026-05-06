@@ -3129,6 +3129,28 @@
 </div><!-- .app -->
 
 <!-- ══ MULTI-OPTION PROPOSAL MODAL ═══════════════════════════ -->
+<div class="moverlay hidden" id="mDepositReceipt">
+  <div style="background:var(--bg);border-radius:14px;width:100%;max-width:620px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.3)">
+    <!-- Header -->
+    <div style="background:var(--navy);border-radius:14px 14px 0 0;padding:14px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="font-size:15px;font-weight:800;color:#fff">📄 Deposit Receipt</div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-sm" id="drSendBtn" onclick="sendDepositReceiptEmail()" style="background:#16A34A;color:#fff;border-color:#16A34A">📧 Send to Customer</button>
+        <button class="btn btn-sm" onclick="printDepositReceipt()" style="background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.2)">🖨 Print / PDF</button>
+        <button class="btn btn-sm" style="color:rgba(255,255,255,.7);background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2)" onclick="closeM('mDepositReceipt')">✕ Close</button>
+      </div>
+    </div>
+    <!-- No-email warning -->
+    <div id="drNoEmailWarn" style="display:none;background:#FFF8F0;border-bottom:1px solid #F59E0B;padding:8px 20px;font-size:12px;color:#92400E">
+      ⚠️ No email address on file for this customer — add one before sending.
+    </div>
+    <!-- Receipt preview iframe -->
+    <div style="flex:1;overflow:auto;padding:20px">
+      <iframe id="drPreviewFrame" style="width:100%;height:100%;min-height:500px;border:none;border-radius:8px" sandbox="allow-same-origin"></iframe>
+    </div>
+  </div>
+</div>
+
 <div class="moverlay hidden" id="mMultiProposal" style="align-items:flex-start;padding:0">
   <div style="width:100%;height:100vh;display:flex;flex-direction:column;background:var(--bg)">
     <div style="background:var(--navy);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.2)">
@@ -10334,9 +10356,11 @@ function migrateLegacyJobCosts() {
 
 
 // ════════════════════════════════════════════════
-// DEPOSIT RECEIPT — generates HTML receipt and
-// opens Gmail pre-filled with it as email body
+// DEPOSIT RECEIPT — builds HTML receipt, shows in modal with Send / Print options
 // ════════════════════════════════════════════════
+let _depositReceiptHtml  = '';
+let _depositReceiptMeta  = {};
+
 function sendDepositReceipt() {
   const job = curIdx >= 0 ? jobs[curIdx] : null;
   if (!job) return;
@@ -10359,9 +10383,8 @@ function sendDepositReceipt() {
     : new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
   const receiptNum   = 'DEP-' + (estId.split('-')[0] || Date.now().toString().slice(-6)) + '-' + Date.now().toString().slice(-4);
 
-  const fmt = n => '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmt  = n => '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtR = n => '$' + Math.round(n).toLocaleString();
-
   const pctPaid = contractPrice > 0 ? Math.round((depositPaid / contractPrice) * 100) : 0;
 
   const html = `<!DOCTYPE html>
@@ -10395,7 +10418,7 @@ function sendDepositReceipt() {
   .payment-row.deposit .amt { color:#16A34A;font-size:15px; }
   .payment-row.balance .amt { color:#F26522;font-size:15px; }
   .progress-wrap { margin:0 0 4px;height:6px;background:#e5e7eb;border-radius:99px;overflow:hidden; }
-  .progress-fill { height:100%;background:linear-gradient(90deg,#16A34A,#4ADE80);border-radius:99px;transition:width .6s; }
+  .progress-fill { height:100%;background:linear-gradient(90deg,#16A34A,#4ADE80);border-radius:99px; }
   .progress-label { font-size:11px;color:#888;text-align:right;margin-bottom:16px; }
   .confirm-box { background:linear-gradient(135deg,#0f2a1a,#163d26);border-radius:12px;padding:16px 20px;text-align:center;margin:20px 0; }
   .confirm-box .check { font-size:28px;margin-bottom:6px; }
@@ -10403,7 +10426,6 @@ function sendDepositReceipt() {
   .confirm-box .sub { font-size:11px;color:rgba(255,255,255,.4); }
   .footer { background:#f8f9fb;padding:18px 32px;text-align:center;border-top:1px solid #eee; }
   .footer p { font-size:11px;color:#888;line-height:1.7; }
-  .footer a { color:#F26522;text-decoration:none; }
   @media print { body{background:#fff;padding:0} .card{box-shadow:none;border-radius:0} }
 </style>
 </head>
@@ -10415,46 +10437,32 @@ function sendDepositReceipt() {
     <div class="receipt-badge">Deposit Receipt</div>
   </div>
   <div class="body">
-
     <div class="section-label">Receipt Details</div>
     <div class="info-row"><span class="label">Receipt #</span><span class="value">${escHtml(receiptNum)}</span></div>
     <div class="info-row"><span class="label">Date</span><span class="value">${escHtml(dateStr)}</span></div>
     <div class="info-row"><span class="label">Estimate</span><span class="value">${escHtml(estId)}</span></div>
     ${method ? `<div class="info-row"><span class="label">Payment Method</span><span class="value">${escHtml(method)}${ref ? ' · ' + escHtml(ref) : ''}</span></div>` : ''}
-
     <div class="section-label">Customer</div>
     <div class="info-row"><span class="label">Name</span><span class="value">${escHtml(custName)}</span></div>
     ${jobAddr ? `<div class="info-row"><span class="label">Job Address</span><span class="value">${escHtml(jobAddr)}</span></div>` : ''}
-
     <div class="section-label">Payment Summary</div>
     <div class="payment-block">
-      <div class="payment-row contract">
-        <span class="lbl">Contract Price</span>
-        <span class="amt">${fmt(contractPrice)}</span>
-      </div>
-      <div class="payment-row deposit">
-        <span class="lbl">✓ Deposit Received</span>
-        <span class="amt">${fmt(depositPaid)}</span>
-      </div>
-      <div class="payment-row balance total">
-        <span class="lbl">Balance Due</span>
-        <span class="amt">${fmt(balanceDue)}</span>
-      </div>
+      <div class="payment-row contract"><span class="lbl">Contract Price</span><span class="amt">${fmt(contractPrice)}</span></div>
+      <div class="payment-row deposit"><span class="lbl">✓ Deposit Received</span><span class="amt">${fmt(depositPaid)}</span></div>
+      <div class="payment-row balance total"><span class="lbl">Balance Due</span><span class="amt">${fmt(balanceDue)}</span></div>
     </div>
     <div class="progress-wrap"><div class="progress-fill" style="width:${pctPaid}%"></div></div>
     <div class="progress-label">${pctPaid}% paid · ${fmtR(balanceDue)} remaining</div>
-
     <div class="confirm-box">
       <div class="check">✅</div>
       <div class="msg">Deposit Confirmed — Thank You!</div>
       <div class="sub">Balance of ${fmt(balanceDue)} due upon completion</div>
     </div>
-
   </div>
   <div class="footer">
     <p>
       ${escHtml(co)}${coAddr ? ' · ' + escHtml(coAddr) : ''}<br>
-      ${coPhone ? escHtml(coPhone) : ''}${coPhone && coEmail ? ' · ' : ''}${coEmail ? `<a href="mailto:${escHtml(coEmail)}">${escHtml(coEmail)}</a>` : ''}<br>
+      ${coPhone ? escHtml(coPhone) : ''}${coPhone && coEmail ? ' · ' : ''}${coEmail ? escHtml(coEmail) : ''}<br>
       Questions? Reply to this email or call us anytime.
     </p>
   </div>
@@ -10462,47 +10470,86 @@ function sendDepositReceipt() {
 </body>
 </html>`;
 
-  // Build Gmail URL
-  const subject = encodeURIComponent('Deposit Receipt — ' + co + ' · ' + fmtR(depositPaid) + ' Received');
-  const body    = encodeURIComponent(
-    'Hi ' + (custName.split(' ')[0] || custName) + ',\n\n' +
-    'Thank you for your deposit of ' + fmt(depositPaid) + '. Your balance due is ' + fmt(balanceDue) + '.\n\n' +
-    'Please find your deposit receipt below.\n\n' +
-    '---\n' +
+  // Build plain-text fallback for email clients that strip HTML
+  const plainText =
+    'Deposit Receipt\n' +
+    '===============\n' +
     'Receipt #: ' + receiptNum + '\n' +
     'Date: ' + dateStr + '\n' +
-    'Contract Price: ' + fmt(contractPrice) + '\n' +
-    'Deposit Received: ' + fmt(depositPaid) + '\n' +
-    'Balance Due: ' + fmt(balanceDue) + '\n' +
+    'Estimate: ' + estId + '\n' +
     (method ? 'Payment Method: ' + method + (ref ? ' · ' + ref : '') + '\n' : '') +
-    '---\n\n' +
+    '\nCustomer: ' + custName + '\n' +
+    (jobAddr ? 'Job Address: ' + jobAddr + '\n' : '') +
+    '\nContract Price:    ' + fmt(contractPrice) + '\n' +
+    'Deposit Received:  ' + fmt(depositPaid) + '\n' +
+    'Balance Due:       ' + fmt(balanceDue) + '\n\n' +
     'Thank you for choosing ' + co + '!\n' +
-    (coPhone ? coPhone + '\n' : '')
-  );
+    (coPhone ? coPhone + '\n' : '');
 
-  const to = custEmail ? encodeURIComponent(custEmail) : '';
-  const gmailUrl = 'https://mail.google.com/mail/?view=cm&fs=1' +
-    (to ? '&to=' + to : '') +
-    '&su=' + subject +
-    '&body=' + body;
+  // Store for use by send/print helpers
+  _depositReceiptHtml = html;
+  _depositReceiptMeta = { custName, custEmail, receiptNum, depositPaid: fmt(depositPaid), co, coPhone, plainText };
 
-  // Open receipt in new tab for printing/reference
-  const receiptWin = window.open('', '_blank');
-  if (receiptWin) {
-    receiptWin.document.write(html);
-    receiptWin.document.close();
+  // Show/hide no-email warning
+  const warnEl = document.getElementById('drNoEmailWarn');
+  if (warnEl) warnEl.style.display = custEmail ? 'none' : 'block';
+
+  // Inject into iframe preview
+  const frame = document.getElementById('drPreviewFrame');
+  if (frame) {
+    frame.srcdoc = html;
   }
 
-  // Open Gmail
-  window.open(gmailUrl, '_blank');
+  // Reset send button state
+  const sendBtn = document.getElementById('drSendBtn');
+  if (sendBtn) { sendBtn.textContent = '📧 Send to Customer'; sendBtn.disabled = !custEmail; sendBtn.style.opacity = custEmail ? '1' : '.4'; }
 
-  if (!custEmail) {
-    showToast('⚠️ No email on file — receipt opened, Gmail opened without To address');
-  } else {
-    showToast('📧 Receipt opened · Gmail ready to send to ' + custEmail);
+  // Open the modal
+  document.getElementById('mDepositReceipt').classList.remove('hidden');
+}
+
+async function sendDepositReceiptEmail() {
+  const { custEmail, custName, receiptNum, depositPaid, co, plainText } = _depositReceiptMeta;
+  if (!custEmail) { showToast('⚠️ No email on file for this customer'); return; }
+  if (!settings.scriptUrl) { alert('Cloud not connected — configure in Setup first'); return; }
+
+  const btn = document.getElementById('drSendBtn');
+  if (btn) { btn.textContent = '⏳ Sending...'; btn.disabled = true; }
+
+  const subject = 'Deposit Receipt — ' + co + ' · ' + depositPaid + ' Received';
+
+  try {
+    const res = await cloudCall({
+      action: 'sendProposalEmail',
+      data: {
+        to:       custEmail,
+        subject:  subject,
+        htmlBody: _depositReceiptHtml,
+        textBody: plainText,
+        custName: custName
+      }
+    });
+    if (res.success) {
+      if (btn) { btn.textContent = '✅ Sent!'; btn.style.background = '#15803D'; }
+      showToast('✅ Receipt sent to ' + custEmail);
+    } else {
+      throw new Error(res.error || 'Send failed');
+    }
+  } catch(e) {
+    alert('Send failed: ' + e.message);
+    if (btn) { btn.textContent = '📧 Send to Customer'; btn.disabled = false; }
   }
 }
 
+function printDepositReceipt() {
+  // Open in new tab for print/save-as-PDF — user-initiated so no popup blocker
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(_depositReceiptHtml);
+    win.document.close();
+    win.onload = () => win.print();
+  }
+}
 
 function duplicateEstimate() {
   if (curIdx < 0) { alert('No estimate loaded — open an estimate first'); return; }
