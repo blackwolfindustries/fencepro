@@ -833,6 +833,36 @@
     }
     body.printing-proposal #proposalDoc > *{page-break-inside:auto;break-inside:auto}
     body.printing-proposal table{page-break-inside:avoid;break-inside:avoid}
+    /* Images section — always start on new page, never clip */
+    body.printing-proposal #prop_photosSection{
+      break-before:page!important;
+      page-break-before:always!important;
+      break-inside:avoid!important;
+      page-break-inside:avoid!important;
+    }
+    body.printing-proposal #prop_photosSection img{
+      max-width:100%!important;
+      height:auto!important;
+      display:block!important;
+      break-inside:avoid!important;
+      page-break-inside:avoid!important;
+    }
+    body.printing-proposal #prop_carousel_track{
+      overflow:visible!important;
+      min-height:auto!important;
+    }
+    /* Carousel outer wrapper — remove overflow:hidden that clips images */
+    body.printing-proposal #prop_photosSection > div{
+      overflow:visible!important;
+      position:static!important;
+      border:none!important;
+      background:transparent!important;
+      border-radius:0!important;
+    }
+    /* Hide carousel nav buttons on print */
+    body.printing-proposal #prop_carousel_prev,
+    body.printing-proposal #prop_carousel_next,
+    body.printing-proposal #prop_carousel_counter{ display:none!important; }
     @page{margin:0.5in;size:letter portrait}
 
     /* ── MULTI-OPTION PROPOSAL PRINT ── */
@@ -2796,7 +2826,7 @@
           <a href="https://drive.google.com/file/d/1qo3vSEeG0_SlBxa-ahXALb5LnDNsyEEE/view?usp=drive_link" target="_blank" style="font-size:12px;font-weight:700;color:#F26522;text-decoration:none">📋 Click here to view Terms &amp; Conditions →</a>
         </div>
                 <!-- ── SITE PHOTOS ── -->
-        <div id="prop_photosSection" style="display:none;margin-bottom:24px">
+        <div id="prop_photosSection" style="display:none;margin-bottom:24px;break-before:page;page-break-before:always">
           <div style="font-size:9px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #E2E5EA">
             Images
             <span style="font-weight:400;color:#bbb;text-transform:none;letter-spacing:0;margin-left:8px;font-size:9px">For reference only — actual installation may vary slightly</span>
