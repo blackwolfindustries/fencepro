@@ -318,6 +318,9 @@
   .jcard-del{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;border:none;background:transparent;color:var(--text3);font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;padding:0}
   .jcard:hover .jcard-del{opacity:1}
   .jcard-del:hover{background:var(--red)!important;color:#fff!important;opacity:1!important}
+  .jcard-reverse-dep{display:none;margin-top:6px;width:100%;padding:4px 8px;font-size:10px;font-weight:700;border-radius:6px;border:1.5px solid #FCA5A5;background:#FFF5F5;color:#B91C1C;cursor:pointer;text-align:center;letter-spacing:.03em}
+  .jcard:hover .jcard-reverse-dep{display:block}
+  .jcard-reverse-dep:hover{background:#EF4444!important;color:#fff!important;border-color:#EF4444!important}
   .jcard{position:relative}
   .jcard-del{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;border:none;background:transparent;color:var(--text3);font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;padding:0}
   .jcard:hover .jcard-del{opacity:1}
@@ -3147,6 +3150,43 @@
     <!-- Receipt preview iframe -->
     <div style="flex:1;overflow:auto;padding:20px">
       <iframe id="drPreviewFrame" style="width:100%;height:100%;min-height:500px;border:none;border-radius:8px" sandbox="allow-same-origin"></iframe>
+    </div>
+  </div>
+</div>
+
+<div class="moverlay hidden" id="mReverseDeposit">
+  <div style="background:var(--bg);border-radius:14px;width:100%;max-width:480px;box-shadow:0 16px 48px rgba(0,0,0,.3)">
+    <!-- Header -->
+    <div style="background:#7C1D1D;border-radius:14px 14px 0 0;padding:14px 20px;display:flex;align-items:center;gap:10px">
+      <div style="font-size:15px;font-weight:800;color:#fff">↩ Reverse Deposit</div>
+      <button class="btn btn-sm" style="margin-left:auto;color:rgba(255,255,255,.7);background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2)" onclick="closeM('mReverseDeposit')">✕</button>
+    </div>
+    <!-- Deposit summary -->
+    <div id="rdSummary" style="background:#FFF5F5;border-bottom:1px solid #FECACA;padding:14px 20px;font-size:13px;color:#7C1D1D"></div>
+    <!-- Form -->
+    <div style="padding:20px">
+      <label style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Reason for Reversal <span style="color:#EF4444">*</span></label>
+      <select id="rdReason" style="width:100%;margin-bottom:16px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px">
+        <option value="">— Select a reason —</option>
+        <option value="Bounced Payment">Bounced Payment</option>
+        <option value="Payment Failed">Payment Failed</option>
+        <option value="Entry Error">Entry Error</option>
+        <option value="Customer Cancelled">Customer Cancelled</option>
+        <option value="Duplicate Entry">Duplicate Entry</option>
+        <option value="Other">Other</option>
+      </select>
+      <label style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Additional Notes <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
+      <textarea id="rdNotes" rows="3" placeholder="Any additional context..." style="width:100%;resize:none;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;margin-bottom:16px"></textarea>
+      <label style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Reset Status To</label>
+      <select id="rdStatus" style="width:100%;margin-bottom:20px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px">
+        <option value="Committed">Committed</option>
+        <option value="Sent">Sent</option>
+        <option value="Accepted">Accepted</option>
+      </select>
+      <div style="display:flex;gap:10px">
+        <button class="btn" style="flex:1;background:#EF4444;color:#fff;border-color:#EF4444;font-weight:700" onclick="confirmReverseDeposit()">↩ Confirm Reversal</button>
+        <button class="btn" style="flex:1" onclick="closeM('mReverseDeposit')">Cancel</button>
+      </div>
     </div>
   </div>
 </div>
@@ -7750,6 +7790,7 @@ function renderBoard() {
         <div class="jcard-meta">${(job.jobAddr||'').split(',')[0]}</div>
         <div class="jcard-price">${job.finalPrice ? '$' + Math.round(job.finalPrice).toLocaleString() : (job.calc_final ? '$' + Math.round(job.calc_final).toLocaleString() : '—')}</div>
         ${job.driveFolder?`<div class="jcard-meta mt6"><a href="${job.driveFolder}" target="_blank" style="color:var(--blue)">📁 Drive folder</a></div>`:''}
+        ${(job.depositPaid > 0 || job.depositMethod || job.depositDate || job.depositRef) ? `<button class="jcard-reverse-dep" onclick="openReverseDeposit(${idx},event)" title="Reverse deposit">↩ Reverse Deposit</button>` : ''}
         <button class="jcard-del" onclick="boardDeleteEstimate(${idx},event)" title="Delete estimate">✕</button>`;
       card.addEventListener('dragstart', e => { _dragJobIdx=idx; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',String(idx)); });
       card.addEventListener('dragend', () => { card.classList.remove('dragging'); document.querySelectorAll('.bcards.drag-over').forEach(el=>el.classList.remove('drag-over')); _dragJobIdx=null; });
@@ -7767,6 +7808,95 @@ async function boardMoveJob(jobIdx, newStage) {
   renderBoard();
   showToast(`✓ ${(job.custName||'Job').split(' ')[0]} moved → ${newStage}`);
   if (settings.scriptUrl) { try { await cloudCall({ action:'saveJob', data:job }); } catch(e) {} }
+}
+
+// ════════════════════════════════════════════════
+// REVERSE DEPOSIT
+// ════════════════════════════════════════════════
+let _reverseDepositIdx = -1;
+
+function openReverseDeposit(jobIdx, event) {
+  event.stopPropagation(); // don't open the estimate
+  const job = jobs[jobIdx];
+  if (!job) return;
+  _reverseDepositIdx = jobIdx;
+
+  // Reset form
+  document.getElementById('rdReason').value = '';
+  document.getElementById('rdNotes').value  = '';
+  document.getElementById('rdStatus').value = 'Committed';
+
+  // Build summary
+  const fmt = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const dateStr = job.depositDate
+    ? new Date(job.depositDate + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })
+    : 'Unknown date';
+  const method = job.depositMethod ? ' · ' + job.depositMethod : '';
+  const ref    = job.depositRef    ? ' · Ref: ' + job.depositRef : '';
+  document.getElementById('rdSummary').innerHTML =
+    `<div style="font-weight:700;font-size:14px;margin-bottom:4px">
+       ${job.custName || 'Unknown'} — ${(job.id || '').split('-')[0] || job.id || ''}
+     </div>
+     <div>Deposit of <strong>${fmt(job.depositPaid)}</strong> recorded on ${dateStr}${method}${ref}</div>
+     <div style="margin-top:4px;color:#991B1B">This will clear all deposit fields and reset the estimate status.</div>`;
+
+  document.getElementById('mReverseDeposit').classList.remove('hidden');
+}
+
+async function confirmReverseDeposit() {
+  const reason = document.getElementById('rdReason').value;
+  if (!reason) { showToast('⚠️ Please select a reason'); return; }
+
+  const idx = _reverseDepositIdx;
+  const job = jobs[idx];
+  if (!job) return;
+
+  const newStatus = document.getElementById('rdStatus').value || 'Committed';
+  const extraNote = document.getElementById('rdNotes').value.trim();
+  const fmt       = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  // Build audit trail entry
+  const dateStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  const depositAmt    = fmt(job.depositPaid || 0);
+  const depositMethod = job.depositMethod ? ' (' + job.depositMethod + ')' : '';
+  const auditLine     = `[${dateStr}] Deposit of ${depositAmt}${depositMethod} reversed — ${reason}${extraNote ? ': ' + extraNote : ''} → Status reset to ${newStatus}`;
+
+  // Append to internalNotes
+  const existingNotes = (job.internalNotes || '').trim();
+  job.internalNotes   = existingNotes ? existingNotes + '\n' + auditLine : auditLine;
+
+  // Clear all deposit fields
+  job.depositPaid     = 0;
+  job.depositMethod   = '';
+  job.depositDate     = '';
+  job.depositRef      = '';
+  job.depositRequired = 0;
+  job.balanceDue      = job.contractPrice || job.calc_final || 0;
+
+  // Reset status
+  job.propStatus = newStatus;
+
+  // If this estimate is currently open in the form, refresh it
+  if (curIdx === idx) {
+    setVal('internalNotes', job.internalNotes);
+    const statusEl = document.getElementById('propStatus');
+    if (statusEl) statusEl.value = newStatus;
+    // Clear deposit display fields in the form
+    ['depositPaid','depositMethod','depositDate','depositRef'].forEach(f => {
+      const el = document.getElementById(f); if (el) el.value = '';
+    });
+  }
+
+  persistJobs();
+  renderBoard();
+  closeM('mReverseDeposit');
+  showToast(`↩ Deposit reversed — ${(job.custName||'').split(' ')[0]} reset to ${newStatus}`);
+
+  // Sync to cloud
+  if (settings.scriptUrl) {
+    try { await cloudCall({ action:'saveJob', data:job }); }
+    catch(e) { console.error('Cloud sync after reversal failed:', e); }
+  }
 }
 
 function renderJobsList() {
