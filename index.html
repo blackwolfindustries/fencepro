@@ -7250,6 +7250,16 @@ async function saveProposalPDF() {
     captureEl.style.height = 'auto'; captureEl.style.minHeight = 'auto';
     captureEl.style.overflow = 'visible'; captureEl.style.boxShadow = 'none';
 
+    // ── RESOLVE DRIVE PHOTOS TO BASE64 BEFORE CAPTURE ──────
+    // html2canvas can't load Drive thumbnail URLs due to CORS.
+    // Fetch each one through the Apps Script proxy first so the
+    // onclone grid uses base64 dataUrls that canvas can draw.
+    if (propCarouselPhotos.length > 0) {
+      if (btn) btn.textContent = '⏳ Loading photos...';
+      propCarouselPhotos = await resolvePhotosToDataUrls(propCarouselPhotos);
+    }
+    if (btn) btn.textContent = '⏳ Generating...';
+
     const canvas = await html2canvas(captureEl, {
       scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff',
       scrollX: 0, scrollY: 0,
@@ -8160,6 +8170,34 @@ function addPhoto(file) {
   };
   reader.readAsDataURL(file);
 }
+// ════════════════════════════════════════════════
+// RESOLVE PHOTOS TO DATA URLS
+// For PDF capture — fetches any Drive-only photos
+// through the Apps Script proxy so html2canvas can
+// draw them without CORS errors.
+// Returns a copy of the photos array with dataUrl
+// populated for every entry that has a driveUrl.
+// ════════════════════════════════════════════════
+async function resolvePhotosToDataUrls(photoArr) {
+  if (!photoArr || !photoArr.length) return photoArr;
+  const resolved = await Promise.all(photoArr.map(async p => {
+    // Already have a local dataUrl — no fetch needed
+    if (p.dataUrl) return p;
+    // No Drive URL either — skip
+    if (!p.driveUrl) return p;
+    // Need to proxy through Apps Script
+    if (!settings.scriptUrl) return p; // no cloud — can't fetch
+    try {
+      const res = await cloudCall({ action: 'getImageAsBase64', data: { url: p.driveUrl } });
+      if (res.dataUrl) return { ...p, dataUrl: res.dataUrl };
+    } catch(e) {
+      console.warn('resolvePhotosToDataUrls: failed for', p.driveUrl, e);
+    }
+    return p; // return original on failure — better than nothing
+  }));
+  return resolved;
+}
+
 function getDriveThumbUrl(url, size) {
   if (!url) return '';
   const m = url.match(/[-\w]{25,}/);
