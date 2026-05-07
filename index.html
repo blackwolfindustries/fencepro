@@ -6830,12 +6830,15 @@ async function saveJob() {
         : '✓ Synced to Sheets';
       showToast(saveMsg);
     } else {
+      const errMsg = res.error || 'Unknown error';
       setCloud('', '✗ Sync failed — saved locally');
-      console.error('Cloud save error:', res.error);
+      showToast('⚠️ Cloud sync failed: ' + errMsg.substring(0, 80));
+      console.error('Cloud save error:', errMsg);
     }
   } catch(e) {
     setCloud('', '✗ Sync failed — saved locally');
-    console.error('Cloud sync error:', e.message);
+    showToast('⚠️ Cloud sync failed: ' + (e.message||'').substring(0, 80));
+    console.error('Cloud sync error:', e.message, e);
   } finally {
     // Always re-enable Save button when cloud sync completes
     if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Save'; }
