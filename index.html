@@ -1330,7 +1330,7 @@
       </div>
       <div class="f">
         <label>STATUS</label>
-        <select id="propStatus" onchange="updateBadge()">
+        <select id="propStatus" onchange="updateBadge();if(curIdx>=0){jobs[curIdx].propStatus=this.value;persistJobs();renderBoard();}">
           <option>Draft</option><option>Committed</option><option>Sent</option><option>Accepted</option>
           <option>Deposit Received</option><option>Scheduled</option><option>In Progress</option>
           <option>Ready for Invoice</option><option>Invoiced</option><option>Paid in Full</option>
@@ -8138,6 +8138,14 @@ async function boardMoveJob(jobIdx, newStage) {
   persistJobs();
   renderBoard();
   showToast(`✓ ${(job.custName||'Job').split(' ')[0]} moved → ${newStage}`);
+
+  // If this job is currently open in the estimator, sync the status dropdown
+  if (jobIdx === curIdx) {
+    const statusEl = document.getElementById('propStatus');
+    if (statusEl) statusEl.value = newStage;
+    updateBadge();
+  }
+
   if (settings.scriptUrl) { try { await cloudCall({ action:'saveJob', data:job }); } catch(e) {} }
 }
 
