@@ -4080,7 +4080,8 @@ const DEFAULT_SUPPLIERS = [
 
 function loadLists() {
   const ft = localStorage.getItem('fp_fenceTypes');
-  const sl = localStorage.getItem('fp_suppliers');
+  // Check both possible storage keys — older versions used 'fp_supplierList'
+  const sl = localStorage.getItem('fp_suppliers') || localStorage.getItem('fp_supplierList');
   const rc = localStorage.getItem('fp_railingCategories');
   const rs = localStorage.getItem('fp_railingStyles');
   const rh = localStorage.getItem('fp_railingHeights');
@@ -4359,7 +4360,15 @@ function getRailingHeights()    { return lmLoad('railingHeights'); }
 function renderSupplierList() {
   const el = document.getElementById('supplierList');
   if (!el) return;
-  const { suppliers } = loadLists();
+  let { suppliers } = loadLists();
+
+  // If localStorage has a corrupted/empty suppliers list, reset to defaults
+  if (!Array.isArray(suppliers) || suppliers.length === 0) {
+    suppliers = DEFAULT_SUPPLIERS;
+    const { fenceTypes } = loadLists();
+    saveLists(fenceTypes, suppliers);
+  }
+
   el.innerHTML = suppliers.map((s, i) => `
     <div style="display:grid;grid-template-columns:1fr 110px 110px auto auto;gap:8px;align-items:center;padding:7px 10px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)" id="supp-row-${i}">
       <span style="font-size:13px;font-weight:600">${s.name}</span>
