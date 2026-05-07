@@ -2464,10 +2464,13 @@
       </select>
       <span id="analyticsProposalsMeta" style="font-size:11px;color:var(--text3)"></span>
     </div>
-    <label class="btn btn-sm" style="cursor:pointer;margin-left:auto">
-      ⬆ Upload CSV
-      <input type="file" id="analyticsFileInput" accept=".csv" style="display:none" onchange="handleAnalyticsFile(this.files[0]);this.value=''">
-    </label>
+    <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+      <span id="analyticsSyncBadge" style="font-size:11px;color:var(--text3);display:none">☁️ Synced <span id="analyticsSyncDate"></span></span>
+      <label class="btn btn-sm" style="cursor:pointer">
+        ⬆ Upload CSV
+        <input type="file" id="analyticsFileInput" accept=".csv" style="display:none" onchange="handleAnalyticsFile(this.files[0]);this.value=''">
+      </label>
+    </div>
   </div>
 
   <div style="display:flex;gap:0;background:var(--surface);border-bottom:2px solid var(--border);padding:0 8px;flex-shrink:0">
@@ -3242,6 +3245,25 @@
   </div>
 </div>
 
+<div class="moverlay hidden" id="mProposalPreview" style="padding:0;align-items:stretch;justify-content:stretch">
+  <div style="display:flex;flex-direction:column;width:100%;height:100%;max-width:100%;max-height:100%;background:#E8E8E8">
+    <!-- Preview toolbar -->
+    <div style="background:#1B2B4B;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;z-index:10">
+      <div style="font-size:13px;font-weight:800;color:#fff">👁 Customer Preview</div>
+      <div id="pprev_badge" style="background:rgba(242,101,34,.2);border:1px solid rgba(242,101,34,.4);color:#F26522;font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;letter-spacing:.06em"></div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <span style="font-size:11px;color:rgba(255,255,255,.5)">This is exactly what your customer will see</span>
+        <button class="btn btn-sm" style="background:#16A34A;color:#fff;border-color:#16A34A;font-weight:800" onclick="closeM('mProposalPreview')">✓ Looks Good — Close Preview</button>
+      </div>
+    </div>
+    <!-- The actual proposal in an iframe -->
+    <iframe id="pprev_frame"
+      style="flex:1;width:100%;border:none"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups">
+    </iframe>
+  </div>
+</div>
+
 <div class="moverlay hidden" id="mMultiProposal" style="align-items:flex-start;padding:0">
   <div style="width:100%;height:100vh;display:flex;flex-direction:column;background:var(--bg)">
     <div style="background:var(--navy);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.2)">
@@ -3695,6 +3717,24 @@
 
     <!-- Step 2 — link ready -->
     <div id="plink_ready" style="display:none">
+
+      <!-- ── VERIFY & PREVIEW BANNER ── -->
+      <div id="plink_verify_banner" style="background:#0f2a1a;border:2px solid #16A34A;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:9px;font-weight:700;color:#4ADE80;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">✅ Link Verified — Before You Send, Confirm This Is Correct:</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;margin-bottom:10px">
+          <div><span style="color:rgba(255,255,255,.5)">Customer:</span> <span id="pv_name" style="color:#fff;font-weight:700"></span></div>
+          <div><span style="color:rgba(255,255,255,.5)">Estimate #:</span> <span id="pv_id" style="color:#fff;font-weight:700;font-family:var(--mono)"></span></div>
+          <div><span style="color:rgba(255,255,255,.5)">CC Price:</span> <span id="pv_cc" style="color:#F26522;font-weight:700;font-family:var(--mono)"></span></div>
+          <div><span style="color:rgba(255,255,255,.5)">Cash Price:</span> <span id="pv_cash" style="color:#4ADE80;font-weight:700;font-family:var(--mono)"></span></div>
+          <div><span style="color:rgba(255,255,255,.5)">Mode:</span> <span id="pv_mode" style="color:#fff;font-weight:700"></span></div>
+          <div><span style="color:rgba(255,255,255,.5)">Photos:</span> <span id="pv_photos" style="color:#fff;font-weight:700"></span></div>
+        </div>
+        <button class="btn btn-sm" onclick="openProposalPreview()"
+          style="width:100%;background:#16A34A;color:#fff;border-color:#16A34A;font-size:13px;font-weight:800;padding:10px;justify-content:center">
+          👁 Preview — See Exactly What The Customer Sees
+        </button>
+      </div>
+
       <!-- Secure link row -->
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:14px">
         <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Secure Proposal Link (expires 30 days)</div>
@@ -11597,13 +11637,53 @@ async function generateProposalLink(mode, estimateIds) {
     document.getElementById('plink_generating').style.display = 'none';
     document.getElementById('plink_ready').style.display      = 'block';
 
-    showToast('✓ Proposal link generated — choose how to send below');
+    // ── POPULATE VERIFICATION BANNER ──────────────────────────
+    // Show the user exactly what's in this link before they send it.
+    const pvJob      = jobs[curIdx];
+    const pvName     = pvJob?.custName   || '—';
+    const pvId       = estimateIds.join(', ');
+    const pvCC       = '$' + Math.round(pvJob?.calc_final || lastCalc.final || 0).toLocaleString();
+    const pvCash     = '$' + Math.round(pvJob?.calc_cash  || lastCalc.cash  || 0).toLocaleString();
+    const pvMode     = { single:'Single Estimate', options:'Multiple Options', combined:'Combined Total' }[mode] || mode;
+    const pvPhotos   = (pvJob?.photos?.filter(p => p.dataUrl || p.driveUrl)?.length || 0);
+    const pvPhotoStr = pvPhotos > 0 ? pvPhotos + ' photo' + (pvPhotos !== 1 ? 's' : '') + ' attached' : 'No photos';
+
+    const setText_ = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+    setText_('pv_name',   pvName);
+    setText_('pv_id',     pvId);
+    setText_('pv_cc',     pvCC);
+    setText_('pv_cash',   pvCash);
+    setText_('pv_mode',   pvMode);
+    setText_('pv_photos', pvPhotoStr);
+
+    showToast('✓ Proposal link generated — preview before sending!');
 
   } catch(e) {
     document.getElementById('plink_generating').style.display = 'none';
     document.getElementById('plink_error').style.display      = 'block';
     document.getElementById('plink_err_msg').textContent      = 'Error: ' + e.message;
   }
+}
+
+// ════════════════════════════════════════════════
+// PROPOSAL PREVIEW — shows exactly what the customer sees
+// Opens the real proposal URL in a full-screen iframe
+// ════════════════════════════════════════════════
+function openProposalPreview() {
+  if (!_proposalLinkUrl) { showToast('⚠️ Generate a link first'); return; }
+
+  const job    = curIdx >= 0 ? jobs[curIdx] : null;
+  const name   = job?.custName || '—';
+  const badge  = document.getElementById('pprev_badge');
+  if (badge) badge.textContent = name + ' · ' + (job?.id || '');
+
+  const frame = document.getElementById('pprev_frame');
+  if (frame) {
+    frame.src = ''; // reset first to force reload
+    frame.src = _proposalLinkUrl;
+  }
+
+  document.getElementById('mProposalPreview').classList.remove('hidden');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -12753,8 +12833,12 @@ function renderAnalytics() {
         if (res.records && res.records.length) {
           analyticsData = res.records;
           localStorage.setItem('fp_analytics', JSON.stringify(analyticsData));
-          const ts = res.uploadedAt ? ' · Last uploaded ' + new Date(res.uploadedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
-          showToast('☁️ Analytics loaded — ' + analyticsData.length + ' records' + ts);
+          const ts = res.uploadedAt ? new Date(res.uploadedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+          showToast('☁️ Analytics loaded — ' + analyticsData.length + ' records' + (ts ? ' · ' + ts : ''));
+          // Show sync badge
+          const badge = document.getElementById('analyticsSyncBadge');
+          const dateEl = document.getElementById('analyticsSyncDate');
+          if (badge && ts) { badge.style.display = 'inline'; if (dateEl) dateEl.textContent = ts; }
           renderAnalytics(); // re-render now that we have data
         } else {
           if (empty) {
