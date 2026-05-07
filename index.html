@@ -11689,8 +11689,11 @@ async function generateProposalLink(mode, estimateIds) {
     const pvMode     = { single:'Single Estimate', options:'Multiple Options', combined:'Combined Total' }[mode] || mode;
     // Count photos from both in-memory array AND saved Photo URLs field in Sheets
     const memPhotos  = (pvJob?.photos?.filter(p => p.dataUrl || p.driveUrl)?.length || 0);
-    const urlPhotos  = (pvJob?.photoUrls || pvJob?.['Photo URLs'] || '')
-                         .split(',').map(u => u.trim()).filter(Boolean).length;
+    // photoUrls is now an array — handle both array and string formats safely
+    const rawUrls    = pvJob?.photoUrls;
+    const urlPhotos  = Array.isArray(rawUrls)
+      ? rawUrls.filter(Boolean).length
+      : String(rawUrls || pvJob?.['Photo URLs'] || '').split(',').map(u => u.trim()).filter(Boolean).length;
     const pvPhotos   = Math.max(memPhotos, urlPhotos);
     const pvPhotoStr = pvPhotos > 0 ? pvPhotos + ' photo' + (pvPhotos !== 1 ? 's' : '') + ' ✅' : '⚠️ None found — check estimate';
 
