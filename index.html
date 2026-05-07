@@ -8275,7 +8275,8 @@ async function resolvePhotosToDataUrls(photoArr) {
 function getDriveThumbUrl(url, size) {
   if (!url) return '';
   const m = url.match(/[-\w]{25,}/);
-  return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=s' + (size||400) : '';
+  // Use uc?export=view — works without Google login for anyone with the link
+  return m ? 'https://drive.google.com/uc?export=view&id=' + m[0] : '';
 }
 
 function renderPhotos() {
@@ -11645,8 +11646,12 @@ async function generateProposalLink(mode, estimateIds) {
     const pvCC       = '$' + Math.round(pvJob?.calc_final || lastCalc.final || 0).toLocaleString();
     const pvCash     = '$' + Math.round(pvJob?.calc_cash  || lastCalc.cash  || 0).toLocaleString();
     const pvMode     = { single:'Single Estimate', options:'Multiple Options', combined:'Combined Total' }[mode] || mode;
-    const pvPhotos   = (pvJob?.photos?.filter(p => p.dataUrl || p.driveUrl)?.length || 0);
-    const pvPhotoStr = pvPhotos > 0 ? pvPhotos + ' photo' + (pvPhotos !== 1 ? 's' : '') + ' attached' : 'No photos';
+    // Count photos from both in-memory array AND saved Photo URLs field in Sheets
+    const memPhotos  = (pvJob?.photos?.filter(p => p.dataUrl || p.driveUrl)?.length || 0);
+    const urlPhotos  = (pvJob?.photoUrls || pvJob?.['Photo URLs'] || '')
+                         .split(',').map(u => u.trim()).filter(Boolean).length;
+    const pvPhotos   = Math.max(memPhotos, urlPhotos);
+    const pvPhotoStr = pvPhotos > 0 ? pvPhotos + ' photo' + (pvPhotos !== 1 ? 's' : '') + ' ✅' : '⚠️ None found — check estimate';
 
     const setText_ = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
     setText_('pv_name',   pvName);
