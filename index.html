@@ -4516,12 +4516,23 @@ function normalizeJob(j) {
     propStatus:  s(j.propStatus || j.proposalStatus, j['Status'], 'Draft'),
     franchiseOn: bool(j.franchiseOn, j['Franchise On'], true),
     deliveryOverride: bool(j.deliveryOverride, j['Delivery Override'], false),
-    photos: Array.isArray(j.photos) ? j.photos.map(p =>
-      typeof p === 'string' ? { name: p, uploaded: true, driveUrl: '' } : { name: p.name||'', uploaded: true, driveUrl: p.driveUrl||'' }
-    ) : (() => {
-      // Parse from Sheets comma-delimited Photo URLs column when loading from cloud
-      const urls = String(j['Photo URLs'] || '').split(',').map(u => u.trim()).filter(Boolean);
-      return urls.map(u => ({ name: u.split('/').pop() || 'photo', uploaded: true, driveUrl: u }));
+    photos: (() => {
+      // Build from in-memory array first (has names), then fill in driveUrls
+      // from Photo URLs column if the array entry is missing a driveUrl.
+      // This handles both fresh sessions and reloads from cloud/localStorage.
+      const sheetUrls = String(j['Photo URLs'] || '').split(',').map(u => u.trim()).filter(Boolean);
+      if (Array.isArray(j.photos) && j.photos.length > 0) {
+        return j.photos.map((p, i) => {
+          const base = typeof p === 'string'
+            ? { name: p, uploaded: true, driveUrl: '' }
+            : { name: p.name||'', uploaded: !!(p.driveUrl||sheetUrls[i]), driveUrl: p.driveUrl||'' };
+          // Backfill driveUrl from Sheet URLs if missing
+          if (!base.driveUrl && sheetUrls[i]) base.driveUrl = sheetUrls[i];
+          return base;
+        });
+      }
+      // No in-memory array — reconstruct from Photo URLs column
+      return sheetUrls.map(u => ({ name: 'Photo', uploaded: true, driveUrl: u }));
     })(),
     docs: Array.isArray(j.docs) ? j.docs.map(d =>
       ({ name: d.name||'', driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' })
@@ -8275,8 +8286,8 @@ async function resolvePhotosToDataUrls(photoArr) {
 function getDriveThumbUrl(url, size) {
   if (!url) return '';
   const m = url.match(/[-\w]{25,}/);
-  // Use uc?export=view — works without Google login for anyone with the link
-  return m ? 'https://drive.google.com/uc?export=view&id=' + m[0] : '';
+  // thumbnail endpoint works for img tags — files must be shared "Anyone with link"
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=s' + (size||400) : '';
 }
 
 function renderPhotos() {
@@ -8288,12 +8299,19 @@ function renderPhotos() {
     d.className = 'pthumb';
     const src = p.dataUrl || getDriveThumbUrl(p.driveUrl, 400);
     if (src) {
-      d.innerHTML = `<img src="${src}" onerror="this.style.display='none'">
+      d.innerHTML = `<img src="${src}"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+        style="width:100%;height:100%;object-fit:cover;border-radius:4px">
+        <div style="display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);padding:4px;text-align:center;gap:4px">
+          <span>🖼</span><span>${escHtml(p.name||'Photo')}</span>
+          <span style="color:var(--green);font-size:9px">${p.driveUrl ? '✓ Saved to Drive' : ''}</span>
+        </div>
         <button class="xbtn" onclick="rmPhoto(${i})">✕</button>`;
     } else {
-      d.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px;text-align:center">
-        ${p.name}<br>${p.uploaded ? '✓ Uploaded' : 'pending'}
-        <br><button class="xbtn" style="position:relative;display:block;margin:4px auto 0" onclick="rmPhoto(${i})">✕</button>
+      d.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;font-size:10px;color:var(--text3);font-family:var(--mono);padding:4px;text-align:center;gap:4px">
+        <span>🖼</span><span>${escHtml(p.name||'Photo')}</span>
+        <span>${p.uploaded ? '✓ Saved to Drive' : '⏳ pending upload'}</span>
+        <button class="xbtn" style="position:relative;display:block;margin:4px auto 0" onclick="rmPhoto(${i})">✕</button>
       </div>`;
     }
     g.appendChild(d);
