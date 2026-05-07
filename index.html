@@ -8285,9 +8285,10 @@ async function resolvePhotosToDataUrls(photoArr) {
 
 function getDriveThumbUrl(url, size) {
   if (!url) return '';
+  // lh3 direct URL — fastest, no auth needed, works everywhere
+  if (url.includes('lh3.googleusercontent.com')) return url;
   const m = url.match(/[-\w]{25,}/);
-  // thumbnail endpoint works for img tags — files must be shared "Anyone with link"
-  return m ? 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=s' + (size||400) : '';
+  return m ? 'https://lh3.googleusercontent.com/d/' + m[0] : '';
 }
 
 function renderPhotos() {
