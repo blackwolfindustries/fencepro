@@ -1330,7 +1330,7 @@
       </div>
       <div class="f">
         <label>STATUS</label>
-        <select id="propStatus" onchange="updateBadge();if(curIdx>=0){jobs[curIdx].propStatus=this.value;persistJobs();renderBoard();}">
+        <select id="propStatus" onchange="updateBadge();if(curIdx>=0){jobs[curIdx].propStatus=this.value;jobs[curIdx].statusChangedAt=new Date().toISOString();persistJobs();renderBoard();}">
           <option>Draft</option><option>Committed</option><option>Sent</option><option>Accepted</option>
           <option>Deposit Received</option><option>Scheduled</option><option>In Progress</option>
           <option>Ready for Invoice</option><option>Invoiced</option><option>Paid in Full</option>
@@ -7873,8 +7873,17 @@ async function loadCloud() {
         'Deposit Received':4,'Scheduled':5,'In Progress':6,
         'Ready for Invoice':7,'Invoiced':8,'Paid in Full':9,'Lost':2
       };
+      // Map of local status + when it was last changed locally
+      // Used to decide whether local or cloud status should win on refresh
       const localStatusMap = {};
-      jobs.forEach(j => { if (j.id && j.propStatus) localStatusMap[j.id] = j.propStatus; });
+      jobs.forEach(j => {
+        if (j.id && j.propStatus) {
+          localStatusMap[j.id] = {
+            status:    j.propStatus,
+            changedAt: j.statusChangedAt || null
+          };
+        }
+      });
 
       // Build a map of local notes — rescue internalNotes and scopeNotes that were
       // saved locally but not yet synced to cloud (or cloud returned empty due to
@@ -7908,15 +7917,30 @@ async function loadCloud() {
       jobs = [
         ...data.jobs.map(j => {
           const norm = normalizeJob(j);
-          // If local has a higher-ranked status than cloud, keep local.
-          // This guards against the Jobs tab having a stale status overriding
-          // the Estimates tab authoritative status (col 58).
-          const localSt = localStatusMap[norm.id];
-          if (localSt && norm.id) {
-            const cloudRank = STATUS_RANK[norm.propStatus] ?? -1;
-            const localRank = STATUS_RANK[localSt]         ?? -1;
-            if (localRank > cloudRank) {
-              norm.propStatus = localSt;
+          // Decide whether local or cloud status should win.
+          // If local has a recent statusChangedAt timestamp, local always wins
+          // (user intentionally changed it — even if moving backwards in rank).
+          // If no timestamp, fall back to rank-based rescue (higher rank wins).
+          const localEntry = localStatusMap[norm.id];
+          if (localEntry && norm.id) {
+            const localSt       = localEntry.status;
+            const localChanged  = localEntry.changedAt ? new Date(localEntry.changedAt) : null;
+            // Cloud status changed at — from Jobs tab Status Changed At field
+            const cloudChanged  = norm.statusChangedAt ? new Date(norm.statusChangedAt) : null;
+
+            if (localChanged) {
+              // Local has a timestamp — if it's newer than cloud, local wins regardless of rank
+              if (!cloudChanged || localChanged > cloudChanged) {
+                norm.propStatus       = localSt;
+                norm.statusChangedAt  = localEntry.changedAt;
+              }
+            } else {
+              // No timestamp — use rank rescue (higher rank wins)
+              const cloudRank = STATUS_RANK[norm.propStatus] ?? -1;
+              const localRank = STATUS_RANK[localSt]         ?? -1;
+              if (localRank > cloudRank) {
+                norm.propStatus = localSt;
+              }
             }
           }
           // If local has non-empty notes but cloud returned empty, keep local notes.
@@ -8134,7 +8158,8 @@ function renderBoard() {
 
 async function boardMoveJob(jobIdx, newStage) {
   const job = jobs[jobIdx]; if (!job) return;
-  job.propStatus = newStage;
+  job.propStatus          = newStage;
+  job.statusChangedAt     = new Date().toISOString(); // local timestamp — wins over cloud on refresh
   persistJobs();
   renderBoard();
   showToast(`✓ ${(job.custName||'Job').split(' ')[0]} moved → ${newStage}`);
