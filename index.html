@@ -4534,6 +4534,15 @@ function normalizeJob(j) {
       // No in-memory array — reconstruct from Photo URLs column
       return sheetUrls.map(u => ({ name: 'Photo', uploaded: true, driveUrl: u }));
     })(),
+    // Keep the raw Photo URLs array so saveJob can preserve them when resaving
+    // without re-uploading (photos already in Drive but dataUrl no longer in memory)
+    photoUrls: (() => {
+      const fromPhotos = Array.isArray(j.photos)
+        ? j.photos.map(p => (typeof p === 'object' ? p.driveUrl : '') || '').filter(Boolean)
+        : [];
+      const fromSheet  = String(j['Photo URLs'] || '').split(',').map(u => u.trim()).filter(Boolean);
+      return fromPhotos.length > 0 ? fromPhotos : fromSheet;
+    })(),
     docs: Array.isArray(j.docs) ? j.docs.map(d =>
       ({ name: d.name||'', driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' })
     ) : (() => {
@@ -6770,10 +6779,23 @@ async function saveJob() {
       }
     }
 
-    // Build photoUrls array from Drive URLs for Sheets / proposal display
-    data.photoUrls = photos
-      .map(p => p.driveUrl || '')
-      .filter(Boolean);
+    // Build photoUrls array from Drive URLs for Sheets / proposal display.
+    // IMPORTANT: also preserve any existing Photo URLs already in Sheets
+    // (from photos uploaded in a previous session that no longer have dataUrl
+    // in memory). Without this, re-saving an estimate wipes the photo column.
+    const freshUrls   = photos.map(p => p.driveUrl || '').filter(Boolean);
+    const existingJob = jobs[curIdx];
+    // Pull existing URLs from: 1) normalizeJob photoUrls, 2) photos array driveUrls,
+    // 3) Photo URLs field from Sheets — whichever has data
+    const existingUrls = (
+      existingJob?.photoUrls?.filter(Boolean).length > 0
+        ? existingJob.photoUrls
+        : (existingJob?.photos || []).map(p => p.driveUrl||'').filter(Boolean)
+    );
+    // Fresh urls (just uploaded this session) take priority.
+    // Fall back to existing saved urls so resaving never wipes the column.
+    data.photoUrls = freshUrls.length > 0 ? freshUrls : existingUrls;
+    Logger && console.log && console.log('photoUrls being saved:', data.photoUrls);
 
     // Save to Sheets
     const res = await cloudCall({ action:'saveJob', data });
@@ -11680,7 +11702,9 @@ async function generateProposalLink(mode, estimateIds) {
     setText_('pv_mode',   pvMode);
     setText_('pv_photos', pvPhotoStr);
 
-    showToast('✓ Proposal link generated — preview before sending!');
+    showToast(res.reused
+      ? '🔁 Existing proposal link reused — same link as before'
+      : '✓ New proposal link generated — preview before sending!');
 
   } catch(e) {
     document.getElementById('plink_generating').style.display = 'none';
