@@ -11592,6 +11592,26 @@ function fpSendPickerLink(mode) {
   generateProposalLink(mode, ids);
 }
 
+// Resolve the best available email for a job —
+// checks job record first, then form field, then CRM contact record
+function resolveJobEmail(job) {
+  const fromJob  = job?.custEmail || val('custEmail') || '';
+  if (fromJob) return fromJob;
+  // Fall back to CRM contact record using contactUID
+  const uid = job?.contactUID || '';
+  if (uid && Array.isArray(contacts)) {
+    const contact = contacts.find(c => c.uid === uid);
+    if (contact?.email) return contact.email;
+  }
+  // Last resort — match by customer name
+  const name = (job?.custName || '').toLowerCase().trim();
+  if (name && Array.isArray(contacts)) {
+    const contact = contacts.find(c => (c.name||'').toLowerCase().trim() === name);
+    if (contact?.email) return contact.email;
+  }
+  return '';
+}
+
 async function generateProposalLink(mode, estimateIds) {
   if (curIdx < 0) { alert('Please load an estimate first'); return; }
   const job = jobs[curIdx];
@@ -11599,6 +11619,16 @@ async function generateProposalLink(mode, estimateIds) {
   if (!settings.scriptUrl) { alert('Cloud not connected — configure in Setup first'); return; }
 
   // If no mode specified, check for siblings and show picker
+  // Sync email from CRM if job record is missing it
+  const resolvedEmail = resolveJobEmail(job);
+  if (resolvedEmail && !job.custEmail) {
+    job.custEmail = resolvedEmail;
+    jobs[curIdx].custEmail = resolvedEmail;
+    const emailEl = document.getElementById('custEmail');
+    if (emailEl && !emailEl.value) emailEl.value = resolvedEmail;
+    persistJobs();
+  }
+
   if (!mode) {
     const prefix   = (job.id||'').split('-')[0];
     const siblings = jobs.filter(j => j.id && (j.id||'').split('-')[0] === prefix);
@@ -11623,7 +11653,7 @@ async function generateProposalLink(mode, estimateIds) {
         estimateIds:  estimateIds,
         proposalMode: mode,
         custName:   job.custName  || val('custName')  || '',
-        custEmail:  job.custEmail || val('custEmail') || '',
+        custEmail:  resolveJobEmail(job),
         company:    activeCompany || 'BWI'
       }
     });
@@ -11663,7 +11693,7 @@ async function generateProposalLink(mode, estimateIds) {
     // Populate To: field display
     const toDisplay = document.getElementById('plink_to_display');
     if (toDisplay) {
-      const custEmail = job?.custEmail || val('custEmail') || '';
+      const custEmail = resolveJobEmail(job);
       toDisplay.textContent = custEmail || '⚠️ No email on file — add in Estimator or CRM';
       toDisplay.style.color = custEmail ? 'var(--text1)' : 'var(--red)';
     }
@@ -11874,7 +11904,7 @@ function markProposalSent() {
 
 async function sendViaGmail() {
   const job = curIdx >= 0 ? jobs[curIdx] : null;
-  const email = job?.custEmail || val('custEmail') || '';
+  const email = resolveJobEmail(job);
   if (!email) { alert('No email address found for this customer.\n\nPlease add their email before sending.'); return; }
   if (!settings.scriptUrl) { alert('Cloud not connected — configure in Setup first'); return; }
 
