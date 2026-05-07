@@ -6795,8 +6795,6 @@ async function saveJob() {
     // Fresh urls (just uploaded this session) take priority.
     // Fall back to existing saved urls so resaving never wipes the column.
     data.photoUrls = freshUrls.length > 0 ? freshUrls : existingUrls;
-    Logger && console.log && console.log('photoUrls being saved:', data.photoUrls);
-
     // Save to Sheets
     const res = await cloudCall({ action:'saveJob', data });
     if (res.success) {
