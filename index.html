@@ -1476,32 +1476,6 @@
     <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:6px" id="docNote"></div>
   </div>
 
-  <!-- ── DRIVE FILES ── -->
-  <div class="card" style="padding:14px 16px" id="driveFilesCard">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <span class="card-title" style="margin:0">☁️ Drive Files</span>
-      <span style="font-size:9px;font-weight:600;color:var(--text3);background:var(--surface2);padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em">Drop files in Drive — they appear here</span>
-      <button onclick="loadDriveFiles(true)" id="driveFilesRefreshBtn"
-        style="margin-left:auto;font-size:11px;font-weight:700;color:var(--blue);background:none;border:1px solid var(--blue);border-radius:5px;padding:3px 10px;cursor:pointer">
-        ↻ Refresh
-      </button>
-    </div>
-    <div id="driveFilesStatus" style="font-size:11px;color:var(--text3);margin-bottom:6px;display:none"></div>
-    <div id="driveFilesList"></div>
-    <div id="driveFilesEmpty" style="display:none;text-align:center;padding:18px 0">
-      <div style="font-size:24px;margin-bottom:6px">📂</div>
-      <div style="font-size:12px;font-weight:600;color:var(--text2)">No files in this job folder yet</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:4px">Drop any file into the Drive folder and hit Refresh</div>
-      <a id="driveFilesFolderLink" href="#" target="_blank"
-        style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:var(--blue)">
-        📁 Open Drive Folder ↗
-      </a>
-    </div>
-    <div id="driveFilesUnsaved" style="display:none;font-size:11px;color:var(--text3);padding:12px 0;text-align:center">
-      Save this estimate first to enable Drive file access.
-    </div>
-  </div>
-
 </div><!-- est-main -->
 
 <!-- ══ SIDEBAR ══ -->
@@ -7205,7 +7179,6 @@ function loadJobLocal(idx) {
   updateBadge();
   renderSiblingPills();
   refreshAudit();   // load proposal activity for this estimate
-  loadDriveFiles(false); // load Drive files for this job (uses cache — fast)
   show('est');
 }
 
@@ -7218,13 +7191,6 @@ function newEst() {
   curIdx = -1;
   photos = [];
   docs   = [];
-  // Clear Drive files panel for new estimate
-  const dl = document.getElementById('driveFilesList');
-  const de = document.getElementById('driveFilesEmpty');
-  const du = document.getElementById('driveFilesUnsaved');
-  if (dl) dl.innerHTML = '';
-  if (de) de.style.display = 'none';
-  if (du) du.style.display = 'block';
   renderPhotos();
   renderDocs();
   const nums = ['matCost','laborCost','demoLF','addOns','cartFee','discount','numGates','totalLF','concBags'];
@@ -8702,126 +8668,6 @@ function renderDocs() {
   if (note) note.textContent = docs.length > 0
     ? `${docs.length} doc(s) · stored in EST-${(curIdx>=0&&jobs[curIdx]?.id||'').split('-')[2]||'?'} folder`
     : '';
-}
-
-// ════════════════════════════════════════════════
-// DRIVE FILES — list files from job's Drive folder
-// ════════════════════════════════════════════════
-let _driveFilesCache = {};  // keyed by jobId — avoids re-fetching on every tab switch
-
-async function loadDriveFiles(forceRefresh) {
-  const card     = document.getElementById('driveFilesCard');
-  const list     = document.getElementById('driveFilesList');
-  const empty    = document.getElementById('driveFilesEmpty');
-  const unsaved  = document.getElementById('driveFilesUnsaved');
-  const statusEl = document.getElementById('driveFilesStatus');
-  const refreshBtn = document.getElementById('driveFilesRefreshBtn');
-  if (!card || !list) return;
-
-  // Hide all panels to start
-  list.innerHTML = '';
-  if (empty)   empty.style.display   = 'none';
-  if (unsaved) unsaved.style.display = 'none';
-  if (statusEl) { statusEl.style.display = 'none'; statusEl.textContent = ''; }
-
-  // Must have a saved job with an ID and a Drive folder
-  const job = curIdx >= 0 ? jobs[curIdx] : null;
-  if (!job || !job.id) {
-    if (unsaved) unsaved.style.display = 'block';
-    return;
-  }
-  if (!settings.scriptUrl) {
-    if (statusEl) { statusEl.textContent = 'Connect cloud in Setup to enable Drive Files.'; statusEl.style.display = 'block'; }
-    return;
-  }
-
-  // Use cache unless forced refresh
-  if (!forceRefresh && _driveFilesCache[job.id]) {
-    renderDriveFilesList(_driveFilesCache[job.id]);
-    return;
-  }
-
-  // Show loading state
-  if (statusEl) { statusEl.textContent = '⏳ Loading Drive files...'; statusEl.style.display = 'block'; }
-  if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '⏳'; }
-
-  try {
-    const res = await cloudCall({ action: 'getJobFiles', data: { jobId: job.id, custName: job.custName || '' } });
-    if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↻ Refresh'; }
-    if (statusEl)   { statusEl.style.display = 'none'; }
-
-    if (res.error) {
-      if (statusEl) { statusEl.textContent = '⚠ ' + res.error; statusEl.style.display = 'block'; }
-      return;
-    }
-
-    // Cache the result
-    _driveFilesCache[job.id] = res;
-    renderDriveFilesList(res);
-
-  } catch(e) {
-    if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↻ Refresh'; }
-    if (statusEl)   { statusEl.textContent = '⚠ Could not load Drive files — ' + (e.message||''); statusEl.style.display = 'block'; }
-  }
-}
-
-function renderDriveFilesList(res) {
-  const list    = document.getElementById('driveFilesList');
-  const empty   = document.getElementById('driveFilesEmpty');
-  const folderLink = document.getElementById('driveFilesFolderLink');
-  if (!list) return;
-
-  // Update folder link
-  if (folderLink && res.folderUrl) folderLink.href = res.folderUrl;
-
-  if (!res.files || !res.files.length) {
-    if (empty) empty.style.display = 'block';
-    return;
-  }
-
-  // Group files by subfolder
-  const groups = {};
-  res.files.forEach(f => {
-    const g = f.subfolder || '(root)';
-    if (!groups[g]) groups[g] = [];
-    groups[g].push(f);
-  });
-
-  // Preferred subfolder order
-  const ORDER = ['Estimates','Work Order','Vendor Invoices','Archive','(root)'];
-  const keys  = Object.keys(groups).sort((a,b) => {
-    const ai = ORDER.indexOf(a); const bi = ORDER.indexOf(b);
-    if (ai >= 0 && bi >= 0) return ai - bi;
-    if (ai >= 0) return -1;
-    if (bi >= 0) return 1;
-    return a.localeCompare(b);
-  });
-
-  const fmt = iso => new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
-
-  list.innerHTML = keys.map(key => {
-    const files = groups[key];
-    const rows  = files.map(f => `
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px">
-        <span style="font-size:15px;flex-shrink:0">${f.icon}</span>
-        <span style="flex:1;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(f.name)}">${escHtml(f.name)}</span>
-        <span style="color:var(--text3);flex-shrink:0;font-size:10px">${f.size}</span>
-        <span style="color:var(--text3);flex-shrink:0;font-size:10px">${fmt(f.updatedAt)}</span>
-        <a href="${f.url}" target="_blank"
-           style="flex-shrink:0;font-size:11px;font-weight:700;color:var(--blue);text-decoration:none;padding:2px 8px;border:1px solid var(--blue);border-radius:4px;white-space:nowrap">
-          Open ↗
-        </a>
-      </div>`).join('');
-
-    const label = key === '(root)' ? 'Job Folder (root)' : key;
-    return `
-      <div style="margin-bottom:10px">
-        <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;padding:4px 2px;border-bottom:2px solid var(--border);margin-bottom:2px">
-          📁 ${escHtml(label)} <span style="font-weight:400;color:var(--text3)">(${files.length})</span>
-        </div>
-        ${rows}
-      </div>`;
-  }).join('');
 }
 
 // ════════════════════════════════════════════════
@@ -13251,8 +13097,17 @@ function renderAnalytics() {
     thisquarter:'this quarter', lastquarter:'last quarter',
     year:'this year', lastyear:'last year', all:'all time'
   };
+  // Header count — CSV filtered rows + live jobs in range (same as KPI total)
+  const liveJobsInRange = jobs.filter(j => {
+    if (!j.id) return false;
+    const d = j.savedAt ? new Date(j.savedAt) : null;
+    if (!d) return true;
+    if (range.start && d < range.start) return false;
+    if (range.end   && d > range.end)   return false;
+    return true;
+  }).length;
   const meta = document.getElementById('analyticsProposalsMeta');
-  if (meta) meta.textContent = filtered.length + ' proposals — ' + (rangeLabels[rangeVal] || rangeVal);
+  if (meta) meta.textContent = (filtered.length + liveJobsInRange) + ' proposals — ' + (rangeLabels[rangeVal] || rangeVal);
 
   // Render all tabs with the same filtered data
   // Note: renderKPIs receives both filtered (for totals/pipeline) and full data (for backlog)
@@ -13564,17 +13419,35 @@ function renderKPIs(csvRows, allCsvRows) {
   const jobPipeline = jobOpen.reduce((s, j) => s + jobPrice(j), 0);
 
   // ── CSV supplement — avoid double-counting live jobs ──
-  const liveNames = new Set(jobs.map(j => (j.custName || '').toLowerCase().trim()));
+  // Deduplicate by Contact Id (exact match) — NOT by name.
+  // Name-based dedup was too aggressive: it removed ALL CSV rows for a customer
+  // who had any live job, even if the CSV row was a different estimate entirely.
+  // Contact Id is unique per customer so only exact matches are excluded.
+  const liveContactUIDs = new Set(
+    jobs.map(j => String(j.contactUID || '').trim()).filter(Boolean)
+  );
 
-  const csvNew         = csvRows.filter(r => {
-    const name = (r['Customer'] || r['Name'] || r['Customer Name'] || '').toLowerCase().trim();
-    return !name || !liveNames.has(name);
-  });
+  const isDupe = r => {
+    const csvContactId = String(r['Contact Id'] || r['Contact ID'] || '').trim();
+    // Only exclude if CSV row has a Contact Id AND it matches a live job's contactUID
+    // AND that live job has the same status (avoid excluding CSV rows at different stages)
+    if (!csvContactId) return false;
+    if (!liveContactUIDs.has(csvContactId)) return false;
+    // Contact ID matches — check if this specific status is already represented
+    // in live jobs for this contact. If live job is at a different status, keep both.
+    const csvStatus = r['Status'] || '';
+    const liveJob   = jobs.find(j => String(j.contactUID||'').trim() === csvContactId);
+    if (!liveJob) return false;
+    // Only dedupe if the live job is in a matching status category
+    const csvClosed  = csvStatus === 'Accepted' || csvStatus === 'Complete';
+    const liveClosed = ['Accepted','Deposit Received','Scheduled','In Progress',
+      'Ready for Invoice','Invoiced','Paid in Full','Complete'].includes(liveJob.propStatus);
+    return csvClosed && liveClosed;
+  };
+
+  const csvNew         = csvRows.filter(r => !isDupe(r));
   // For backlog use ALL csv rows not just date-filtered
-  const allCsvNew      = allCsvRows.filter(r => {
-    const name = (r['Customer'] || r['Name'] || r['Customer Name'] || '').toLowerCase().trim();
-    return !name || !liveNames.has(name);
-  });
+  const allCsvNew      = allCsvRows.filter(r => !isDupe(r));
 
   const csvAccepted    = allCsvNew.filter(r => r['Status'] === 'Accepted');
   const csvComplete    = csvNew.filter(r => r['Status'] === 'Complete');
