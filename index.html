@@ -2558,30 +2558,51 @@
     <!-- ══ OVERVIEW ══ -->
     <div id="atab-overview" style="display:flex;flex-direction:column;gap:16px;padding:16px">
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px">
-        <div class="card" style="padding:14px;text-align:center">
+        <div class="card" id="kpicard_total" onclick="kpiDrillDown('total')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--navy)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Proposals</div>
           <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_total">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px">click to view ↓</div>
         </div>
-        <div class="card" style="padding:14px;text-align:center">
+        <div class="card" id="kpicard_closerate" onclick="kpiDrillDown('closerate')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--orange)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Close Rate</div>
           <div style="font-size:28px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="kpi_closerate">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px">click to view ↓</div>
         </div>
-        <div class="card" style="padding:14px;text-align:center">
+        <div class="card" id="kpicard_revenue" onclick="kpiDrillDown('revenue')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--green)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Closed Revenue</div>
           <div style="font-size:22px;font-weight:900;color:var(--green);font-family:var(--mono)" id="kpi_revenue">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px">click to view ↓</div>
         </div>
-        <div class="card" style="padding:14px;text-align:center">
+        <div class="card" id="kpicard_backlog" onclick="kpiDrillDown('backlog')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--blue)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Accepted Backlog</div>
           <div style="font-size:22px;font-weight:900;color:var(--blue);font-family:var(--mono)" id="kpi_backlog">—</div>
           <div style="font-size:9px;color:var(--text3);margin-top:2px">Won — not yet complete</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:2px">click to view ↓</div>
         </div>
-        <div class="card" style="padding:14px;text-align:center">
+        <div class="card" id="kpicard_avg" onclick="kpiDrillDown('avg')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--navy)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg Job Value</div>
           <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_avg">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px">click to view ↓</div>
         </div>
-        <div class="card" style="padding:14px;text-align:center">
+        <div class="card" id="kpicard_pipeline" onclick="kpiDrillDown('pipeline')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--blue)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Open Pipeline</div>
           <div style="font-size:22px;font-weight:900;color:var(--blue);font-family:var(--mono)" id="kpi_pipeline">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px">click to view ↓</div>
+        </div>
+      </div>
+      <!-- KPI Drill-down panel — shared, populated on click -->
+      <div id="kpiDrillPanel" style="display:none">
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.06em" id="kpiDrillTitle"></div>
+            <button onclick="kpiDrillDown(null)" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);line-height:1">✕</button>
+          </div>
+          <div style="overflow-x:auto;max-height:380px;overflow-y:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead id="kpiDrillHead" style="position:sticky;top:0;background:var(--surface)"></thead>
+              <tbody id="kpiDrillBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
       <div class="card">
@@ -13100,7 +13121,6 @@ function renderAnalytics() {
   };
   const meta = document.getElementById('analyticsProposalsMeta');
   if (meta) meta.textContent = filtered.length + ' proposals — ' + (rangeLabels[rangeVal] || rangeVal);
-  // Note: filtered.length = CSV rows only, matching the KPI Total
 
   // Render all tabs with the same filtered data
   // Note: renderKPIs receives both filtered (for totals/pipeline) and full data (for backlog)
@@ -13374,14 +13394,132 @@ function renderBreakdownFromJobs(tbodyId, theadId, field, label) {
 // Primary source: live jobs[] array (FencePro native data)
 // Secondary source: CSV analyticsData (historical pre-FencePro data)
 // The two are combined without double-counting by checking estimate IDs.
+// ════════════════════════════════════════════════
+// KPI DRILL-DOWN — click any KPI card to see rows
+// ════════════════════════════════════════════════
+let _kpiActiveDrill = null;  // track which KPI is open
+
+function kpiDrillDown(kpi) {
+  const panel = document.getElementById('kpiDrillPanel');
+  const title = document.getElementById('kpiDrillTitle');
+  const thead = document.getElementById('kpiDrillHead');
+  const tbody = document.getElementById('kpiDrillBody');
+  if (!panel || !thead || !tbody) return;
+
+  // Clear active highlight on all cards
+  ['total','closerate','revenue','backlog','avg','pipeline'].forEach(k => {
+    const c = document.getElementById('kpicard_' + k);
+    if (c) c.style.outline = '';
+  });
+
+  // Toggle off if same KPI clicked again or null passed
+  if (!kpi || _kpiActiveDrill === kpi) {
+    _kpiActiveDrill = null;
+    panel.style.display = 'none';
+    return;
+  }
+  _kpiActiveDrill = kpi;
+  panel.style.display = 'block';
+
+  // Highlight active card
+  const colors = { total:'var(--navy)', closerate:'var(--orange)', revenue:'var(--green)',
+                   backlog:'var(--blue)', avg:'var(--navy)', pipeline:'var(--blue)' };
+  const activeCard = document.getElementById('kpicard_' + kpi);
+  if (activeCard) activeCard.style.outline = '2px solid ' + (colors[kpi] || 'var(--navy)');
+
+  // Get current filtered data
+  const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
+  const range    = getDateRange(rangeVal);
+  const filtered = analyticsData.filter(r => {
+    const d = parseAnalyticsDate(r['Sent'] || r['Created']);
+    if (!d) return rangeVal === 'all';
+    if (range.start && d < range.start) return false;
+    if (range.end   && d > range.end)   return false;
+    return true;
+  });
+  const allRows = analyticsData; // for backlog — uses all time
+
+  // Select rows based on KPI
+  let rows = [];
+  let label = '';
+  switch(kpi) {
+    case 'total':
+      rows  = filtered;
+      label = 'All Proposals — ' + filtered.length + ' rows';
+      break;
+    case 'closerate':
+      rows  = filtered.filter(r => r['Status'] === 'Accepted' || r['Status'] === 'Complete');
+      label = 'Closed Proposals (Accepted + Complete) — ' + rows.length + ' rows';
+      break;
+    case 'revenue':
+      rows  = filtered.filter(r => r['Status'] === 'Complete');
+      label = 'Closed Revenue — ' + rows.length + ' rows';
+      break;
+    case 'backlog':
+      rows  = allRows.filter(r => r['Status'] === 'Accepted');
+      label = 'Accepted Backlog (All Time) — ' + rows.length + ' rows';
+      break;
+    case 'avg':
+      rows  = allRows.filter(r => r['Status'] === 'Accepted' || r['Status'] === 'Complete');
+      label = 'Avg Job Value — Accepted + Complete — ' + rows.length + ' rows';
+      break;
+    case 'pipeline':
+      rows  = filtered.filter(r => r['Status'] === 'Open');
+      label = 'Open Pipeline — ' + rows.length + ' rows';
+      break;
+  }
+
+  title.textContent = label;
+
+  // Table header
+  thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
+    <th style="${_thStyle('left')}">Name</th>
+    <th style="${_thStyle('left')}">Status</th>
+    <th style="${_thStyle('right')}">Value</th>
+    <th style="${_thStyle('left')}">Sent</th>
+    <th style="${_thStyle('left')}">Channel</th>
+    <th style="${_thStyle('left')}">Campaign</th>
+    <th style="${_thStyle('left')}">Service</th>
+  </tr>`;
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--text3)">No data for this selection</td></tr>';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    return;
+  }
+
+  const statusColors = {
+    'Open':'var(--blue)', 'Accepted':'var(--green)',
+    'Complete':'#16A34A', 'Declined':'var(--red)', 'Expired':'var(--text3)'
+  };
+  const fmt = s => {
+    const d = parseAnalyticsDate(s);
+    return d ? d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}) : '—';
+  };
+
+  tbody.innerHTML = rows.map((r, i) => {
+    const val    = parseFloat(r['Value']) || 0;
+    const status = r['Status'] || '—';
+    const color  = statusColors[status] || 'var(--text2)';
+    return `<tr style="border-bottom:1px solid var(--border);${i%2===0?'background:var(--surface2)':''}">
+      <td style="padding:7px 8px;font-weight:600;color:var(--text)">${escHtml(r['Name'] || r['Customer'] || '—')}</td>
+      <td style="padding:7px 8px"><span style="font-size:10px;font-weight:700;color:${color};background:${color}18;padding:2px 7px;border-radius:10px">${escHtml(status)}</span></td>
+      <td style="padding:7px 8px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">$${Math.round(val).toLocaleString()}</td>
+      <td style="padding:7px 8px;color:var(--text2)">${fmt(r['Sent'] || r['Created'])}</td>
+      <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Channel'] || '—')}</td>
+      <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Campaign'] || '—')}</td>
+      <td style="padding:7px 8px;color:var(--text2);font-size:11px">${escHtml(r['Service'] || r['Title'] || '—')}</td>
+    </tr>`;
+  }).join('');
+
+  // Scroll drill-down into view smoothly
+  setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+}
+
 function renderKPIs(csvRows, allCsvRows) {
   // Analytics is CSV-only. No live jobs data is used here.
-  // csvRows    = date-filtered rows
-  // allCsvRows = ALL rows (backlog uses all-time accepted, not just filtered range)
   allCsvRows = allCsvRows || csvRows;
 
-  // Backlog uses ALL csv rows regardless of date filter —
-  // accepted jobs stay in backlog until marked Complete
   const csvAccepted = allCsvRows.filter(r => r['Status'] === 'Accepted');
   const csvComplete = csvRows.filter(r => r['Status'] === 'Complete');
   const csvOpen     = csvRows.filter(r => r['Status'] === 'Open');
