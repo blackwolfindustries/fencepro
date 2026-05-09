@@ -12961,20 +12961,24 @@ function getDateRange(rangeVal) {
   const y     = today.getFullYear();
   const m     = today.getMonth(); // 0-indexed
 
+  // End of today — used to cap all open-ended ranges so future-dated rows
+  // and blank-date fallbacks don't bleed into filtered results
+  const endOfToday = new Date(today.getTime() + 86400000 - 1);
+
   if (rangeVal === 'all')      return { start: null, end: null };
   if (rangeVal === 'week') {
     const day = today.getDay(); // 0=Sun
     const mon = new Date(today.getTime() - ((day === 0 ? 6 : day - 1) * 86400000));
-    return { start: mon, end: null };
+    return { start: mon, end: endOfToday };
   }
-  if (rangeVal === 'month')     return { start: new Date(y, m, 1), end: null };
+  if (rangeVal === 'month')     return { start: new Date(y, m, 1), end: endOfToday };
   if (rangeVal === 'lastmonth') return {
     start: new Date(y, m - 1, 1),
     end:   new Date(y, m, 0)          // last day of previous month
   };
-  if (rangeVal === '30')        return { start: new Date(today.getTime() - 30  * 86400000), end: null };
-  if (rangeVal === '90')        return { start: new Date(today.getTime() - 90  * 86400000), end: null };
-  if (rangeVal === '180')       return { start: new Date(today.getTime() - 180 * 86400000), end: null };
+  if (rangeVal === '30')        return { start: new Date(today.getTime() - 30  * 86400000), end: endOfToday };
+  if (rangeVal === '90')        return { start: new Date(today.getTime() - 90  * 86400000), end: endOfToday };
+  if (rangeVal === '180')       return { start: new Date(today.getTime() - 180 * 86400000), end: endOfToday };
 
   // Quarters — fiscal year Jan 1 → Dec 31, so calendar quarters apply directly
   // Q1 = Jan-Mar (0-2), Q2 = Apr-Jun (3-5), Q3 = Jul-Sep (6-8), Q4 = Oct-Dec (9-11)
@@ -12982,7 +12986,7 @@ function getDateRange(rangeVal) {
     const qStart = Math.floor(m / 3) * 3;   // first month of current quarter
     return {
       start: new Date(y, qStart, 1),
-      end:   null
+      end:   endOfToday
     };
   }
   if (rangeVal === 'lastquarter') {
@@ -12995,7 +12999,7 @@ function getDateRange(rangeVal) {
     return { start: new Date(y, lqStart, 1), end: new Date(y, lqStart + 3, 0) };
   }
 
-  if (rangeVal === 'year')      return { start: new Date(y, 0, 1), end: null };
+  if (rangeVal === 'year')      return { start: new Date(y, 0, 1), end: endOfToday };
   if (rangeVal === 'lastyear')  return {
     start: new Date(y - 1, 0, 1),
     end:   new Date(y - 1, 11, 31)
@@ -13082,10 +13086,13 @@ function renderAnalytics() {
   const range    = getDateRange(rangeVal);
 
   const filtered = analyticsData.filter(r => {
-    // Filter on Sent date (col AB) — when proposal was actually sent to customer.
-    // Fall back to Created date if Sent is blank (unsent proposals).
+    // Filter on Sent date — when proposal was actually sent to customer.
+    // Fall back to Created date if Sent is blank.
     const d = parseAnalyticsDate(r['Sent'] || r['Created']);
-    if (!d) return true;  // no date at all — include rather than lose the row
+    // Rows with no date — only include when showing All Time.
+    // On any filtered range, blank-date rows would inflate every bucket equally
+    // which makes date-specific filters meaningless.
+    if (!d) return rangeVal === 'all';
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
     return true;
@@ -13097,17 +13104,8 @@ function renderAnalytics() {
     thisquarter:'this quarter', lastquarter:'last quarter',
     year:'this year', lastyear:'last year', all:'all time'
   };
-  // Header count — CSV filtered rows + live jobs in range (same as KPI total)
-  const liveJobsInRange = jobs.filter(j => {
-    if (!j.id) return false;
-    const d = j.savedAt ? new Date(j.savedAt) : null;
-    if (!d) return true;
-    if (range.start && d < range.start) return false;
-    if (range.end   && d > range.end)   return false;
-    return true;
-  }).length;
   const meta = document.getElementById('analyticsProposalsMeta');
-  if (meta) meta.textContent = (filtered.length + liveJobsInRange) + ' proposals — ' + (rangeLabels[rangeVal] || rangeVal);
+  if (meta) meta.textContent = filtered.length + ' proposals — ' + (rangeLabels[rangeVal] || rangeVal);
 
   // Render all tabs with the same filtered data
   // Note: renderKPIs receives both filtered (for totals/pipeline) and full data (for backlog)
@@ -13419,35 +13417,17 @@ function renderKPIs(csvRows, allCsvRows) {
   const jobPipeline = jobOpen.reduce((s, j) => s + jobPrice(j), 0);
 
   // ── CSV supplement — avoid double-counting live jobs ──
-  // Deduplicate by Contact Id (exact match) — NOT by name.
-  // Name-based dedup was too aggressive: it removed ALL CSV rows for a customer
-  // who had any live job, even if the CSV row was a different estimate entirely.
-  // Contact Id is unique per customer so only exact matches are excluded.
-  const liveContactUIDs = new Set(
-    jobs.map(j => String(j.contactUID || '').trim()).filter(Boolean)
-  );
+  const liveNames = new Set(jobs.map(j => (j.custName || '').toLowerCase().trim()));
 
-  const isDupe = r => {
-    const csvContactId = String(r['Contact Id'] || r['Contact ID'] || '').trim();
-    // Only exclude if CSV row has a Contact Id AND it matches a live job's contactUID
-    // AND that live job has the same status (avoid excluding CSV rows at different stages)
-    if (!csvContactId) return false;
-    if (!liveContactUIDs.has(csvContactId)) return false;
-    // Contact ID matches — check if this specific status is already represented
-    // in live jobs for this contact. If live job is at a different status, keep both.
-    const csvStatus = r['Status'] || '';
-    const liveJob   = jobs.find(j => String(j.contactUID||'').trim() === csvContactId);
-    if (!liveJob) return false;
-    // Only dedupe if the live job is in a matching status category
-    const csvClosed  = csvStatus === 'Accepted' || csvStatus === 'Complete';
-    const liveClosed = ['Accepted','Deposit Received','Scheduled','In Progress',
-      'Ready for Invoice','Invoiced','Paid in Full','Complete'].includes(liveJob.propStatus);
-    return csvClosed && liveClosed;
-  };
-
-  const csvNew         = csvRows.filter(r => !isDupe(r));
+  const csvNew         = csvRows.filter(r => {
+    const name = (r['Customer'] || r['Name'] || r['Customer Name'] || '').toLowerCase().trim();
+    return !name || !liveNames.has(name);
+  });
   // For backlog use ALL csv rows not just date-filtered
-  const allCsvNew      = allCsvRows.filter(r => !isDupe(r));
+  const allCsvNew      = allCsvRows.filter(r => {
+    const name = (r['Customer'] || r['Name'] || r['Customer Name'] || '').toLowerCase().trim();
+    return !name || !liveNames.has(name);
+  });
 
   const csvAccepted    = allCsvNew.filter(r => r['Status'] === 'Accepted');
   const csvComplete    = csvNew.filter(r => r['Status'] === 'Complete');
