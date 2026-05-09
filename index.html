@@ -12915,11 +12915,9 @@ function handleAnalyticsFile(file) {
   reader.readAsText(file);
 }
 
-// Raw CSV/TSV parser (handles quoted fields, auto-detects tab or comma delimiter)
+// Raw CSV parser (handles quoted fields)
 function parseCSVRaw(text) {
   const rows = [];
-  // Auto-detect delimiter — if file has tabs it is TSV, otherwise CSV
-  const delimiter = text.indexOf('\t') !== -1 ? '\t' : ',';
   const lines = text.split(/\r?\n/);
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -12927,8 +12925,8 @@ function parseCSVRaw(text) {
     let cur = '', inQ = false;
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
-      if (ch === '"' && delimiter === ',') { inQ = !inQ; }
-      else if (ch === delimiter && !inQ) { cols.push(cur); cur = ''; }
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { cols.push(cur); cur = ''; }
       else { cur += ch; }
     }
     cols.push(cur);
@@ -13195,18 +13193,28 @@ async function renderBookingTime(allRows, range) {
     b.color = distColors[i];
   });
 
+  // Track which bucket is selected — null means show all
+  if (typeof window._bookingBucket === 'undefined') window._bookingBucket = null;
+
   const distWrap = document.getElementById('book_dist_bars');
   if (distWrap) {
-    distWrap.innerHTML = buckets.map(b =>
-      `<div style="text-align:center">
+    distWrap.innerHTML = buckets.map((b, i) => {
+      const isActive = window._bookingBucket === i;
+      return `<div
+        onclick="window._bookingBucket = (window._bookingBucket === ${i} ? null : ${i}); renderAnalytics();"
+        style="text-align:center;cursor:pointer;border-radius:8px;padding:6px 4px;transition:background .15s;
+               ${isActive ? 'background:var(--surface2);box-shadow:0 0 0 2px ' + b.color + ';outline:none;' : ''}"
+        title="Click to filter table to ${b.label}">
         <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">${b.label}</div>
         <div style="height:80px;background:var(--border);border-radius:4px;position:relative;overflow:hidden">
-          <div style="position:absolute;bottom:0;left:0;right:0;height:${b.pct}%;background:${b.color};border-radius:4px;transition:height .4s"></div>
+          <div style="position:absolute;bottom:0;left:0;right:0;height:${b.pct}%;background:${b.color};border-radius:4px;transition:height .4s;
+                      ${isActive ? 'filter:brightness(1.15)' : ''}"></div>
         </div>
         <div style="font-size:18px;font-weight:900;color:${b.color};font-family:var(--mono);margin-top:6px">${b.pct}%</div>
         <div style="font-size:11px;color:var(--text3)">${b.count} proposal${b.count !== 1 ? 's' : ''}</div>
-      </div>`
-    ).join('');
+        <div style="font-size:10px;font-weight:700;margin-top:4px;color:${isActive ? b.color : 'var(--text3)'}">${isActive ? '✕ Clear' : 'Click to filter'}</div>
+      </div>`;
+    }).join('');
   }
 
   // ── Monthly avg chart ─────────────────────────────────
@@ -13275,6 +13283,16 @@ async function renderBookingTime(allRows, range) {
   const tbody = document.getElementById('bookingTableBody');
   if (!thead || !tbody) return;
 
+  // Apply bucket filter if one is selected
+  const activeBucket = (typeof window._bookingBucket !== 'undefined') ? window._bookingBucket : null;
+  const tableData = activeBucket !== null ? data.filter(buckets[activeBucket].fn) : data;
+  const tableTitle = document.querySelector('#atab-booking .card:last-of-type .card-title');
+  if (tableTitle) {
+    tableTitle.textContent = activeBucket !== null
+      ? 'Booking Detail — ' + buckets[activeBucket].label + ' (' + tableData.length + ' proposals)'
+      : 'Booking Detail — All Accepted Proposals';
+  }
+
   thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
     <th style="${_thStyle('left')}">Customer</th>
     <th style="${_thStyle('left')}">Channel</th>
@@ -13284,13 +13302,13 @@ async function renderBookingTime(allRows, range) {
     <th style="${_thStyle('right')}">Days to Book</th>
   </tr>`;
 
-  if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No accepted proposals with both Sent and Accepted Date in this range</td></tr>';
+  if (!tableData.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No proposals in this bucket for the selected date range</td></tr>';
     return;
   }
 
   const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-  tbody.innerHTML = data
+  tbody.innerHTML = tableData
     .slice().sort((a, b) => a.days - b.days)
     .map((d, i) => {
       const c = d.days <= 3 ? 'var(--green)' : d.days <= 7 ? 'var(--orange)' : d.days <= 14 ? '#D97706' : 'var(--red)';
