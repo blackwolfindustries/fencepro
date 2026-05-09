@@ -13086,7 +13086,7 @@ function renderAnalytics() {
     // Filter on Sent date (col AB) — when proposal was actually sent to customer.
     // Fall back to Created date if Sent is blank (unsent proposals).
     const d = parseAnalyticsDate(r['Sent'] || r['Created']);
-    if (!d) return rangeVal === 'all'; // blank dates only shown on All Time
+    if (!d) return rangeVal === 'all'; // blank dates only on All Time
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
     return true;
@@ -13100,6 +13100,7 @@ function renderAnalytics() {
   };
   const meta = document.getElementById('analyticsProposalsMeta');
   if (meta) meta.textContent = filtered.length + ' proposals — ' + (rangeLabels[rangeVal] || rangeVal);
+  // Note: filtered.length = CSV rows only, matching the KPI Total
 
   // Render all tabs with the same filtered data
   // Note: renderKPIs receives both filtered (for totals/pipeline) and full data (for backlog)
@@ -13374,56 +13375,25 @@ function renderBreakdownFromJobs(tbodyId, theadId, field, label) {
 // Secondary source: CSV analyticsData (historical pre-FencePro data)
 // The two are combined without double-counting by checking estimate IDs.
 function renderKPIs(csvRows, allCsvRows) {
-  // CSV is the single source of truth for all financial KPIs.
-  // Live jobs[] only contribute to proposal COUNT for estimates not yet in the CSV.
-  // This prevents double-counting while ensuring CSV values are never overridden.
+  // Analytics is CSV-only. No live jobs data is used here.
+  // csvRows    = date-filtered rows
+  // allCsvRows = ALL rows (backlog uses all-time accepted, not just filtered range)
   allCsvRows = allCsvRows || csvRows;
 
-  const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
-  const range    = getDateRange(rangeVal);
-
-  // ── CSV-based financials (primary source of truth) ────
-  // Use ALL csv rows for backlog (accepted jobs don't expire)
+  // Backlog uses ALL csv rows regardless of date filter —
+  // accepted jobs stay in backlog until marked Complete
   const csvAccepted = allCsvRows.filter(r => r['Status'] === 'Accepted');
   const csvComplete = csvRows.filter(r => r['Status'] === 'Complete');
   const csvOpen     = csvRows.filter(r => r['Status'] === 'Open');
+  const csvClosed   = csvAccepted.length + csvComplete.length;
 
   const csvRevenue  = csvComplete.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
   const csvBacklog  = csvAccepted.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
   const csvPipeline = csvOpen.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
-  const csvClosed   = csvAccepted.length + csvComplete.length;
 
-  // ── Live jobs — count only, no financials ─────────────
-  // Only count live jobs whose Contact UID does NOT appear in the CSV
-  // so we don't double-count proposals that exist in both places
-  const csvContactIds = new Set(
-    allCsvRows.map(r => String(r['Contact Id'] || r['Contact ID'] || '').trim()).filter(Boolean)
-  );
-  const ACCEPTED_STATUSES = ['Accepted','Deposit Received','Scheduled',
-    'In Progress','Ready for Invoice','Invoiced'];
-  const COMPLETE_STATUSES = ['Complete','Paid in Full'];
-
-  const liveOnly = jobs.filter(j => {
-    if (!j.id) return false;
-    // Exclude if this contact already has a row in the CSV
-    if (j.contactUID && csvContactIds.has(String(j.contactUID).trim())) return false;
-    // Apply date range filter
-    const d = j.savedAt ? new Date(j.savedAt) : null;
-    if (!d) return false;
-    if (range.start && d < range.start) return false;
-    if (range.end   && d > range.end)   return false;
-    return true;
-  });
-
-  const liveOnlyClosed = liveOnly.filter(j =>
-    [...ACCEPTED_STATUSES, ...COMPLETE_STATUSES].includes(j.propStatus)
-  ).length;
-
-  // ── Totals ────────────────────────────────────────────
-  const totalProposals = csvRows.length + liveOnly.length;
-  const totalClosed    = csvClosed + liveOnlyClosed;
-  const closeRate      = totalProposals > 0 ? (totalClosed / totalProposals * 100).toFixed(1) : '0.0';
-  const avgVal         = totalClosed > 0 ? (csvRevenue + csvBacklog) / totalClosed : 0;
+  const totalProposals = csvRows.length;
+  const closeRate      = totalProposals > 0 ? (csvClosed / totalProposals * 100).toFixed(1) : '0.0';
+  const avgVal         = csvClosed > 0 ? (csvRevenue + csvBacklog) / csvClosed : 0;
 
   document.getElementById('kpi_total').textContent     = totalProposals.toLocaleString();
   document.getElementById('kpi_closerate').textContent = closeRate + '%';
