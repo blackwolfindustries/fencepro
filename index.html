@@ -4153,6 +4153,11 @@ function loadLists() {
 function saveLists(fenceTypes, suppliers) {
   localStorage.setItem('fp_fenceTypes', JSON.stringify(fenceTypes));
   localStorage.setItem('fp_suppliers',  JSON.stringify(suppliers));
+  // Cloud sync — keeps all devices in sync
+  if (settings.scriptUrl) {
+    cloudCall({ action: 'saveSetupData', data: { type: 'fenceTypes', payload: fenceTypes } }).catch(() => {});
+    cloudCall({ action: 'saveSetupData', data: { type: 'suppliers',  payload: suppliers  } }).catch(() => {});
+  }
 }
 
 function saveRailingList(key, items) {
@@ -4249,6 +4254,10 @@ function lmSave(tab, items) {
   // After save — refresh any dropdowns that depend on this list
   if (tab === 'fenceTypes') { populateFenceTypes(); }
   if (tab === 'crews')      { populateCrewDropdown(); }
+  // Cloud sync — keeps all devices in sync
+  if (settings.scriptUrl) {
+    cloudCall({ action: 'saveSetupData', data: { type: tab, payload: items } }).catch(() => {});
+  }
 }
 
 function switchListTab(tab) {
@@ -5134,6 +5143,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-sync from cloud on startup if connected
   if (settings.scriptUrl) {
     loadCloudSettings().then(() => {
+      return loadCloudSetupData();
+    }).then(() => {
       return loadCloud();
     }).then(() => {
       loadCloudContacts();
@@ -7654,7 +7665,10 @@ function saveEmailTemplates() {
     email_signature: g('etmpl_signature')
   };
   localStorage.setItem('fp_email_templates', JSON.stringify(t));
-  if (settings.scriptUrl) cloudCall({ action:'saveSettings', data:{ ...settings, emailTemplates: JSON.stringify(t) } }).catch(()=>{});
+  if (settings.scriptUrl) {
+    cloudCall({ action:'saveSettings',   data:{ ...settings, emailTemplates: JSON.stringify(t) } }).catch(()=>{});
+    cloudCall({ action:'saveSetupData',  data:{ type: 'emailTemplates', payload: t } }).catch(()=>{});
+  }
   showToast('✓ Email templates saved');
   const msg = document.getElementById('tmpl_saved_msg');
   if (msg) { msg.textContent = '✓ Saved'; setTimeout(()=>{ msg.textContent=''; }, 2500); }
@@ -7713,9 +7727,10 @@ function saveTemplates() {
     email_body:        el('tmpl_email_body').value
   };
   localStorage.setItem('fp_templates', JSON.stringify(t));
-  // Sync to cloud settings
+  // Sync to cloud — both channels for full coverage
   if (settings.scriptUrl) {
-    cloudCall({ action: 'saveSettings', data: { ...settings, templates: JSON.stringify(t) } }).catch(()=>{});
+    cloudCall({ action: 'saveSettings',  data: { ...settings, templates: JSON.stringify(t) } }).catch(()=>{});
+    cloudCall({ action: 'saveSetupData', data: { type: 'templates', payload: t } }).catch(()=>{});
   }
   const msg = document.getElementById('tmpl_saved_msg');
   msg.textContent = '✓ Saved';
@@ -8200,6 +8215,64 @@ async function loadCloudSettings() {
     status('Settings synced from cloud ✓');
   } catch(e) {
     console.log('Settings cloud sync failed (non-fatal):', e.message);
+  }
+}
+
+// ════════════════════════════════════════════════
+// SETUP DATA — load all device-agnostic config from cloud
+// Runs at boot so any device gets the full config instantly
+// ════════════════════════════════════════════════
+async function loadCloudSetupData() {
+  if (!settings.scriptUrl) return;
+  try {
+    const data = await cloudCall({ action: 'getSetupData' });
+    if (!data.setupData) return;
+    const sd = data.setupData;
+
+    // Fence types
+    if (Array.isArray(sd.fenceTypes) && sd.fenceTypes.length) {
+      localStorage.setItem('fp_fenceTypes', JSON.stringify(sd.fenceTypes));
+      populateFenceTypes();
+    }
+    // Suppliers
+    if (Array.isArray(sd.suppliers) && sd.suppliers.length) {
+      localStorage.setItem('fp_suppliers', JSON.stringify(sd.suppliers));
+      populateSuppliers();
+      SUPPLIERS = buildSuppliersMap();
+    }
+    // Parts
+    if (Array.isArray(sd.parts) && sd.parts.length) {
+      parts = sd.parts;
+      localStorage.setItem('fp_parts', JSON.stringify(parts));
+      renderParts();
+    }
+    // Crews
+    if (Array.isArray(sd.crews) && sd.crews.length) {
+      localStorage.setItem('fp_crews', JSON.stringify(sd.crews));
+      if (typeof populateCrewDropdown === 'function') populateCrewDropdown();
+    }
+    // Railing lists
+    const railingKeys = ['railingCategories','railingStyles','railingHeights'];
+    railingKeys.forEach(key => {
+      if (Array.isArray(sd[key]) && sd[key].length) {
+        const lsKey = LM_CONFIG[key] ? LM_CONFIG[key].key : ('fp_' + key);
+        localStorage.setItem(lsKey, JSON.stringify(sd[key]));
+      }
+    });
+    // Email templates
+    if (sd.emailTemplates && typeof sd.emailTemplates === 'object') {
+      localStorage.setItem('fp_email_templates', JSON.stringify(sd.emailTemplates));
+      if (typeof loadEmailTemplateFields === 'function') loadEmailTemplateFields();
+    }
+    // Proposal / invoice templates
+    if (sd.templates && typeof sd.templates === 'object') {
+      localStorage.setItem('fp_templates', JSON.stringify(sd.templates));
+      if (typeof loadTemplateFields === 'function') loadTemplateFields();
+    }
+
+    console.log('Setup data synced from cloud ✓');
+  } catch(e) {
+    console.log('Setup data cloud sync failed (non-fatal):', e.message);
   }
 }
 
@@ -8915,7 +8988,13 @@ function savePart() {
   saveParts(); renderParts(); closeM('mPart');
 }
 function deletePart(i) { if(confirm('Remove this part?')) { parts.splice(i,1); saveParts(); renderParts(); } }
-function saveParts() { localStorage.setItem('fp_parts', JSON.stringify(parts)); }
+function saveParts() {
+  localStorage.setItem('fp_parts', JSON.stringify(parts));
+  // Cloud sync — keeps all devices in sync
+  if (settings.scriptUrl) {
+    cloudCall({ action: 'saveSetupData', data: { type: 'parts', payload: parts } }).catch(() => {});
+  }
+}
 function usePart(i) {
   const p = parts[i];
   if (p.cat === 'Labor') {
@@ -12061,7 +12140,7 @@ async function sendViaGmail() {
     });
     if (res.success) {
       showToast('✅ Email sent to ' + email);
-      if (btn) { btn.textContent = '✅ Sent!'; btn.style.background = 'var(--green)'; btn.disabled = false; }
+      if (btn) { btn.textContent = '✅ Sent!'; btn.style.background = 'var(--green)'; }
       // Status change removed — user controls status manually
       if (curIdx >= 0) { jobs[curIdx].proposalLinkSent = true; persistJobs(); }
     } else {
