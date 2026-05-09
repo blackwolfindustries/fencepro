@@ -12961,10 +12961,7 @@ function getDateRange(rangeVal) {
   const y     = today.getFullYear();
   const m     = today.getMonth(); // 0-indexed
 
-  // End of today — used to cap all open-ended ranges so future-dated rows
-  // and blank-date fallbacks don't bleed into filtered results
   const endOfToday = new Date(today.getTime() + 86400000 - 1);
-
   if (rangeVal === 'all')      return { start: null, end: null };
   if (rangeVal === 'week') {
     const day = today.getDay(); // 0=Sun
@@ -13086,13 +13083,10 @@ function renderAnalytics() {
   const range    = getDateRange(rangeVal);
 
   const filtered = analyticsData.filter(r => {
-    // Filter on Sent date — when proposal was actually sent to customer.
-    // Fall back to Created date if Sent is blank.
+    // Filter on Sent date (col AB) — when proposal was actually sent to customer.
+    // Fall back to Created date if Sent is blank (unsent proposals).
     const d = parseAnalyticsDate(r['Sent'] || r['Created']);
-    // Rows with no date — only include when showing All Time.
-    // On any filtered range, blank-date rows would inflate every bucket equally
-    // which makes date-specific filters meaningless.
-    if (!d) return rangeVal === 'all';
+    if (!d) return rangeVal === 'all'; // blank dates only shown on All Time
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
     return true;
@@ -13380,80 +13374,63 @@ function renderBreakdownFromJobs(tbodyId, theadId, field, label) {
 // Secondary source: CSV analyticsData (historical pre-FencePro data)
 // The two are combined without double-counting by checking estimate IDs.
 function renderKPIs(csvRows, allCsvRows) {
-  // csvRows    = date-filtered rows (for totals, close rate, pipeline)
-  // allCsvRows = ALL rows (for backlog — accepted jobs don't expire from backlog)
+  // CSV is the single source of truth for all financial KPIs.
+  // Live jobs[] only contribute to proposal COUNT for estimates not yet in the CSV.
+  // This prevents double-counting while ensuring CSV values are never overridden.
   allCsvRows = allCsvRows || csvRows;
 
   const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
   const range    = getDateRange(rangeVal);
 
-  // ── Pull from live jobs[] filtered by date range ──────
+  // ── CSV-based financials (primary source of truth) ────
+  // Use ALL csv rows for backlog (accepted jobs don't expire)
+  const csvAccepted = allCsvRows.filter(r => r['Status'] === 'Accepted');
+  const csvComplete = csvRows.filter(r => r['Status'] === 'Complete');
+  const csvOpen     = csvRows.filter(r => r['Status'] === 'Open');
+
+  const csvRevenue  = csvComplete.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  const csvBacklog  = csvAccepted.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  const csvPipeline = csvOpen.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  const csvClosed   = csvAccepted.length + csvComplete.length;
+
+  // ── Live jobs — count only, no financials ─────────────
+  // Only count live jobs whose Contact UID does NOT appear in the CSV
+  // so we don't double-count proposals that exist in both places
+  const csvContactIds = new Set(
+    allCsvRows.map(r => String(r['Contact Id'] || r['Contact ID'] || '').trim()).filter(Boolean)
+  );
   const ACCEPTED_STATUSES = ['Accepted','Deposit Received','Scheduled',
     'In Progress','Ready for Invoice','Invoiced'];
   const COMPLETE_STATUSES = ['Complete','Paid in Full'];
 
-  const filteredJobs = jobs.filter(j => {
+  const liveOnly = jobs.filter(j => {
     if (!j.id) return false;
+    // Exclude if this contact already has a row in the CSV
+    if (j.contactUID && csvContactIds.has(String(j.contactUID).trim())) return false;
+    // Apply date range filter
     const d = j.savedAt ? new Date(j.savedAt) : null;
-    if (!d) return true;
+    if (!d) return false;
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
     return true;
   });
 
-  // All accepted jobs regardless of date — backlog is current state
-  const allAcceptedJobs = jobs.filter(j =>
-    j.id && ACCEPTED_STATUSES.includes(j.propStatus) &&
-    !COMPLETE_STATUSES.includes(j.propStatus)
-  );
-
-  const jobComplete = filteredJobs.filter(j => COMPLETE_STATUSES.includes(j.propStatus));
-  const jobOpen     = filteredJobs.filter(j => ['Draft','Committed','Sent'].includes(j.propStatus));
-
-  const jobPrice = j => Number(j.contractPrice) || Number(j.calc_final) || Number(j.finalPrice) || 0;
-
-  const jobRevenue  = jobComplete.reduce((s, j) => s + jobPrice(j), 0);
-  const jobBacklog  = allAcceptedJobs.reduce((s, j) => s + jobPrice(j), 0);
-  const jobPipeline = jobOpen.reduce((s, j) => s + jobPrice(j), 0);
-
-  // ── CSV supplement — avoid double-counting live jobs ──
-  const liveNames = new Set(jobs.map(j => (j.custName || '').toLowerCase().trim()));
-
-  const csvNew         = csvRows.filter(r => {
-    const name = (r['Customer'] || r['Name'] || r['Customer Name'] || '').toLowerCase().trim();
-    return !name || !liveNames.has(name);
-  });
-  // For backlog use ALL csv rows not just date-filtered
-  const allCsvNew      = allCsvRows.filter(r => {
-    const name = (r['Customer'] || r['Name'] || r['Customer Name'] || '').toLowerCase().trim();
-    return !name || !liveNames.has(name);
-  });
-
-  const csvAccepted    = allCsvNew.filter(r => r['Status'] === 'Accepted');
-  const csvComplete    = csvNew.filter(r => r['Status'] === 'Complete');
-  const csvOpen        = csvNew.filter(r => r['Status'] === 'Open');
-
-  const csvRevenue     = csvComplete.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
-  const csvBacklog     = csvAccepted.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
-  const csvPipeline    = csvOpen.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  const liveOnlyClosed = liveOnly.filter(j =>
+    [...ACCEPTED_STATUSES, ...COMPLETE_STATUSES].includes(j.propStatus)
+  ).length;
 
   // ── Totals ────────────────────────────────────────────
-  const totalProposals = filteredJobs.length + csvNew.length;
-  const totalClosed    = filteredJobs.filter(j =>
-    [...ACCEPTED_STATUSES, ...COMPLETE_STATUSES].includes(j.propStatus)
-  ).length + csvAccepted.length + csvComplete.length;
+  const totalProposals = csvRows.length + liveOnly.length;
+  const totalClosed    = csvClosed + liveOnlyClosed;
   const closeRate      = totalProposals > 0 ? (totalClosed / totalProposals * 100).toFixed(1) : '0.0';
-  const revenue        = jobRevenue + csvRevenue;
-  const backlog        = jobBacklog + csvBacklog;
-  const pipeline       = jobPipeline + csvPipeline;
-  const avgVal         = totalClosed > 0 ? (revenue + backlog) / totalClosed : 0;
+  const avgVal         = totalClosed > 0 ? (csvRevenue + csvBacklog) / totalClosed : 0;
 
   document.getElementById('kpi_total').textContent     = totalProposals.toLocaleString();
   document.getElementById('kpi_closerate').textContent = closeRate + '%';
-  document.getElementById('kpi_revenue').textContent   = '$' + Math.round(revenue).toLocaleString();
-  document.getElementById('kpi_backlog').textContent   = '$' + Math.round(backlog).toLocaleString();
+  document.getElementById('kpi_revenue').textContent   = '$' + Math.round(csvRevenue).toLocaleString();
+  document.getElementById('kpi_backlog').textContent   = '$' + Math.round(csvBacklog).toLocaleString();
   document.getElementById('kpi_avg').textContent       = '$' + Math.round(avgVal).toLocaleString();
-  document.getElementById('kpi_pipeline').textContent  = '$' + Math.round(pipeline).toLocaleString();
+  document.getElementById('kpi_pipeline').textContent  = '$' + Math.round(csvPipeline).toLocaleString();
 }
 
 // ── MONTHLY CHART ─────────────────────────────────
