@@ -5132,18 +5132,11 @@ document.addEventListener('DOMContentLoaded', () => {
   populateSuppliers();
   initParts();
   // Auto-sync from cloud on startup if connected
-  // Settings + setup data load in parallel, then jobs + contacts in parallel
-  // Cuts boot time by ~60-70% vs sequential loading
   if (settings.scriptUrl) {
-    Promise.all([
-      loadCloudSettings().catch(() => {}),
-      loadCloudSetupData().catch(() => {})
-    ]).then(() => {
-      return Promise.all([
-        loadCloud().catch(() => {}),
-        loadCloudContacts().catch(() => {})
-      ]);
+    loadCloudSettings().then(() => {
+      return loadCloud();
     }).then(() => {
+      loadCloudContacts();
       updateContactsStatus();
     }).catch(() => {});
   }
@@ -7949,17 +7942,7 @@ async function cloudCall(payload) {
 async function loadCloud() {
   const url = settings.scriptUrl;
   if (!url) { status('Not connected — configure in Setup tab'); return; }
-
-  // Optimistic render — show cached data immediately so the UI is usable
-  // while the cloud fetch runs in the background
-  if (jobs.length > 0) {
-    renderBoard();
-    renderEstList();
-    renderJobsList();
-    setCloud('saving', 'Refreshing...');
-  } else {
-    setCloud('saving', 'Loading from cloud...');
-  }
+  setCloud('saving','Loading from cloud...');
   try {
     const res = await fetch(url + '?action=getJobs&key=' + encodeURIComponent(settings.apiKey || ''));
     const data = await res.json();
@@ -12932,9 +12915,11 @@ function handleAnalyticsFile(file) {
   reader.readAsText(file);
 }
 
-// Raw CSV parser (handles quoted fields)
+// Raw CSV/TSV parser (handles quoted fields, auto-detects tab or comma delimiter)
 function parseCSVRaw(text) {
   const rows = [];
+  // Auto-detect delimiter — if file has tabs it is TSV, otherwise CSV
+  const delimiter = text.indexOf('\t') !== -1 ? '\t' : ',';
   const lines = text.split(/\r?\n/);
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -12942,8 +12927,8 @@ function parseCSVRaw(text) {
     let cur = '', inQ = false;
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
-      if (ch === '"') { inQ = !inQ; }
-      else if (ch === ',' && !inQ) { cols.push(cur); cur = ''; }
+      if (ch === '"' && delimiter === ',') { inQ = !inQ; }
+      else if (ch === delimiter && !inQ) { cols.push(cur); cur = ''; }
       else { cur += ch; }
     }
     cols.push(cur);
