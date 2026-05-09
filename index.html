@@ -1476,6 +1476,32 @@
     <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:6px" id="docNote"></div>
   </div>
 
+  <!-- ── DRIVE FILES ── -->
+  <div class="card" style="padding:14px 16px" id="driveFilesCard">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span class="card-title" style="margin:0">☁️ Drive Files</span>
+      <span style="font-size:9px;font-weight:600;color:var(--text3);background:var(--surface2);padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em">Drop files in Drive — they appear here</span>
+      <button onclick="loadDriveFiles(true)" id="driveFilesRefreshBtn"
+        style="margin-left:auto;font-size:11px;font-weight:700;color:var(--blue);background:none;border:1px solid var(--blue);border-radius:5px;padding:3px 10px;cursor:pointer">
+        ↻ Refresh
+      </button>
+    </div>
+    <div id="driveFilesStatus" style="font-size:11px;color:var(--text3);margin-bottom:6px;display:none"></div>
+    <div id="driveFilesList"></div>
+    <div id="driveFilesEmpty" style="display:none;text-align:center;padding:18px 0">
+      <div style="font-size:24px;margin-bottom:6px">📂</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text2)">No files in this job folder yet</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Drop any file into the Drive folder and hit Refresh</div>
+      <a id="driveFilesFolderLink" href="#" target="_blank"
+        style="display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:var(--blue)">
+        📁 Open Drive Folder ↗
+      </a>
+    </div>
+    <div id="driveFilesUnsaved" style="display:none;font-size:11px;color:var(--text3);padding:12px 0;text-align:center">
+      Save this estimate first to enable Drive file access.
+    </div>
+  </div>
+
 </div><!-- est-main -->
 
 <!-- ══ SIDEBAR ══ -->
@@ -7179,6 +7205,7 @@ function loadJobLocal(idx) {
   updateBadge();
   renderSiblingPills();
   refreshAudit();   // load proposal activity for this estimate
+  loadDriveFiles(false); // load Drive files for this job (uses cache — fast)
   show('est');
 }
 
@@ -7191,6 +7218,13 @@ function newEst() {
   curIdx = -1;
   photos = [];
   docs   = [];
+  // Clear Drive files panel for new estimate
+  const dl = document.getElementById('driveFilesList');
+  const de = document.getElementById('driveFilesEmpty');
+  const du = document.getElementById('driveFilesUnsaved');
+  if (dl) dl.innerHTML = '';
+  if (de) de.style.display = 'none';
+  if (du) du.style.display = 'block';
   renderPhotos();
   renderDocs();
   const nums = ['matCost','laborCost','demoLF','addOns','cartFee','discount','numGates','totalLF','concBags'];
@@ -8668,6 +8702,126 @@ function renderDocs() {
   if (note) note.textContent = docs.length > 0
     ? `${docs.length} doc(s) · stored in EST-${(curIdx>=0&&jobs[curIdx]?.id||'').split('-')[2]||'?'} folder`
     : '';
+}
+
+// ════════════════════════════════════════════════
+// DRIVE FILES — list files from job's Drive folder
+// ════════════════════════════════════════════════
+let _driveFilesCache = {};  // keyed by jobId — avoids re-fetching on every tab switch
+
+async function loadDriveFiles(forceRefresh) {
+  const card     = document.getElementById('driveFilesCard');
+  const list     = document.getElementById('driveFilesList');
+  const empty    = document.getElementById('driveFilesEmpty');
+  const unsaved  = document.getElementById('driveFilesUnsaved');
+  const statusEl = document.getElementById('driveFilesStatus');
+  const refreshBtn = document.getElementById('driveFilesRefreshBtn');
+  if (!card || !list) return;
+
+  // Hide all panels to start
+  list.innerHTML = '';
+  if (empty)   empty.style.display   = 'none';
+  if (unsaved) unsaved.style.display = 'none';
+  if (statusEl) { statusEl.style.display = 'none'; statusEl.textContent = ''; }
+
+  // Must have a saved job with an ID and a Drive folder
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job || !job.id) {
+    if (unsaved) unsaved.style.display = 'block';
+    return;
+  }
+  if (!settings.scriptUrl) {
+    if (statusEl) { statusEl.textContent = 'Connect cloud in Setup to enable Drive Files.'; statusEl.style.display = 'block'; }
+    return;
+  }
+
+  // Use cache unless forced refresh
+  if (!forceRefresh && _driveFilesCache[job.id]) {
+    renderDriveFilesList(_driveFilesCache[job.id]);
+    return;
+  }
+
+  // Show loading state
+  if (statusEl) { statusEl.textContent = '⏳ Loading Drive files...'; statusEl.style.display = 'block'; }
+  if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '⏳'; }
+
+  try {
+    const res = await cloudCall({ action: 'getJobFiles', data: { jobId: job.id, custName: job.custName || '' } });
+    if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↻ Refresh'; }
+    if (statusEl)   { statusEl.style.display = 'none'; }
+
+    if (res.error) {
+      if (statusEl) { statusEl.textContent = '⚠ ' + res.error; statusEl.style.display = 'block'; }
+      return;
+    }
+
+    // Cache the result
+    _driveFilesCache[job.id] = res;
+    renderDriveFilesList(res);
+
+  } catch(e) {
+    if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↻ Refresh'; }
+    if (statusEl)   { statusEl.textContent = '⚠ Could not load Drive files — ' + (e.message||''); statusEl.style.display = 'block'; }
+  }
+}
+
+function renderDriveFilesList(res) {
+  const list    = document.getElementById('driveFilesList');
+  const empty   = document.getElementById('driveFilesEmpty');
+  const folderLink = document.getElementById('driveFilesFolderLink');
+  if (!list) return;
+
+  // Update folder link
+  if (folderLink && res.folderUrl) folderLink.href = res.folderUrl;
+
+  if (!res.files || !res.files.length) {
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+
+  // Group files by subfolder
+  const groups = {};
+  res.files.forEach(f => {
+    const g = f.subfolder || '(root)';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(f);
+  });
+
+  // Preferred subfolder order
+  const ORDER = ['Estimates','Work Order','Vendor Invoices','Archive','(root)'];
+  const keys  = Object.keys(groups).sort((a,b) => {
+    const ai = ORDER.indexOf(a); const bi = ORDER.indexOf(b);
+    if (ai >= 0 && bi >= 0) return ai - bi;
+    if (ai >= 0) return -1;
+    if (bi >= 0) return 1;
+    return a.localeCompare(b);
+  });
+
+  const fmt = iso => new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+
+  list.innerHTML = keys.map(key => {
+    const files = groups[key];
+    const rows  = files.map(f => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px">
+        <span style="font-size:15px;flex-shrink:0">${f.icon}</span>
+        <span style="flex:1;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(f.name)}">${escHtml(f.name)}</span>
+        <span style="color:var(--text3);flex-shrink:0;font-size:10px">${f.size}</span>
+        <span style="color:var(--text3);flex-shrink:0;font-size:10px">${fmt(f.updatedAt)}</span>
+        <a href="${f.url}" target="_blank"
+           style="flex-shrink:0;font-size:11px;font-weight:700;color:var(--blue);text-decoration:none;padding:2px 8px;border:1px solid var(--blue);border-radius:4px;white-space:nowrap">
+          Open ↗
+        </a>
+      </div>`).join('');
+
+    const label = key === '(root)' ? 'Job Folder (root)' : key;
+    return `
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;padding:4px 2px;border-bottom:2px solid var(--border);margin-bottom:2px">
+          📁 ${escHtml(label)} <span style="font-weight:400;color:var(--text3)">(${files.length})</span>
+        </div>
+        ${rows}
+      </div>`;
+  }).join('');
 }
 
 // ════════════════════════════════════════════════
@@ -13193,28 +13347,18 @@ async function renderBookingTime(allRows, range) {
     b.color = distColors[i];
   });
 
-  // Track which bucket is selected — null means show all
-  if (typeof window._bookingBucket === 'undefined') window._bookingBucket = null;
-
   const distWrap = document.getElementById('book_dist_bars');
   if (distWrap) {
-    distWrap.innerHTML = buckets.map((b, i) => {
-      const isActive = window._bookingBucket === i;
-      return `<div
-        onclick="window._bookingBucket = (window._bookingBucket === ${i} ? null : ${i}); renderAnalytics();"
-        style="text-align:center;cursor:pointer;border-radius:8px;padding:6px 4px;transition:background .15s;
-               ${isActive ? 'background:var(--surface2);box-shadow:0 0 0 2px ' + b.color + ';outline:none;' : ''}"
-        title="Click to filter table to ${b.label}">
+    distWrap.innerHTML = buckets.map(b =>
+      `<div style="text-align:center">
         <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px">${b.label}</div>
         <div style="height:80px;background:var(--border);border-radius:4px;position:relative;overflow:hidden">
-          <div style="position:absolute;bottom:0;left:0;right:0;height:${b.pct}%;background:${b.color};border-radius:4px;transition:height .4s;
-                      ${isActive ? 'filter:brightness(1.15)' : ''}"></div>
+          <div style="position:absolute;bottom:0;left:0;right:0;height:${b.pct}%;background:${b.color};border-radius:4px;transition:height .4s"></div>
         </div>
         <div style="font-size:18px;font-weight:900;color:${b.color};font-family:var(--mono);margin-top:6px">${b.pct}%</div>
         <div style="font-size:11px;color:var(--text3)">${b.count} proposal${b.count !== 1 ? 's' : ''}</div>
-        <div style="font-size:10px;font-weight:700;margin-top:4px;color:${isActive ? b.color : 'var(--text3)'}">${isActive ? '✕ Clear' : 'Click to filter'}</div>
-      </div>`;
-    }).join('');
+      </div>`
+    ).join('');
   }
 
   // ── Monthly avg chart ─────────────────────────────────
@@ -13283,16 +13427,6 @@ async function renderBookingTime(allRows, range) {
   const tbody = document.getElementById('bookingTableBody');
   if (!thead || !tbody) return;
 
-  // Apply bucket filter if one is selected
-  const activeBucket = (typeof window._bookingBucket !== 'undefined') ? window._bookingBucket : null;
-  const tableData = activeBucket !== null ? data.filter(buckets[activeBucket].fn) : data;
-  const tableTitle = document.querySelector('#atab-booking .card:last-of-type .card-title');
-  if (tableTitle) {
-    tableTitle.textContent = activeBucket !== null
-      ? 'Booking Detail — ' + buckets[activeBucket].label + ' (' + tableData.length + ' proposals)'
-      : 'Booking Detail — All Accepted Proposals';
-  }
-
   thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
     <th style="${_thStyle('left')}">Customer</th>
     <th style="${_thStyle('left')}">Channel</th>
@@ -13302,13 +13436,13 @@ async function renderBookingTime(allRows, range) {
     <th style="${_thStyle('right')}">Days to Book</th>
   </tr>`;
 
-  if (!tableData.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No proposals in this bucket for the selected date range</td></tr>';
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No accepted proposals with both Sent and Accepted Date in this range</td></tr>';
     return;
   }
 
   const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-  tbody.innerHTML = tableData
+  tbody.innerHTML = data
     .slice().sort((a, b) => a.days - b.days)
     .map((d, i) => {
       const c = d.days <= 3 ? 'var(--green)' : d.days <= 7 ? 'var(--orange)' : d.days <= 14 ? '#D97706' : 'var(--red)';
