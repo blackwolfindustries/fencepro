@@ -128,6 +128,12 @@
   .app{display:flex;height:calc(100vh - 58px - 30px);overflow:hidden}
   .screen{display:none;width:100%;height:100%;flex-direction:column}
   .screen.active{display:flex;flex-direction:column;overflow:hidden}
+  .collapsible-body{overflow:hidden;transition:max-height .25s ease,opacity .25s ease}
+  .collapsible-body.collapsed{max-height:0!important;opacity:0;pointer-events:none}
+  .collapsible-body.expanded{max-height:2000px;opacity:1}
+  .collapse-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;width:100%}
+  .collapse-toggle .chevron{font-size:11px;color:var(--text3);transition:transform .2s;display:inline-block}
+  .collapse-toggle.collapsed .chevron{transform:rotate(-90deg)}
 
   /* ── ESTIMATOR ────────────────────────────────── */
   .est-layout{display:grid;grid-template-columns:1fr 380px;height:100%;overflow:hidden;flex:1}
@@ -2116,7 +2122,11 @@
     </div>
 
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">Step-by-Step Setup Guide</div>
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_guide')">
+        <div class="card-title" style="margin:0">Step-by-Step Setup Guide</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_guide">
       <div style="font-size:12px;font-family:var(--mono);line-height:2;color:var(--text2)">
         <div style="color:var(--accent);font-weight:500">Step 1 — Create your Google Sheet</div>
         <div>Go to sheets.google.com → New spreadsheet → Name it "FencePro Jobs"</div>
@@ -2138,10 +2148,15 @@
         <br>
         <div style="color:var(--accent);font-weight:500">Step 5 — Paste URL below & connect</div>
       </div>
-    </div>
+    
+      </div></div>
 
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">Your Apps Script URL</div>
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_scripturl')">
+        <div class="card-title" style="margin:0">Your Apps Script URL</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_scripturl">
       <div class="fg2" style="gap:10px">
         <div class="f s2">
           <label>PASTE YOUR DEPLOYED WEB APP URL HERE</label>
@@ -2174,11 +2189,16 @@
         <button class="btn btn-a" onclick="testConnection()">Test Connection</button>
         <span id="connResult" style="font-size:11px;font-family:var(--mono);color:var(--text3)"></span>
       </div>
-    </div>
+    
+      </div></div>
 
     <!-- Access Control -->
     <div class="card" style="margin-bottom:12px;border:2px solid var(--accent)">
-      <div class="card-title">🔐 Access Control</div>
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_access')">
+        <div class="card-title" style="margin:0">🔐 Access Control</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_access">
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
         Only Google accounts listed here can log into FencePro. Your owner account is always allowed and cannot be removed.
       </div>
@@ -2190,11 +2210,16 @@
         <button class="btn btn-a btn-sm" onclick="addAllowedEmail()">+ Add</button>
       </div>
       <div id="access_msg" style="font-size:11px;color:var(--text3);margin-top:8px;min-height:16px"></div>
-    </div>
+    
+      </div></div>
 
     <!-- Full System Backup -->
     <div class="card" style="margin-bottom:12px;border:2px solid var(--orange)">
-      <div class="card-title">☁️ Full System Backup / Restore</div>
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_backup')">
+        <div class="card-title" style="margin:0">☁️ Full System Backup / Restore</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_backup">
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
         Exports <strong>everything</strong> — estimates, contacts, invoices, job costs, settings, and all app data — into a single file. Use this to move your data to a new device or the hosted version of FencePro.
       </div>
@@ -2206,11 +2231,16 @@
         </label>
       </div>
       <div id="fullSystemResult" style="font-size:12px;min-height:16px;color:var(--text3);margin-top:8px"></div>
-    </div>
+    
+      </div></div>
 
     <!-- Data Migration -->
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">🔧 Data Migration</div>
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_migration')">
+        <div class="card-title" style="margin:0">🔧 Data Migration</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_migration">
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
         Run this after any app update to ensure all locally stored job records use the current
         field format. Safe to run at any time — no data is deleted or changed, only standardized.
@@ -2219,11 +2249,16 @@
         🔧 Normalize All Job Records
       </button>
       <div id="migrationResult" style="font-size:12px;min-height:16px;color:var(--text3)"></div>
-    </div>
+    
+      </div></div>
 
     <!-- Estimates Backup -->
     <div class="card" style="margin-bottom:12px">
-      <div class="card-title">Estimates Backup</div>
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_estbackup')">
+        <div class="card-title" style="margin:0">Estimates Backup</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_estbackup">
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
         Estimates auto-sync from Google Sheets when connected. Use these buttons as an additional safety net.
       </div>
@@ -2235,19 +2270,29 @@
         </label>
         <button class="btn btn-sm" style="flex:1;justify-content:center;color:var(--red);border-color:var(--red)" onclick="clearAllLocalEstimates()">🗑 Clear Local Cache</button>
       </div>
-    </div>
+    
+      </div></div>
 
     <div class="card">
-      <div class="card-title">Download Backend Code</div>
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_download')">
+        <div class="card-title" style="margin:0">Download Backend Code</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_download">
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px;font-family:var(--mono)">
         Copy this into your Google Apps Script editor (Step 3 above)
       </div>
       <button class="btn" onclick="downloadBackend()">⬇ Download Code.gs</button>
-    </div>
+    
+      </div></div>
 
     <!-- ── CONTACTS ────────────────────────────────────────── -->
     <div class="card" style="margin-top:12px">
-      <div class="card-title">Manage Contacts</div>
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_contacts')">
+        <div class="card-title" style="margin:0">Manage Contacts</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_contacts">
 
       <div id="contactsSetupInfo" style="margin-bottom:12px"></div>
 
@@ -2277,7 +2322,8 @@
       <div style="margin-top:10px;font-size:11px;color:var(--text3);font-family:var(--mono);line-height:1.8">
         Expected columns: A=ID · B=Name · C=Phone · E=Email · H=Channel · I=Campaign · O=Address · P=Address2 · Q=City · S=Zip · AN=CreatedAt
       </div>
-    </div>
+    
+      </div></div>
 
     <!-- ── LISTS MANAGER ─────────────────────────────────────── -->\
     <div class="card" style="margin-top:12px;margin-bottom:12px">
@@ -2309,7 +2355,11 @@
 
     <!-- ── SUPPLIERS ───────────────────────────────────────── -->
     <div class="card" style="margin-top:12px;margin-bottom:12px">
-      <div class="card-title">Manage Suppliers</div>
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_suppliers')">
+        <div class="card-title" style="margin:0">Manage Suppliers</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_suppliers">
       <div style="display:grid;grid-template-columns:1fr 100px 100px auto;gap:8px;margin-bottom:10px;align-items:end">
         <div class="f"><label>SUPPLIER NAME</label><input id="newSuppName" placeholder="e.g. ABC Supply"></div>
         <div class="f"><label>DELIVERY ($)</label><input type="number" id="newSuppDel" value="0" min="0" step="1"></div>
@@ -2317,11 +2367,16 @@
         <button class="btn btn-a btn-sm" style="align-self:flex-end" onclick="addSupplier()">+ Add</button>
       </div>
       <div id="supplierList" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto"></div>
-    </div>
+    
+      </div></div>
 
     <!-- ── DOCUMENT TEMPLATES ─────────────────────────────── -->
     <div class="card" style="margin-top:12px;margin-bottom:12px">
-      <div class="card-title">📝 Document Templates</div>
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_templates')">
+        <div class="card-title" style="margin:0">📝 Document Templates</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_templates">
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">
         Customize the default content for proposals, invoices, and customer emails.
         Use <code style="background:var(--surface2);padding:1px 5px;border-radius:3px;font-size:11px;color:var(--orange)">{{variable}}</code> tokens where indicated — they fill in automatically.
@@ -2434,7 +2489,8 @@
         <button class="btn btn-sm" onclick="resetTemplates()">↺ Reset to Defaults</button>
         <span id="tmpl_saved_msg" style="font-size:11px;color:var(--green);min-height:14px"></span>
       </div>
-    </div>
+    
+      </div></div>
 
   </div>
 </div>
@@ -5150,7 +5206,7 @@ function show(id) {
       lookupJobSummary(_lastSummaryPrefix);
     }
   }
-  if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList(); }
+  if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList(); initSetupCollapse(); }
   if (id === 'analytics') { renderAnalytics(); if (!localStorage.getItem('fp_analyticsTab')) showAnalyticsTab('overview'); }
   // Refresh SUPPLIERS map whenever supplier tab opened
   if (id === 'invoices') loadInvoicesTab();
@@ -6524,6 +6580,44 @@ function setKpiMode(mode) {
   // Mode label so it's always clear which scenario is showing
   const gmLabel = document.querySelector('#s_gm')?.previousElementSibling;
   if (gmLabel) gmLabel.textContent = 'Gross Margin % ' + (isCash ? '(Cash)' : '(CC)');
+}
+
+// ════════════════════════════════════════════════
+// SETUP TAB — COLLAPSIBLE CARDS
+// ════════════════════════════════════════════════
+function toggleSetupCard(id) {
+  const body    = document.getElementById(id);
+  const toggle  = body?.previousElementSibling;
+  if (!body) return;
+  const isOpen  = !body.classList.contains('collapsed');
+  body.classList.toggle('collapsed', isOpen);
+  body.classList.toggle('expanded',  !isOpen);
+  if (toggle) toggle.classList.toggle('collapsed', isOpen);
+  // Persist state
+  try {
+    const states = JSON.parse(localStorage.getItem('fp_setup_collapsed') || '{}');
+    states[id] = isOpen;
+    localStorage.setItem('fp_setup_collapsed', JSON.stringify(states));
+  } catch(e) {}
+}
+
+function initSetupCollapse() {
+  // Default collapsed sections (ones that aren't commonly needed)
+  const defaultCollapsed = [
+    'sc_passphrase','sc_guide','sc_backup','sc_estbackup',
+    'sc_download','sc_migration','sc_contacts','sc_lists'
+  ];
+  let states = {};
+  try { states = JSON.parse(localStorage.getItem('fp_setup_collapsed') || '{}'); } catch(e) {}
+
+  document.querySelectorAll('.collapsible-body').forEach(body => {
+    const id      = body.id;
+    const toggle  = body.previousElementSibling;
+    // Use saved state, fall back to default
+    const collapsed = id in states ? states[id] : defaultCollapsed.includes(id);
+    body.classList.add(collapsed ? 'collapsed' : 'expanded');
+    if (toggle) toggle.classList.toggle('collapsed', collapsed);
+  });
 }
 
 // ════════════════════════════════════════════════
@@ -11967,7 +12061,7 @@ async function sendViaGmail() {
     });
     if (res.success) {
       showToast('✅ Email sent to ' + email);
-      if (btn) { btn.textContent = '✅ Sent!'; btn.style.background = 'var(--green)'; }
+      if (btn) { btn.textContent = '✅ Sent!'; btn.style.background = 'var(--green)'; btn.disabled = false; }
       // Status change removed — user controls status manually
       if (curIdx >= 0) { jobs[curIdx].proposalLinkSent = true; persistJobs(); }
     } else {
