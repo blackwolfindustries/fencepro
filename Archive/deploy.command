@@ -14,12 +14,12 @@ git add .
 # Commit with timestamp
 git commit -m "Update $(date '+%Y-%m-%d %I:%M %p')"
 
-# Push to GitHub (Cloudflare Pages auto-deploys from there)
+# Push to GitHub (Netlify auto-deploys from there)
 git push
 
 echo ""
 echo "✅ Done! Your changes will be live at:"
-echo "   https://fencepro.pages.dev"
+echo "   https://fencepro-blackwolf.netlify.app"
 echo ""
 echo "Press any key to close..."
 read -n 1
