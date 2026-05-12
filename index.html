@@ -3075,7 +3075,7 @@
         <span style="font-weight:700" id="dep_contract">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-        <span style="color:var(--text3)">Deposit Required (50%)</span>
+        <span style="color:var(--text3)" id="dep_required_label">Deposit Required</span>
         <span style="font-weight:700;color:var(--orange)" id="dep_required">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:3px">
@@ -8267,7 +8267,7 @@ function renderBoard() {
         <div class="jcard-meta">${(job.jobAddr||'').split(',')[0]}</div>
         <div class="jcard-price">${job.finalPrice ? '$' + Math.round(job.finalPrice).toLocaleString() : (job.calc_final ? '$' + Math.round(job.calc_final).toLocaleString() : '—')}</div>
         ${job.driveFolder?`<div class="jcard-meta mt6"><a href="${job.driveFolder}" target="_blank" style="color:var(--blue)">📁 Drive folder</a></div>`:''}
-        ${(job.depositPaid > 0 || job.depositMethod || job.depositDate || job.depositRef) ? `<button class="jcard-reverse-dep" onclick="openReverseDeposit(${idx},event)" title="Reverse deposit">↩ Reverse Deposit</button>` : ''}
+        ${(job.depositPaid > 0 || job.depositMethod || job.depositDate || job.depositRef) ? `<button class="jcard-reverse-dep" onclick="openReverseDeposit(${idx},event)" title="Reverse deposit">↩ Reverse Deposit</button><button class="jcard-reverse-dep" style="background:rgba(22,163,74,.15);color:#16A34A;border-color:rgba(22,163,74,.3)" onclick="event.stopPropagation();sendDepositReceipt(jobs[${idx}])" title="View/send deposit receipt">📄 Receipt</button>` : ''}
         <button class="jcard-del" onclick="boardDeleteEstimate(${idx},event)" title="Delete estimate">✕</button>`;
       card.addEventListener('dragstart', e => { _dragJobIdx=idx; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',String(idx)); });
       card.addEventListener('dragend', () => { card.classList.remove('dragging'); document.querySelectorAll('.bcards.drag-over').forEach(el=>el.classList.remove('drag-over')); _dragJobIdx=null; });
@@ -10058,6 +10058,17 @@ function openRecordDeposit() {
   const depositRequired = job?.depositRequired  || Math.round(contractPrice * 0.5 * 100) / 100;
   const balanceRemaining = Math.max(0, contractPrice - depositPaid);
 
+  // Dynamic label based on deposit type
+  const depType = job?.depositType || '50pct';
+  const depLabelEl = document.getElementById('dep_required_label');
+  if (depLabelEl) {
+    if (depType === 'custom') {
+      depLabelEl.textContent = 'Deposit Required (Custom)';
+    } else {
+      depLabelEl.textContent = 'Deposit Required (50%)';
+    }
+  }
+
   document.getElementById('dep_contract').textContent          = '$' + Math.round(contractPrice).toLocaleString();
   document.getElementById('dep_required').textContent          = '$' + Math.round(depositRequired).toLocaleString();
   document.getElementById('dep_balance_remaining').textContent = '$' + Math.round(balanceRemaining).toLocaleString();
@@ -11086,27 +11097,80 @@ function migrateLegacyJobCosts() {
 let _depositReceiptHtml  = '';
 let _depositReceiptMeta  = {};
 
-function sendDepositReceipt() {
-  const job = curIdx >= 0 ? jobs[curIdx] : null;
-  if (!job) return;
+// ─────────────────────────────────────────────────────────────
+// buildDepositReceiptHtml(job)
+// Generates the full deposit receipt HTML for a given job object.
+// Called by sendDepositReceipt() (current job) and can also be
+// called retroactively with any job object from the board.
+// All fixes applied here propagate everywhere automatically.
+// ─────────────────────────────────────────────────────────────
+function buildDepositReceiptHtml(job) {
+  // ── Company identity ─────────────────────────────────────────
+  // Determine BWI vs TRF from the job's jobPrefix or the settings
+  // fallback. jobPrefix drives which brand name appears.
+  const prefix     = (job.jobPrefix || job.id || '').toUpperCase();
+  const isTRF      = prefix.startsWith('TRF') ||
+                     (settings.companyName || '').toLowerCase().includes('top rail');
+  const coName     = isTRF
+    ? 'Top Rail Fence Huntington'
+    : (settings.companyName || 'Black Wolf Industries LLC');
+  const coAddr     = isTRF
+    ? '169 Commack Rd #1009, Commack, NY 11725'
+    : (settings.companyAddr || '169 Commack Rd #1009, Commack, NY 11725');
+  const coPhone    = isTRF
+    ? '631-275-2020'
+    : (settings.companyPhone || '631-275-2020');
+  const coEmail    = settings.companyEmail || '';
+  const coLic      = settings.companyLic   || '';
 
-  const co           = settings.companyName  || 'FencePro';
-  const coPhone      = settings.companyPhone || '';
-  const coEmail      = settings.companyEmail || '';
-  const coAddr       = settings.companyAddr  || '';
-  const custName     = job.custName     || 'Valued Customer';
-  const custEmail    = job.custEmail    || '';
-  const jobAddr      = job.jobAddr      || '';
-  const estId        = job.id           || '';
-  const contractPrice= job.contractPrice|| job.calc_final || 0;
-  const depositPaid  = job.depositPaid  || 0;
-  const balanceDue   = Math.max(0, contractPrice - depositPaid);
-  const method       = job.depositMethod|| '';
-  const ref          = job.depositRef   || '';
-  const dateStr      = job.depositDate
+  // ── Customer & job fields ─────────────────────────────────────
+  const custName   = job.custName   || 'Valued Customer';
+  const custEmail  = job.custEmail  || '';
+  const jobAddr    = job.jobAddr    || '';
+  // Build full address line: Street, City, State Zip
+  const jobCity    = job.jobCity    || job.custCity   || '';
+  const jobState   = job.jobState   || 'NY';
+  const jobZip     = job.custZip    || '';
+  const addrLine2  = [jobCity, jobState + (jobZip ? ' ' + jobZip : '')].filter(Boolean).join(', ');
+  const fullAddr   = [jobAddr, addrLine2].filter(Boolean).join('\n');
+
+  // ── Contract price & price type ───────────────────────────────
+  // contractPriceType is 'CC', 'Cash', or '' (older records).
+  // Fall back: if priceType is blank, guess from calc_cash vs calc_final.
+  const contractPrice  = job.contractPrice || job.calc_final || 0;
+  const rawPriceType   = (job.contractPriceType || '').trim();
+  // Resolve display label for the price type
+  let priceTypeLabel;
+  if (rawPriceType === 'Cash') {
+    priceTypeLabel = 'Cash / Check Price';
+  } else if (rawPriceType === 'CC') {
+    priceTypeLabel = 'CC / Finance Price';
+  } else {
+    // Retroactive: try to infer from stored calc values
+    const cashPrice = job.calc_cash || job.cashPrice || 0;
+    const ccPrice   = job.calc_final || job.finalPrice || 0;
+    if (cashPrice > 0 && Math.abs(contractPrice - cashPrice) < 1) {
+      priceTypeLabel = 'Cash / Check Price';
+    } else if (ccPrice > 0 && Math.abs(contractPrice - ccPrice) < 1) {
+      priceTypeLabel = 'CC / Finance Price';
+    } else {
+      priceTypeLabel = 'Contract Price';
+    }
+  }
+
+  // ── Deposit fields ────────────────────────────────────────────
+  const depositPaid = job.depositPaid  || 0;
+  const balanceDue  = Math.max(0, contractPrice - depositPaid);
+  const method      = job.depositMethod || '';
+  const ref         = job.depositRef    || '';
+  const dateStr     = job.depositDate
     ? new Date(job.depositDate + 'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})
     : new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  const receiptNum   = 'DEP-' + (estId.split('-')[0] || Date.now().toString().slice(-6)) + '-' + Date.now().toString().slice(-4);
+
+  // ── Receipt meta ──────────────────────────────────────────────
+  const estId      = job.id || '';
+  const jobNum     = estId.split('-')[0] || Date.now().toString().slice(-6);
+  const receiptNum = 'DEP-' + jobNum + '-' + Date.now().toString().slice(-4);
 
   const fmt  = n => '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtR = n => '$' + Math.round(n).toLocaleString();
@@ -11123,16 +11187,20 @@ function sendDepositReceipt() {
   body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;padding:32px 16px; }
   .card { max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12); }
   .header { background:linear-gradient(135deg,#1B2B4B 0%,#0f1e35 100%);padding:28px 32px;text-align:center; }
-  .header .logo { font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;margin-bottom:4px; }
-  .header .logo span { color:#F26522; }
-  .header .sub { font-size:12px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase; }
+  .header .co-name { font-size:18px;font-weight:800;color:#fff;letter-spacing:-.3px;margin-bottom:3px;line-height:1.2; }
+  .header .co-name em { color:#F26522;font-style:normal; }
+  .header .co-sub { font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.06em;line-height:1.6; }
   .receipt-badge { display:inline-block;background:rgba(242,101,34,.15);border:1px solid rgba(242,101,34,.4);color:#F26522;font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px;letter-spacing:.06em;text-transform:uppercase;margin-top:10px; }
   .body { padding:28px 32px; }
   .section-label { font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;margin-top:20px; }
   .info-row { display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px; }
   .info-row:last-child { border-bottom:none; }
-  .info-row .label { color:#666; }
-  .info-row .value { font-weight:600;color:#1a1a2e;text-align:right; }
+  .info-row .label { color:#666;flex-shrink:0;padding-right:12px; }
+  .info-row .value { font-weight:600;color:#1a1a2e;text-align:right;white-space:pre-line; }
+  .price-type-pill { display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:6px;vertical-align:middle; }
+  .pill-cc   { background:rgba(242,101,34,.12);color:#F26522; }
+  .pill-cash { background:rgba(22,163,74,.12);color:#16A34A; }
+  .pill-unk  { background:rgba(100,100,100,.1);color:#888; }
   .payment-block { background:#f8f9fb;border-radius:12px;padding:18px 20px;margin:20px 0; }
   .payment-row { display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px; }
   .payment-row.total { border-top:1.5px solid #e0e0e0;margin-top:8px;padding-top:12px; }
@@ -11150,15 +11218,15 @@ function sendDepositReceipt() {
   .confirm-box .msg { font-size:13px;font-weight:700;color:#4ADE80;margin-bottom:2px; }
   .confirm-box .sub { font-size:11px;color:rgba(255,255,255,.4); }
   .footer { background:#f8f9fb;padding:18px 32px;text-align:center;border-top:1px solid #eee; }
-  .footer p { font-size:11px;color:#888;line-height:1.7; }
+  .footer p { font-size:11px;color:#888;line-height:1.8; }
   @media print { body{background:#fff;padding:0} .card{box-shadow:none;border-radius:0} }
 </style>
 </head>
 <body>
 <div class="card">
   <div class="header">
-    <div class="logo"><span>Fence</span>Pro</div>
-    <div class="sub">${escHtml(co)}</div>
+    <div class="co-name">${escHtml(coName)}</div>
+    <div class="co-sub">${escHtml(coAddr)}${coPhone ? '<br>' + escHtml(coPhone) : ''}${coEmail ? ' · ' + escHtml(coEmail) : ''}${coLic ? '<br>License #' + escHtml(coLic) : ''}</div>
     <div class="receipt-badge">Deposit Receipt</div>
   </div>
   <div class="body">
@@ -11169,14 +11237,20 @@ function sendDepositReceipt() {
     ${method ? `<div class="info-row"><span class="label">Payment Method</span><span class="value">${escHtml(method)}${ref ? ' · ' + escHtml(ref) : ''}</span></div>` : ''}
     <div class="section-label">Customer</div>
     <div class="info-row"><span class="label">Name</span><span class="value">${escHtml(custName)}</span></div>
-    ${jobAddr ? `<div class="info-row"><span class="label">Job Address</span><span class="value">${escHtml(jobAddr)}</span></div>` : ''}
+    ${fullAddr ? `<div class="info-row"><span class="label">Job Address</span><span class="value">${escHtml(fullAddr)}</span></div>` : ''}
     <div class="section-label">Payment Summary</div>
     <div class="payment-block">
-      <div class="payment-row contract"><span class="lbl">Contract Price</span><span class="amt">${fmt(contractPrice)}</span></div>
+      <div class="payment-row contract">
+        <span class="lbl">
+          ${escHtml(priceTypeLabel)}
+          <span class="price-type-pill ${rawPriceType === 'Cash' ? 'pill-cash' : rawPriceType === 'CC' ? 'pill-cc' : 'pill-unk'}">${rawPriceType === 'Cash' ? 'Cash' : rawPriceType === 'CC' ? 'CC' : '—'}</span>
+        </span>
+        <span class="amt">${fmt(contractPrice)}</span>
+      </div>
       <div class="payment-row deposit"><span class="lbl">✓ Deposit Received</span><span class="amt">${fmt(depositPaid)}</span></div>
       <div class="payment-row balance total"><span class="lbl">Balance Due</span><span class="amt">${fmt(balanceDue)}</span></div>
     </div>
-    <div class="progress-wrap"><div class="progress-fill" style="width:${pctPaid}%"></div></div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:${Math.min(pctPaid,100)}%"></div></div>
     <div class="progress-label">${pctPaid}% paid · ${fmtR(balanceDue)} remaining</div>
     <div class="confirm-box">
       <div class="check">✅</div>
@@ -11186,7 +11260,8 @@ function sendDepositReceipt() {
   </div>
   <div class="footer">
     <p>
-      ${escHtml(co)}${coAddr ? ' · ' + escHtml(coAddr) : ''}<br>
+      ${escHtml(coName)}<br>
+      ${escHtml(coAddr)}<br>
       ${coPhone ? escHtml(coPhone) : ''}${coPhone && coEmail ? ' · ' : ''}${coEmail ? escHtml(coEmail) : ''}<br>
       Questions? Reply to this email or call us anytime.
     </p>
@@ -11195,7 +11270,7 @@ function sendDepositReceipt() {
 </body>
 </html>`;
 
-  // Build plain-text fallback for email clients that strip HTML
+  // ── Plain-text fallback ───────────────────────────────────────
   const plainText =
     'Deposit Receipt\n' +
     '===============\n' +
@@ -11204,16 +11279,31 @@ function sendDepositReceipt() {
     'Estimate: ' + estId + '\n' +
     (method ? 'Payment Method: ' + method + (ref ? ' · ' + ref : '') + '\n' : '') +
     '\nCustomer: ' + custName + '\n' +
-    (jobAddr ? 'Job Address: ' + jobAddr + '\n' : '') +
-    '\nContract Price:    ' + fmt(contractPrice) + '\n' +
+    (jobAddr ? 'Job Address: ' + fullAddr + '\n' : '') +
+    '\n' + priceTypeLabel + ': ' + fmt(contractPrice) + '\n' +
     'Deposit Received:  ' + fmt(depositPaid) + '\n' +
     'Balance Due:       ' + fmt(balanceDue) + '\n\n' +
-    'Thank you for choosing ' + co + '!\n' +
+    'Thank you for choosing ' + coName + '!\n' +
     (coPhone ? coPhone + '\n' : '');
 
-  // Store for use by send/print helpers
+  return { html, plainText, receiptNum, custEmail, custName, coName, coPhone };
+}
+
+function sendDepositReceipt(jobOverride) {
+  // jobOverride allows retroactive use from the job board — pass any job object.
+  // When called from the workflow panel (no argument), uses the currently loaded job.
+  const job = jobOverride || (curIdx >= 0 ? jobs[curIdx] : null);
+  if (!job) return;
+
+  const { html, plainText, receiptNum, custEmail, custName, coName, coPhone } = buildDepositReceiptHtml(job);
+
+  // Store for send/print helpers
   _depositReceiptHtml = html;
-  _depositReceiptMeta = { custName, custEmail, receiptNum, depositPaid: fmt(depositPaid), co, coPhone, plainText };
+  _depositReceiptMeta = {
+    custName, custEmail, receiptNum,
+    depositPaid: '$' + Number(job.depositPaid || 0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),
+    co: coName, coPhone, plainText
+  };
 
   // Show/hide no-email warning
   const warnEl = document.getElementById('drNoEmailWarn');
@@ -11221,13 +11311,15 @@ function sendDepositReceipt() {
 
   // Inject into iframe preview
   const frame = document.getElementById('drPreviewFrame');
-  if (frame) {
-    frame.srcdoc = html;
-  }
+  if (frame) frame.srcdoc = html;
 
   // Reset send button state
   const sendBtn = document.getElementById('drSendBtn');
-  if (sendBtn) { sendBtn.textContent = '📧 Send to Customer'; sendBtn.disabled = !custEmail; sendBtn.style.opacity = custEmail ? '1' : '.4'; }
+  if (sendBtn) {
+    sendBtn.textContent = '📧 Send to Customer';
+    sendBtn.disabled    = !custEmail;
+    sendBtn.style.opacity = custEmail ? '1' : '.4';
+  }
 
   // Open the modal
   document.getElementById('mDepositReceipt').classList.remove('hidden');
