@@ -13237,9 +13237,9 @@ function renderAnalytics() {
   const range    = getDateRange(rangeVal);
 
   const filtered = analyticsData.filter(r => {
-    // Filter on Sent date (col AB) — when proposal was actually sent to customer.
-    // Fall back to Created date if Sent is blank (unsent proposals).
-    const d = parseAnalyticsDate(r['Sent'] || r['Created']);
+    // Filter on Created date (col AC) — this is the immutable proposal creation date.
+    // Sent (col AB) gets overwritten by campaign re-sends so cannot be used for filtering.
+    const d = parseAnalyticsDate(r['Created'] || r['Date']);
     if (!d) return rangeVal === 'all'; // blank dates only on All Time
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
@@ -13275,7 +13275,7 @@ function renderPipelineKPIs(rows) {
   const open  = rows.filter(r => r['Status'] === 'Open');
   const totalVal = open.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
   const overdue  = open.filter(r => {
-    const sent = parseAnalyticsDate(r['Sent'] || r['Date'] || r['Created']);
+    const sent = parseAnalyticsDate(r['Created'] || r['Date']);
     return sent && Math.floor((today - sent) / 86400000) >= 14;
   }).length;
   const c = document.getElementById('pipe_kpi_count');
@@ -13299,9 +13299,9 @@ async function renderBookingTime(allRows, range) {
   }
 
   const data = allRows
-    .filter(r => (r['Status'] === 'Accepted' || r['Status'] === 'Complete') && r['Sent'] && r['Accepted Date'])
+    .filter(r => (r['Status'] === 'Accepted' || r['Status'] === 'Complete') && r['Created'] && r['Accepted Date'])
     .map(r => {
-      const sent     = parseAnalyticsDate(r['Sent']);
+      const sent     = parseAnalyticsDate(r['Created']);
       const accepted = parseAnalyticsDate(r['Accepted Date']);
       if (!sent || !accepted) return null;
       // Apply range filter on Accepted Date
@@ -13564,7 +13564,7 @@ function kpiDrillDown(kpi) {
   const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
   const range    = getDateRange(rangeVal);
   const filtered = analyticsData.filter(r => {
-    const d = parseAnalyticsDate(r['Sent'] || r['Created']);
+    const d = parseAnalyticsDate(r['Created'] || r['Date']);
     if (!d) return rangeVal === 'all';
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
@@ -13638,7 +13638,7 @@ function kpiDrillDown(kpi) {
       <td style="padding:7px 8px;font-weight:600;color:var(--text)">${escHtml(r['Name'] || r['Customer'] || '—')}</td>
       <td style="padding:7px 8px"><span style="font-size:10px;font-weight:700;color:${color};background:${color}18;padding:2px 7px;border-radius:10px">${escHtml(status)}</span></td>
       <td style="padding:7px 8px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">$${Math.round(val).toLocaleString()}</td>
-      <td style="padding:7px 8px;color:var(--text2)">${fmt(r['Sent'] || r['Created'])}</td>
+      <td style="padding:7px 8px;color:var(--text2)">${fmt(r['Created'] || r['Date'])}</td>
       <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Channel'] || '—')}</td>
       <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Campaign'] || '—')}</td>
       <td style="padding:7px 8px;color:var(--text2);font-size:11px">${escHtml(r['Service'] || r['Title'] || '—')}</td>
@@ -13877,7 +13877,7 @@ function showAnalyticsDrill(fieldEnc, keyEnc) {
     const custName = r['Customer Name'] || r['Customer'] || r['Name'] || '—';
     const status   = r['Status'] || '—';
     const value    = parseFloat(r['Value']) || 0;
-    const dateRaw  = r['Sent'] || r['Created'] || r['Date'] || '';
+    const dateRaw  = r['Created'] || r['Date'] || r['Sent'] || '';
     const dateStr  = dateRaw ? new Date(dateRaw).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
     const stColor  = STATUS_COLOR[status] || 'var(--text)';
     if (isClosed(status)) { closedCount++; totalRevenue += value; }
@@ -13907,7 +13907,7 @@ function renderPipelineTable(rows) {
   const open = rows
     .filter(r => r['Status'] === 'Open')
     .map(r => {
-      const sent     = parseAnalyticsDate(r['Sent'] || r['Date'] || r['Created']);
+      const sent     = parseAnalyticsDate(r['Created'] || r['Date']);
       const daysOpen = sent ? Math.floor((today - sent) / 86400000) : -1;
       return { ...r, _days: daysOpen, _sent: sent, _value: parseFloat(r['Value']) || 0 };
     });
@@ -14021,8 +14021,8 @@ function renderPerformance(filteredProposals, range) {
 
   // Count estimates and closures from filtered proposals
   proposals.forEach(r => {
-    // Estimate date = Sent date (when proposal was sent to customer)
-    const sentDate = parseAnalyticsDate(r['Sent'] || r['Date']);
+    // Estimate date = Created date (immutable; Sent gets overwritten by campaign re-sends)
+    const sentDate = parseAnalyticsDate(r['Created'] || r['Date']);
     // Lead date fallback if no contacts loaded
     const leadDate = parseAnalyticsDate(r['Created']);
 
