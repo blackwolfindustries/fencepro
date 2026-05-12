@@ -1551,6 +1551,7 @@
     <button id="wf_send"     class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="generateProposalLink()">📧 Send Proposal Link</button>
     <button id="wf_accept"   class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="openAcceptProposal()">✅ Accept Proposal</button>
     <button id="wf_deposit"  class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="openRecordDeposit()">💰 Record Deposit</button>
+    <button id="wf_receipt"  class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A;display:none" onclick="sendDepositReceipt()">📄 View / Resend Receipt</button>
     <button id="wf_schedule" class="btn btn-sm" style="justify-content:center;width:100%;background:#D97706;color:#fff;border-color:#D97706" onclick="openScheduleJob()">📅 Schedule Job</button>
     <button id="wf_progress" class="btn btn-sm" style="justify-content:center;width:100%;background:#7C3AED;color:#fff;border-color:#7C3AED" onclick="markInProgress()">🔨 In Progress</button>
     <button id="wf_complete" class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="markJobComplete()">✅ Complete Job</button>
@@ -7917,6 +7918,11 @@ function updateWorkflowButtons(status) {
                       (stageIdx >= STAGES.indexOf('Deposit Received'));
   mark('wf_deposit',  depositDone);
 
+  // Show receipt button only when deposit has actually been paid (not just 'none' type)
+  const hasDepositPaid = (job?.depositPaid > 0);
+  const receiptEl = document.getElementById('wf_receipt');
+  if (receiptEl) receiptEl.style.display = hasDepositPaid ? '' : 'none';
+
   // Schedule Job — done if scheduledDate is set
   mark('wf_schedule', !!(job?.scheduledDate || (stageIdx >= STAGES.indexOf('Scheduled'))));
 
@@ -8342,45 +8348,64 @@ async function confirmReverseDeposit() {
   const fmt       = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
   // Build audit trail entry
-  const dateStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  const dateStr    = new Date().toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
   const depositAmt    = fmt(job.depositPaid || 0);
   const depositMethod = job.depositMethod ? ' (' + job.depositMethod + ')' : '';
   const auditLine     = `[${dateStr}] Deposit of ${depositAmt}${depositMethod} reversed — ${reason}${extraNote ? ': ' + extraNote : ''} → Status reset to ${newStatus}`;
 
-  // Append to internalNotes
+  // ── Find ALL estimates sharing the same job number ──────────
+  // Job number is the numeric prefix of the estimate ID (e.g. '188' from '188-Traci-A-2026')
+  const jobNum = String(job.id || '').split('-')[0];
+
+  // Update every sibling estimate in the local jobs[] array
+  const siblingIndices = [];
+  jobs.forEach((j, i) => {
+    if (String(j.id || '').split('-')[0] === jobNum) siblingIndices.push(i);
+  });
+
+  siblingIndices.forEach(i => {
+    const j = jobs[i];
+    // Clear deposit fields on all siblings
+    j.depositPaid     = 0;
+    j.depositMethod   = '';
+    j.depositDate     = '';
+    j.depositRef      = '';
+    j.depositRequired = 0;
+    j.balanceDue      = j.contractPrice || j.calc_final || 0;
+    j.propStatus      = newStatus;
+  });
+
+  // Audit note only on the primary job being reversed
   const existingNotes = (job.internalNotes || '').trim();
   job.internalNotes   = existingNotes ? existingNotes + '\n' + auditLine : auditLine;
 
-  // Clear all deposit fields
-  job.depositPaid     = 0;
-  job.depositMethod   = '';
-  job.depositDate     = '';
-  job.depositRef      = '';
-  job.depositRequired = 0;
-  job.balanceDue      = job.contractPrice || job.calc_final || 0;
-
-  // Reset status
-  job.propStatus = newStatus;
-
-  // If this estimate is currently open in the form, refresh it
-  if (curIdx === idx) {
-    setVal('internalNotes', job.internalNotes);
+  // If any sibling is currently open in the form, refresh the UI
+  if (siblingIndices.includes(curIdx)) {
+    const openJob = jobs[curIdx];
+    setVal('internalNotes', openJob.internalNotes || '');
     const statusEl = document.getElementById('propStatus');
     if (statusEl) statusEl.value = newStatus;
-    // Clear deposit display fields in the form
     ['depositPaid','depositMethod','depositDate','depositRef'].forEach(f => {
       const el = document.getElementById(f); if (el) el.value = '';
     });
+    updateWorkflowButtons(newStatus);
   }
 
   persistJobs();
   renderBoard();
+  renderEstList();
   closeM('mReverseDeposit');
   showToast(`↩ Deposit reversed — ${(job.custName||'').split(' ')[0]} reset to ${newStatus}`);
 
-  // Sync to cloud
+  // ── Sync ALL sibling estimates to cloud ──────────────────────
+  // This ensures every estimate row in Sheets gets the new status,
+  // preventing the stale "Deposit Received" from reappearing on reload.
   if (settings.scriptUrl) {
-    try { await cloudCall({ action:'saveJob', data:job }); }
+    const syncPromises = siblingIndices.map(i =>
+      cloudCall({ action: 'saveJob', data: jobs[i] })
+        .catch(e => console.error('Cloud sync failed for', jobs[i]?.id, e))
+    );
+    try { await Promise.all(syncPromises); }
     catch(e) { console.error('Cloud sync after reversal failed:', e); }
   }
 }
@@ -10088,12 +10113,23 @@ function confirmRecordDeposit() {
 
   if (curIdx >= 0) {
     const prev = jobs[curIdx].depositPaid || 0;
-    jobs[curIdx].depositPaid       = Math.round((prev + amount) * 100) / 100;
-    jobs[curIdx].depositMethod     = method;
-    jobs[curIdx].depositDate       = date;
-    jobs[curIdx].depositRef        = ref;
-    const contractPrice = jobs[curIdx].contractPrice || lastCalc.final || 0;
-    jobs[curIdx].balanceDue        = Math.max(0, Math.round((contractPrice - jobs[curIdx].depositPaid) * 100) / 100);
+    const newDepositPaid = Math.round((prev + amount) * 100) / 100;
+
+    // ── Stamp deposit fields on ALL sibling estimates (same job number) ──
+    // This keeps all estimates for a job in sync so no sibling shows a
+    // stale status when the board or estimates list reloads from cloud.
+    const jobNum = String(jobs[curIdx].id || '').split('-')[0];
+    jobs.forEach(j => {
+      if (String(j.id || '').split('-')[0] === jobNum) {
+        j.depositPaid   = newDepositPaid;
+        j.depositMethod = method;
+        j.depositDate   = date;
+        j.depositRef    = ref;
+        const cp = j.contractPrice || lastCalc.final || 0;
+        j.balanceDue    = Math.max(0, Math.round((cp - newDepositPaid) * 100) / 100);
+        j.propStatus    = 'Deposit Received';
+      }
+    });
     persistJobs();
   }
 
@@ -10108,6 +10144,9 @@ function confirmRecordDeposit() {
   // Hide cancel button too
   const mactions = document.querySelector('#mDeposit .mactions');
   if (mactions) mactions.style.display = 'none';
+  // Show the resend receipt button in the workflow panel
+  const receiptEl = document.getElementById('wf_receipt');
+  if (receiptEl) receiptEl.style.display = '';
 }
 
 // ── SCHEDULE JOB ──────────────────────────────────
@@ -11131,7 +11170,9 @@ function buildDepositReceiptHtml(job) {
   const jobCity    = job.jobCity    || job.custCity   || '';
   const jobState   = job.jobState   || 'NY';
   const jobZip     = job.custZip    || '';
-  const addrLine2  = [jobCity, jobState + (jobZip ? ' ' + jobZip : '')].filter(Boolean).join(', ');
+  // Build city/state/zip line — only include state+zip when we have something meaningful
+  const stateZip   = [jobState, jobZip].filter(Boolean).join(' ');
+  const addrLine2  = jobCity ? jobCity + ', ' + stateZip : (jobZip ? stateZip : '');
   const fullAddr   = [jobAddr, addrLine2].filter(Boolean).join('\n');
 
   // ── Contract price & price type ───────────────────────────────
@@ -11187,9 +11228,9 @@ function buildDepositReceiptHtml(job) {
   body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;padding:32px 16px; }
   .card { max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12); }
   .header { background:linear-gradient(135deg,#1B2B4B 0%,#0f1e35 100%);padding:28px 32px;text-align:center; }
-  .header .co-name { font-size:18px;font-weight:800;color:#fff;letter-spacing:-.3px;margin-bottom:3px;line-height:1.2; }
-  .header .co-name em { color:#F26522;font-style:normal; }
-  .header .co-sub { font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.06em;line-height:1.6; }
+  .header .co-name { font-size:22px;font-weight:900;color:#fff;letter-spacing:-.5px;margin-bottom:5px;line-height:1.15; }
+  .header .co-tagline { font-size:11px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px; }
+  .header .co-sub { font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.04em;line-height:1.7;margin-top:4px; }
   .receipt-badge { display:inline-block;background:rgba(242,101,34,.15);border:1px solid rgba(242,101,34,.4);color:#F26522;font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px;letter-spacing:.06em;text-transform:uppercase;margin-top:10px; }
   .body { padding:28px 32px; }
   .section-label { font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;margin-top:20px; }
@@ -11226,7 +11267,7 @@ function buildDepositReceiptHtml(job) {
 <div class="card">
   <div class="header">
     <div class="co-name">${escHtml(coName)}</div>
-    <div class="co-sub">${escHtml(coAddr)}${coPhone ? '<br>' + escHtml(coPhone) : ''}${coEmail ? ' · ' + escHtml(coEmail) : ''}${coLic ? '<br>License #' + escHtml(coLic) : ''}</div>
+    <div class="co-sub">${escHtml(coAddr)}${coPhone ? '<br>' + escHtml(coPhone) : ''}${coEmail ? ' · ' + escHtml(coEmail) : ''}</div>
     <div class="receipt-badge">Deposit Receipt</div>
   </div>
   <div class="body">
