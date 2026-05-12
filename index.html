@@ -13432,13 +13432,13 @@ async function renderBookingTime(allRows, range) {
     <th style="${_thStyle('left')}">Customer</th>
     <th style="${_thStyle('left')}">Channel</th>
     <th style="${_thStyle('right')}">Value</th>
-    <th style="${_thStyle('right')}">Sent</th>
+    <th style="${_thStyle('right')}">Created</th>
     <th style="${_thStyle('right')}">Accepted</th>
     <th style="${_thStyle('right')}">Days to Book</th>
   </tr>`;
 
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No accepted proposals with both Sent and Accepted Date in this range</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No accepted proposals with both Created and Accepted Date in this range</td></tr>';
     return;
   }
 
