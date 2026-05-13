@@ -131,7 +131,7 @@
   .collapsible-body{overflow:hidden;transition:max-height .25s ease,opacity .25s ease}
   .collapsible-body.collapsed{max-height:0!important;opacity:0;pointer-events:none}
   .collapsible-body.expanded{max-height:2000px;opacity:1}
-  .collapse-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;width:100%}
+  .collapse-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;width:100%;min-height:44px;-webkit-tap-highlight-color:transparent}
   .collapse-toggle .chevron{font-size:11px;color:var(--text3);transition:transform .2s;display:inline-block}
   .collapse-toggle.collapsed .chevron{transform:rotate(-90deg)}
 
@@ -731,6 +731,23 @@
   }
   @media(max-width:480px){
     .board-col{min-width:85vw!important}
+  }
+
+  /* ── FIX 6: iOS SAFARI — setup tab scroll + general glitch fixes ── */
+  @media(max-width:768px){
+    /* Setup tab: allow full scroll on iOS */
+    #s-setup{overflow-y:auto!important;-webkit-overflow-scrolling:touch}
+    /* Modals: prevent body scroll bleed on iOS */
+    .moverlay{-webkit-overflow-scrolling:touch}
+    .mbox{-webkit-overflow-scrolling:touch}
+    /* Inputs: prevent iOS zoom on focus (font-size must be ≥16px) */
+    #s-setup input,#s-setup select,#s-setup textarea{font-size:16px!important}
+    /* Cards: prevent tap highlight flash */
+    .card{-webkit-tap-highlight-color:transparent}
+    /* Nav drawer buttons: bigger tap zone */
+    .mob-nav-btn{min-height:48px;display:flex;align-items:center}
+    /* Collapsible sections in setup: ensure toggle is always tappable */
+    .collapse-toggle{padding:4px 0}
   }
 
   @media print{
@@ -2102,8 +2119,8 @@
   </div>
 </div>
 
-<div id="s-setup" class="screen">
-  <div style="padding:18px;overflow-y:auto;max-width:640px">
+<div id="s-setup" class="screen" style="overflow-y:auto;-webkit-overflow-scrolling:touch">
+  <div style="padding:18px;max-width:640px;width:100%;box-sizing:border-box">
     <div style="font-size:15px;font-weight:700;margin-bottom:16px">⚙ Cloud Setup</div>
 
     <!-- PASSPHRASE CARD — commented out (re-enable for cloud deployment)
@@ -4559,7 +4576,14 @@ let jobs = (() => {
   }
 })();
 let parts    = JSON.parse(localStorage.getItem('fp_parts')    || '[]');
-let settings = { apiKey: 'fp_bwi_2026_xK9mQpLvNzRtWjYd', ...JSON.parse(localStorage.getItem('fp_settings') || '{}') };
+// ── Hardcoded defaults — app works on ANY device with zero setup ──
+const HARDCODED_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyV-y9YMwfl6181-xLaFoiJHvsn5QT1GAER-VJc533_Ifc-WYzNmTXyXpDq1JBi-RsI/exec';
+const HARDCODED_API_KEY    = 'fp_bwi_2026_xK9mQpLvNzRtWjYd';
+let settings = {
+  apiKey:    HARDCODED_API_KEY,
+  scriptUrl: HARDCODED_SCRIPT_URL,
+  ...JSON.parse(localStorage.getItem('fp_settings') || '{}')
+};
 let curIdx = -1;
 let photos = [];  // [{dataUrl, name, uploaded}]
 let docs   = [];  // [{name, driveUrl, docType, uploadedAt, uploading}]
