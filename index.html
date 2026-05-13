@@ -1476,6 +1476,21 @@
     <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:6px" id="docNote"></div>
   </div>
 
+  <!-- ── DRIVE FILES ── -->
+  <div class="card" style="padding:14px 16px" id="driveFilesCard">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span class="card-title" style="margin:0">☁️ Drive Files</span>
+      <span style="font-size:9px;font-weight:600;color:var(--text3);background:var(--surface2);padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em">Drop files in Drive folder</span>
+      <button id="driveFilesRefreshBtn" onclick="loadDriveFiles(true)"
+        style="margin-left:auto;font-size:11px;font-weight:700;color:var(--accent);background:none;border:1px solid var(--border);border-radius:5px;padding:3px 9px;cursor:pointer;display:none">
+        ↻ Refresh
+      </button>
+    </div>
+    <div id="driveFilesList">
+      <div style="font-size:12px;color:var(--text3);padding:8px 0">Save this estimate first to view Drive files.</div>
+    </div>
+  </div>
+
 </div><!-- est-main -->
 
 <!-- ══ SIDEBAR ══ -->
@@ -1551,7 +1566,6 @@
     <button id="wf_send"     class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="generateProposalLink()">📧 Send Proposal Link</button>
     <button id="wf_accept"   class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="openAcceptProposal()">✅ Accept Proposal</button>
     <button id="wf_deposit"  class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="openRecordDeposit()">💰 Record Deposit</button>
-    <button id="wf_receipt"  class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A;display:none" onclick="sendDepositReceipt()">📄 View / Resend Receipt</button>
     <button id="wf_schedule" class="btn btn-sm" style="justify-content:center;width:100%;background:#D97706;color:#fff;border-color:#D97706" onclick="openScheduleJob()">📅 Schedule Job</button>
     <button id="wf_progress" class="btn btn-sm" style="justify-content:center;width:100%;background:#7C3AED;color:#fff;border-color:#7C3AED" onclick="markInProgress()">🔨 In Progress</button>
     <button id="wf_complete" class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="markJobComplete()">✅ Complete Job</button>
@@ -3076,7 +3090,7 @@
         <span style="font-weight:700" id="dep_contract">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-        <span style="color:var(--text3)" id="dep_required_label">Deposit Required</span>
+        <span style="color:var(--text3)">Deposit Required (50%)</span>
         <span style="font-weight:700;color:var(--orange)" id="dep_required">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:3px">
@@ -7133,6 +7147,7 @@ function loadJobLocal(idx) {
   }));
   renderPhotos();
   renderDocs();
+  loadDriveFiles(false);
 
   // Helper — reads field from job object trying multiple key names
   // handles both camelCase local fields and Title Case Sheets fields
@@ -7215,6 +7230,11 @@ function newEst() {
   docs   = [];
   renderPhotos();
   renderDocs();
+  // Reset Drive Files panel
+  const dfList = document.getElementById('driveFilesList');
+  const dfBtn  = document.getElementById('driveFilesRefreshBtn');
+  if (dfList) dfList.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">Save this estimate first to view Drive files.</div>';
+  if (dfBtn)  dfBtn.style.display = 'none';
   const nums = ['matCost','laborCost','demoLF','addOns','cartFee','discount','numGates','totalLF','concBags'];
   nums.forEach(id => document.getElementById(id).value = '0');
   const strs = ['custName','custPhone','custEmail','jobAddr','jobAddr2','jobCity','jobState','custZip','custCity','custCounty','lostReason','scopeNotes','internalNotes','custChannel','custCampaign'];
@@ -7918,11 +7938,6 @@ function updateWorkflowButtons(status) {
                       (stageIdx >= STAGES.indexOf('Deposit Received'));
   mark('wf_deposit',  depositDone);
 
-  // Show receipt button only when deposit has actually been paid (not just 'none' type)
-  const hasDepositPaid = (job?.depositPaid > 0);
-  const receiptEl = document.getElementById('wf_receipt');
-  if (receiptEl) receiptEl.style.display = hasDepositPaid ? '' : 'none';
-
   // Schedule Job — done if scheduledDate is set
   mark('wf_schedule', !!(job?.scheduledDate || (stageIdx >= STAGES.indexOf('Scheduled'))));
 
@@ -8273,7 +8288,7 @@ function renderBoard() {
         <div class="jcard-meta">${(job.jobAddr||'').split(',')[0]}</div>
         <div class="jcard-price">${job.finalPrice ? '$' + Math.round(job.finalPrice).toLocaleString() : (job.calc_final ? '$' + Math.round(job.calc_final).toLocaleString() : '—')}</div>
         ${job.driveFolder?`<div class="jcard-meta mt6"><a href="${job.driveFolder}" target="_blank" style="color:var(--blue)">📁 Drive folder</a></div>`:''}
-        ${(job.depositPaid > 0 || job.depositMethod || job.depositDate || job.depositRef) ? `<button class="jcard-reverse-dep" onclick="openReverseDeposit(${idx},event)" title="Reverse deposit">↩ Reverse Deposit</button><button class="jcard-reverse-dep" style="background:rgba(22,163,74,.15);color:#16A34A;border-color:rgba(22,163,74,.3)" onclick="event.stopPropagation();sendDepositReceipt(jobs[${idx}])" title="View/send deposit receipt">📄 Receipt</button>` : ''}
+        ${(job.depositPaid > 0 || job.depositMethod || job.depositDate || job.depositRef) ? `<button class="jcard-reverse-dep" onclick="openReverseDeposit(${idx},event)" title="Reverse deposit">↩ Reverse Deposit</button>` : ''}
         <button class="jcard-del" onclick="boardDeleteEstimate(${idx},event)" title="Delete estimate">✕</button>`;
       card.addEventListener('dragstart', e => { _dragJobIdx=idx; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',String(idx)); });
       card.addEventListener('dragend', () => { card.classList.remove('dragging'); document.querySelectorAll('.bcards.drag-over').forEach(el=>el.classList.remove('drag-over')); _dragJobIdx=null; });
@@ -8348,64 +8363,45 @@ async function confirmReverseDeposit() {
   const fmt       = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
   // Build audit trail entry
-  const dateStr    = new Date().toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+  const dateStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
   const depositAmt    = fmt(job.depositPaid || 0);
   const depositMethod = job.depositMethod ? ' (' + job.depositMethod + ')' : '';
   const auditLine     = `[${dateStr}] Deposit of ${depositAmt}${depositMethod} reversed — ${reason}${extraNote ? ': ' + extraNote : ''} → Status reset to ${newStatus}`;
 
-  // ── Find ALL estimates sharing the same job number ──────────
-  // Job number is the numeric prefix of the estimate ID (e.g. '188' from '188-Traci-A-2026')
-  const jobNum = String(job.id || '').split('-')[0];
-
-  // Update every sibling estimate in the local jobs[] array
-  const siblingIndices = [];
-  jobs.forEach((j, i) => {
-    if (String(j.id || '').split('-')[0] === jobNum) siblingIndices.push(i);
-  });
-
-  siblingIndices.forEach(i => {
-    const j = jobs[i];
-    // Clear deposit fields on all siblings
-    j.depositPaid     = 0;
-    j.depositMethod   = '';
-    j.depositDate     = '';
-    j.depositRef      = '';
-    j.depositRequired = 0;
-    j.balanceDue      = j.contractPrice || j.calc_final || 0;
-    j.propStatus      = newStatus;
-  });
-
-  // Audit note only on the primary job being reversed
+  // Append to internalNotes
   const existingNotes = (job.internalNotes || '').trim();
   job.internalNotes   = existingNotes ? existingNotes + '\n' + auditLine : auditLine;
 
-  // If any sibling is currently open in the form, refresh the UI
-  if (siblingIndices.includes(curIdx)) {
-    const openJob = jobs[curIdx];
-    setVal('internalNotes', openJob.internalNotes || '');
+  // Clear all deposit fields
+  job.depositPaid     = 0;
+  job.depositMethod   = '';
+  job.depositDate     = '';
+  job.depositRef      = '';
+  job.depositRequired = 0;
+  job.balanceDue      = job.contractPrice || job.calc_final || 0;
+
+  // Reset status
+  job.propStatus = newStatus;
+
+  // If this estimate is currently open in the form, refresh it
+  if (curIdx === idx) {
+    setVal('internalNotes', job.internalNotes);
     const statusEl = document.getElementById('propStatus');
     if (statusEl) statusEl.value = newStatus;
+    // Clear deposit display fields in the form
     ['depositPaid','depositMethod','depositDate','depositRef'].forEach(f => {
       const el = document.getElementById(f); if (el) el.value = '';
     });
-    updateWorkflowButtons(newStatus);
   }
 
   persistJobs();
   renderBoard();
-  renderEstList();
   closeM('mReverseDeposit');
   showToast(`↩ Deposit reversed — ${(job.custName||'').split(' ')[0]} reset to ${newStatus}`);
 
-  // ── Sync ALL sibling estimates to cloud ──────────────────────
-  // This ensures every estimate row in Sheets gets the new status,
-  // preventing the stale "Deposit Received" from reappearing on reload.
+  // Sync to cloud
   if (settings.scriptUrl) {
-    const syncPromises = siblingIndices.map(i =>
-      cloudCall({ action: 'saveJob', data: jobs[i] })
-        .catch(e => console.error('Cloud sync failed for', jobs[i]?.id, e))
-    );
-    try { await Promise.all(syncPromises); }
+    try { await cloudCall({ action:'saveJob', data:job }); }
     catch(e) { console.error('Cloud sync after reversal failed:', e); }
   }
 }
@@ -8658,6 +8654,106 @@ function rmDoc(i) {
   persistJobs();
   renderDocs();
 }
+
+// ── DRIVE FILES ──────────────────────────────────────────────
+let _driveFilesCache = {}; // keyed by jobId
+
+async function loadDriveFiles(forceRefresh) {
+  const card    = document.getElementById('driveFilesCard');
+  const listEl  = document.getElementById('driveFilesList');
+  const btn     = document.getElementById('driveFilesRefreshBtn');
+  if (!card || !listEl) return;
+
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job || !job.id) {
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">Save this estimate first to view Drive files.</div>';
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+
+  if (btn) btn.style.display = '';
+
+  // Use cache unless forced refresh
+  if (!forceRefresh && _driveFilesCache[job.id]) {
+    _renderDriveFiles(_driveFilesCache[job.id], job);
+    return;
+  }
+
+  listEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">⏳ Loading Drive files…</div>';
+
+  if (!settings.scriptUrl) {
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">☁️ Connect cloud (Setup tab) to view Drive files.</div>';
+    return;
+  }
+
+  try {
+    const res = await cloudCall({ action: 'getJobFiles', data: { jobId: job.id, custName: job.custName || '' } });
+    if (res.error) throw new Error(res.error);
+    _driveFilesCache[job.id] = res;
+    _renderDriveFiles(res, job);
+  } catch(e) {
+    listEl.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:8px 0">⚠️ Could not load files: ${e.message}</div>`;
+  }
+}
+
+function _renderDriveFiles(res, job) {
+  const listEl = document.getElementById('driveFilesList');
+  if (!listEl) return;
+
+  if (!res.files || res.files.length === 0) {
+    const folderLink = res.folderUrl
+      ? `<a href="${res.folderUrl}" target="_blank" style="color:var(--accent);font-weight:600">Open Drive Folder ↗</a>`
+      : '';
+    listEl.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:6px 0">No files in this job's Drive folder yet. ${folderLink}<br><span style="font-size:11px">Drop files in Drive then hit ↻ Refresh.</span></div>`;
+    return;
+  }
+
+  // Group by subfolder
+  const groups = {};
+  res.files.forEach(f => {
+    const g = f.subfolder || '(root)';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(f);
+  });
+
+  const fmtDate = iso => {
+    try { return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); }
+    catch(e) { return ''; }
+  };
+
+  let html = '';
+  const sortedGroups = Object.keys(groups).sort((a,b) => {
+    if (a === '(root)') return 1;
+    if (b === '(root)') return -1;
+    return a.localeCompare(b);
+  });
+
+  sortedGroups.forEach(group => {
+    const label = group === '(root)' ? 'Root Folder' : group;
+    html += `<div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:8px 0 4px;padding-bottom:3px;border-bottom:1px solid var(--border)">${escHtml(label)}</div>`;
+    groups[group].forEach(f => {
+      html += `
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:5px;background:var(--surface2);margin-bottom:3px">
+          <span style="font-size:15px;flex-shrink:0">${f.icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(f.name)}">${escHtml(f.name)}</div>
+            <div style="font-size:10px;color:var(--text3)">${f.size}${f.updatedAt ? ' · ' + fmtDate(f.updatedAt) : ''}</div>
+          </div>
+          <a href="${f.url}" target="_blank"
+            style="font-size:11px;font-weight:700;color:var(--accent);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;text-decoration:none">
+            Open ↗
+          </a>
+        </div>`;
+    });
+  });
+
+  if (res.folderUrl) {
+    html += `<div style="margin-top:8px;text-align:right"><a href="${res.folderUrl}" target="_blank" style="font-size:10px;color:var(--text3)">📁 Open Job Folder in Drive ↗</a></div>`;
+  }
+
+  listEl.innerHTML = html;
+}
+// ─────────────────────────────────────────────────────────────
 
 function renderDocs() {
   const list = document.getElementById('docList');
@@ -10083,17 +10179,6 @@ function openRecordDeposit() {
   const depositRequired = job?.depositRequired  || Math.round(contractPrice * 0.5 * 100) / 100;
   const balanceRemaining = Math.max(0, contractPrice - depositPaid);
 
-  // Dynamic label based on deposit type
-  const depType = job?.depositType || '50pct';
-  const depLabelEl = document.getElementById('dep_required_label');
-  if (depLabelEl) {
-    if (depType === 'custom') {
-      depLabelEl.textContent = 'Deposit Required (Custom)';
-    } else {
-      depLabelEl.textContent = 'Deposit Required (50%)';
-    }
-  }
-
   document.getElementById('dep_contract').textContent          = '$' + Math.round(contractPrice).toLocaleString();
   document.getElementById('dep_required').textContent          = '$' + Math.round(depositRequired).toLocaleString();
   document.getElementById('dep_balance_remaining').textContent = '$' + Math.round(balanceRemaining).toLocaleString();
@@ -10113,23 +10198,12 @@ function confirmRecordDeposit() {
 
   if (curIdx >= 0) {
     const prev = jobs[curIdx].depositPaid || 0;
-    const newDepositPaid = Math.round((prev + amount) * 100) / 100;
-
-    // ── Stamp deposit fields on ALL sibling estimates (same job number) ──
-    // This keeps all estimates for a job in sync so no sibling shows a
-    // stale status when the board or estimates list reloads from cloud.
-    const jobNum = String(jobs[curIdx].id || '').split('-')[0];
-    jobs.forEach(j => {
-      if (String(j.id || '').split('-')[0] === jobNum) {
-        j.depositPaid   = newDepositPaid;
-        j.depositMethod = method;
-        j.depositDate   = date;
-        j.depositRef    = ref;
-        const cp = j.contractPrice || lastCalc.final || 0;
-        j.balanceDue    = Math.max(0, Math.round((cp - newDepositPaid) * 100) / 100);
-        j.propStatus    = 'Deposit Received';
-      }
-    });
+    jobs[curIdx].depositPaid       = Math.round((prev + amount) * 100) / 100;
+    jobs[curIdx].depositMethod     = method;
+    jobs[curIdx].depositDate       = date;
+    jobs[curIdx].depositRef        = ref;
+    const contractPrice = jobs[curIdx].contractPrice || lastCalc.final || 0;
+    jobs[curIdx].balanceDue        = Math.max(0, Math.round((contractPrice - jobs[curIdx].depositPaid) * 100) / 100);
     persistJobs();
   }
 
@@ -10144,9 +10218,6 @@ function confirmRecordDeposit() {
   // Hide cancel button too
   const mactions = document.querySelector('#mDeposit .mactions');
   if (mactions) mactions.style.display = 'none';
-  // Show the resend receipt button in the workflow panel
-  const receiptEl = document.getElementById('wf_receipt');
-  if (receiptEl) receiptEl.style.display = '';
 }
 
 // ── SCHEDULE JOB ──────────────────────────────────
@@ -11136,82 +11207,27 @@ function migrateLegacyJobCosts() {
 let _depositReceiptHtml  = '';
 let _depositReceiptMeta  = {};
 
-// ─────────────────────────────────────────────────────────────
-// buildDepositReceiptHtml(job)
-// Generates the full deposit receipt HTML for a given job object.
-// Called by sendDepositReceipt() (current job) and can also be
-// called retroactively with any job object from the board.
-// All fixes applied here propagate everywhere automatically.
-// ─────────────────────────────────────────────────────────────
-function buildDepositReceiptHtml(job) {
-  // ── Company identity ─────────────────────────────────────────
-  // Determine BWI vs TRF from the job's jobPrefix or the settings
-  // fallback. jobPrefix drives which brand name appears.
-  const prefix     = (job.jobPrefix || job.id || '').toUpperCase();
-  const isTRF      = prefix.startsWith('TRF') ||
-                     (settings.companyName || '').toLowerCase().includes('top rail');
-  const coName     = isTRF
-    ? 'Top Rail Fence Huntington'
-    : (settings.companyName || 'Black Wolf Industries LLC');
-  const coAddr     = isTRF
-    ? '169 Commack Rd #1009, Commack, NY 11725'
-    : (settings.companyAddr || '169 Commack Rd #1009, Commack, NY 11725');
-  const coPhone    = isTRF
-    ? '631-275-2020'
-    : (settings.companyPhone || '631-275-2020');
-  const coEmail    = settings.companyEmail || '';
-  const coLic      = settings.companyLic   || '';
+function sendDepositReceipt() {
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job) return;
 
-  // ── Customer & job fields ─────────────────────────────────────
-  const custName   = job.custName   || 'Valued Customer';
-  const custEmail  = job.custEmail  || '';
-  const jobAddr    = job.jobAddr    || '';
-  // Build full address line: Street, City, State Zip
-  const jobCity    = job.jobCity    || job.custCity   || '';
-  const jobState   = job.jobState   || 'NY';
-  const jobZip     = job.custZip    || '';
-  // Build city/state/zip line — only include state+zip when we have something meaningful
-  const stateZip   = [jobState, jobZip].filter(Boolean).join(' ');
-  const addrLine2  = jobCity ? jobCity + ', ' + stateZip : (jobZip ? stateZip : '');
-  const fullAddr   = [jobAddr, addrLine2].filter(Boolean).join('\n');
-
-  // ── Contract price & price type ───────────────────────────────
-  // contractPriceType is 'CC', 'Cash', or '' (older records).
-  // Fall back: if priceType is blank, guess from calc_cash vs calc_final.
-  const contractPrice  = job.contractPrice || job.calc_final || 0;
-  const rawPriceType   = (job.contractPriceType || '').trim();
-  // Resolve display label for the price type
-  let priceTypeLabel;
-  if (rawPriceType === 'Cash') {
-    priceTypeLabel = 'Cash / Check Price';
-  } else if (rawPriceType === 'CC') {
-    priceTypeLabel = 'CC / Finance Price';
-  } else {
-    // Retroactive: try to infer from stored calc values
-    const cashPrice = job.calc_cash || job.cashPrice || 0;
-    const ccPrice   = job.calc_final || job.finalPrice || 0;
-    if (cashPrice > 0 && Math.abs(contractPrice - cashPrice) < 1) {
-      priceTypeLabel = 'Cash / Check Price';
-    } else if (ccPrice > 0 && Math.abs(contractPrice - ccPrice) < 1) {
-      priceTypeLabel = 'CC / Finance Price';
-    } else {
-      priceTypeLabel = 'Contract Price';
-    }
-  }
-
-  // ── Deposit fields ────────────────────────────────────────────
-  const depositPaid = job.depositPaid  || 0;
-  const balanceDue  = Math.max(0, contractPrice - depositPaid);
-  const method      = job.depositMethod || '';
-  const ref         = job.depositRef    || '';
-  const dateStr     = job.depositDate
+  const co           = settings.companyName  || 'FencePro';
+  const coPhone      = settings.companyPhone || '';
+  const coEmail      = settings.companyEmail || '';
+  const coAddr       = settings.companyAddr  || '';
+  const custName     = job.custName     || 'Valued Customer';
+  const custEmail    = job.custEmail    || '';
+  const jobAddr      = job.jobAddr      || '';
+  const estId        = job.id           || '';
+  const contractPrice= job.contractPrice|| job.calc_final || 0;
+  const depositPaid  = job.depositPaid  || 0;
+  const balanceDue   = Math.max(0, contractPrice - depositPaid);
+  const method       = job.depositMethod|| '';
+  const ref          = job.depositRef   || '';
+  const dateStr      = job.depositDate
     ? new Date(job.depositDate + 'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})
     : new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-
-  // ── Receipt meta ──────────────────────────────────────────────
-  const estId      = job.id || '';
-  const jobNum     = estId.split('-')[0] || Date.now().toString().slice(-6);
-  const receiptNum = 'DEP-' + jobNum + '-' + Date.now().toString().slice(-4);
+  const receiptNum   = 'DEP-' + (estId.split('-')[0] || Date.now().toString().slice(-6)) + '-' + Date.now().toString().slice(-4);
 
   const fmt  = n => '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtR = n => '$' + Math.round(n).toLocaleString();
@@ -11228,20 +11244,16 @@ function buildDepositReceiptHtml(job) {
   body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;padding:32px 16px; }
   .card { max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12); }
   .header { background:linear-gradient(135deg,#1B2B4B 0%,#0f1e35 100%);padding:28px 32px;text-align:center; }
-  .header .co-name { font-size:22px;font-weight:900;color:#fff;letter-spacing:-.5px;margin-bottom:5px;line-height:1.15; }
-  .header .co-tagline { font-size:11px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px; }
-  .header .co-sub { font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.04em;line-height:1.7;margin-top:4px; }
+  .header .logo { font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;margin-bottom:4px; }
+  .header .logo span { color:#F26522; }
+  .header .sub { font-size:12px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase; }
   .receipt-badge { display:inline-block;background:rgba(242,101,34,.15);border:1px solid rgba(242,101,34,.4);color:#F26522;font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px;letter-spacing:.06em;text-transform:uppercase;margin-top:10px; }
   .body { padding:28px 32px; }
   .section-label { font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;margin-top:20px; }
   .info-row { display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px; }
   .info-row:last-child { border-bottom:none; }
-  .info-row .label { color:#666;flex-shrink:0;padding-right:12px; }
-  .info-row .value { font-weight:600;color:#1a1a2e;text-align:right;white-space:pre-line; }
-  .price-type-pill { display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:6px;vertical-align:middle; }
-  .pill-cc   { background:rgba(242,101,34,.12);color:#F26522; }
-  .pill-cash { background:rgba(22,163,74,.12);color:#16A34A; }
-  .pill-unk  { background:rgba(100,100,100,.1);color:#888; }
+  .info-row .label { color:#666; }
+  .info-row .value { font-weight:600;color:#1a1a2e;text-align:right; }
   .payment-block { background:#f8f9fb;border-radius:12px;padding:18px 20px;margin:20px 0; }
   .payment-row { display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px; }
   .payment-row.total { border-top:1.5px solid #e0e0e0;margin-top:8px;padding-top:12px; }
@@ -11259,15 +11271,15 @@ function buildDepositReceiptHtml(job) {
   .confirm-box .msg { font-size:13px;font-weight:700;color:#4ADE80;margin-bottom:2px; }
   .confirm-box .sub { font-size:11px;color:rgba(255,255,255,.4); }
   .footer { background:#f8f9fb;padding:18px 32px;text-align:center;border-top:1px solid #eee; }
-  .footer p { font-size:11px;color:#888;line-height:1.8; }
+  .footer p { font-size:11px;color:#888;line-height:1.7; }
   @media print { body{background:#fff;padding:0} .card{box-shadow:none;border-radius:0} }
 </style>
 </head>
 <body>
 <div class="card">
   <div class="header">
-    <div class="co-name">${escHtml(coName)}</div>
-    <div class="co-sub">${escHtml(coAddr)}${coPhone ? '<br>' + escHtml(coPhone) : ''}${coEmail ? ' · ' + escHtml(coEmail) : ''}</div>
+    <div class="logo"><span>Fence</span>Pro</div>
+    <div class="sub">${escHtml(co)}</div>
     <div class="receipt-badge">Deposit Receipt</div>
   </div>
   <div class="body">
@@ -11278,20 +11290,14 @@ function buildDepositReceiptHtml(job) {
     ${method ? `<div class="info-row"><span class="label">Payment Method</span><span class="value">${escHtml(method)}${ref ? ' · ' + escHtml(ref) : ''}</span></div>` : ''}
     <div class="section-label">Customer</div>
     <div class="info-row"><span class="label">Name</span><span class="value">${escHtml(custName)}</span></div>
-    ${fullAddr ? `<div class="info-row"><span class="label">Job Address</span><span class="value">${escHtml(fullAddr)}</span></div>` : ''}
+    ${jobAddr ? `<div class="info-row"><span class="label">Job Address</span><span class="value">${escHtml(jobAddr)}</span></div>` : ''}
     <div class="section-label">Payment Summary</div>
     <div class="payment-block">
-      <div class="payment-row contract">
-        <span class="lbl">
-          ${escHtml(priceTypeLabel)}
-          <span class="price-type-pill ${rawPriceType === 'Cash' ? 'pill-cash' : rawPriceType === 'CC' ? 'pill-cc' : 'pill-unk'}">${rawPriceType === 'Cash' ? 'Cash' : rawPriceType === 'CC' ? 'CC' : '—'}</span>
-        </span>
-        <span class="amt">${fmt(contractPrice)}</span>
-      </div>
+      <div class="payment-row contract"><span class="lbl">Contract Price</span><span class="amt">${fmt(contractPrice)}</span></div>
       <div class="payment-row deposit"><span class="lbl">✓ Deposit Received</span><span class="amt">${fmt(depositPaid)}</span></div>
       <div class="payment-row balance total"><span class="lbl">Balance Due</span><span class="amt">${fmt(balanceDue)}</span></div>
     </div>
-    <div class="progress-wrap"><div class="progress-fill" style="width:${Math.min(pctPaid,100)}%"></div></div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:${pctPaid}%"></div></div>
     <div class="progress-label">${pctPaid}% paid · ${fmtR(balanceDue)} remaining</div>
     <div class="confirm-box">
       <div class="check">✅</div>
@@ -11301,8 +11307,7 @@ function buildDepositReceiptHtml(job) {
   </div>
   <div class="footer">
     <p>
-      ${escHtml(coName)}<br>
-      ${escHtml(coAddr)}<br>
+      ${escHtml(co)}${coAddr ? ' · ' + escHtml(coAddr) : ''}<br>
       ${coPhone ? escHtml(coPhone) : ''}${coPhone && coEmail ? ' · ' : ''}${coEmail ? escHtml(coEmail) : ''}<br>
       Questions? Reply to this email or call us anytime.
     </p>
@@ -11311,7 +11316,7 @@ function buildDepositReceiptHtml(job) {
 </body>
 </html>`;
 
-  // ── Plain-text fallback ───────────────────────────────────────
+  // Build plain-text fallback for email clients that strip HTML
   const plainText =
     'Deposit Receipt\n' +
     '===============\n' +
@@ -11320,31 +11325,16 @@ function buildDepositReceiptHtml(job) {
     'Estimate: ' + estId + '\n' +
     (method ? 'Payment Method: ' + method + (ref ? ' · ' + ref : '') + '\n' : '') +
     '\nCustomer: ' + custName + '\n' +
-    (jobAddr ? 'Job Address: ' + fullAddr + '\n' : '') +
-    '\n' + priceTypeLabel + ': ' + fmt(contractPrice) + '\n' +
+    (jobAddr ? 'Job Address: ' + jobAddr + '\n' : '') +
+    '\nContract Price:    ' + fmt(contractPrice) + '\n' +
     'Deposit Received:  ' + fmt(depositPaid) + '\n' +
     'Balance Due:       ' + fmt(balanceDue) + '\n\n' +
-    'Thank you for choosing ' + coName + '!\n' +
+    'Thank you for choosing ' + co + '!\n' +
     (coPhone ? coPhone + '\n' : '');
 
-  return { html, plainText, receiptNum, custEmail, custName, coName, coPhone };
-}
-
-function sendDepositReceipt(jobOverride) {
-  // jobOverride allows retroactive use from the job board — pass any job object.
-  // When called from the workflow panel (no argument), uses the currently loaded job.
-  const job = jobOverride || (curIdx >= 0 ? jobs[curIdx] : null);
-  if (!job) return;
-
-  const { html, plainText, receiptNum, custEmail, custName, coName, coPhone } = buildDepositReceiptHtml(job);
-
-  // Store for send/print helpers
+  // Store for use by send/print helpers
   _depositReceiptHtml = html;
-  _depositReceiptMeta = {
-    custName, custEmail, receiptNum,
-    depositPaid: '$' + Number(job.depositPaid || 0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),
-    co: coName, coPhone, plainText
-  };
+  _depositReceiptMeta = { custName, custEmail, receiptNum, depositPaid: fmt(depositPaid), co, coPhone, plainText };
 
   // Show/hide no-email warning
   const warnEl = document.getElementById('drNoEmailWarn');
@@ -11352,15 +11342,13 @@ function sendDepositReceipt(jobOverride) {
 
   // Inject into iframe preview
   const frame = document.getElementById('drPreviewFrame');
-  if (frame) frame.srcdoc = html;
+  if (frame) {
+    frame.srcdoc = html;
+  }
 
   // Reset send button state
   const sendBtn = document.getElementById('drSendBtn');
-  if (sendBtn) {
-    sendBtn.textContent = '📧 Send to Customer';
-    sendBtn.disabled    = !custEmail;
-    sendBtn.style.opacity = custEmail ? '1' : '.4';
-  }
+  if (sendBtn) { sendBtn.textContent = '📧 Send to Customer'; sendBtn.disabled = !custEmail; sendBtn.style.opacity = custEmail ? '1' : '.4'; }
 
   // Open the modal
   document.getElementById('mDepositReceipt').classList.remove('hidden');
@@ -13237,9 +13225,9 @@ function renderAnalytics() {
   const range    = getDateRange(rangeVal);
 
   const filtered = analyticsData.filter(r => {
-    // Filter on Created date (col AC) — this is the immutable proposal creation date.
-    // Sent (col AB) gets overwritten by campaign re-sends so cannot be used for filtering.
-    const d = parseAnalyticsDate(r['Created'] || r['Date']);
+    // Filter on Sent date (col AB) — when proposal was actually sent to customer.
+    // Fall back to Created date if Sent is blank (unsent proposals).
+    const d = parseAnalyticsDate(r['Sent'] || r['Created']);
     if (!d) return rangeVal === 'all'; // blank dates only on All Time
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
@@ -13275,7 +13263,7 @@ function renderPipelineKPIs(rows) {
   const open  = rows.filter(r => r['Status'] === 'Open');
   const totalVal = open.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
   const overdue  = open.filter(r => {
-    const sent = parseAnalyticsDate(r['Created'] || r['Date']);
+    const sent = parseAnalyticsDate(r['Sent'] || r['Date'] || r['Created']);
     return sent && Math.floor((today - sent) / 86400000) >= 14;
   }).length;
   const c = document.getElementById('pipe_kpi_count');
@@ -13299,9 +13287,9 @@ async function renderBookingTime(allRows, range) {
   }
 
   const data = allRows
-    .filter(r => (r['Status'] === 'Accepted' || r['Status'] === 'Complete') && r['Created'] && r['Accepted Date'])
+    .filter(r => (r['Status'] === 'Accepted' || r['Status'] === 'Complete') && r['Sent'] && r['Accepted Date'])
     .map(r => {
-      const sent     = parseAnalyticsDate(r['Created']);
+      const sent     = parseAnalyticsDate(r['Sent']);
       const accepted = parseAnalyticsDate(r['Accepted Date']);
       if (!sent || !accepted) return null;
       // Apply range filter on Accepted Date
@@ -13432,13 +13420,13 @@ async function renderBookingTime(allRows, range) {
     <th style="${_thStyle('left')}">Customer</th>
     <th style="${_thStyle('left')}">Channel</th>
     <th style="${_thStyle('right')}">Value</th>
-    <th style="${_thStyle('right')}">Created</th>
+    <th style="${_thStyle('right')}">Sent</th>
     <th style="${_thStyle('right')}">Accepted</th>
     <th style="${_thStyle('right')}">Days to Book</th>
   </tr>`;
 
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No accepted proposals with both Created and Accepted Date in this range</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No accepted proposals with both Sent and Accepted Date in this range</td></tr>';
     return;
   }
 
@@ -13564,7 +13552,7 @@ function kpiDrillDown(kpi) {
   const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
   const range    = getDateRange(rangeVal);
   const filtered = analyticsData.filter(r => {
-    const d = parseAnalyticsDate(r['Created'] || r['Date']);
+    const d = parseAnalyticsDate(r['Sent'] || r['Created']);
     if (!d) return rangeVal === 'all';
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
@@ -13638,7 +13626,7 @@ function kpiDrillDown(kpi) {
       <td style="padding:7px 8px;font-weight:600;color:var(--text)">${escHtml(r['Name'] || r['Customer'] || '—')}</td>
       <td style="padding:7px 8px"><span style="font-size:10px;font-weight:700;color:${color};background:${color}18;padding:2px 7px;border-radius:10px">${escHtml(status)}</span></td>
       <td style="padding:7px 8px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">$${Math.round(val).toLocaleString()}</td>
-      <td style="padding:7px 8px;color:var(--text2)">${fmt(r['Created'] || r['Date'])}</td>
+      <td style="padding:7px 8px;color:var(--text2)">${fmt(r['Sent'] || r['Created'])}</td>
       <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Channel'] || '—')}</td>
       <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Campaign'] || '—')}</td>
       <td style="padding:7px 8px;color:var(--text2);font-size:11px">${escHtml(r['Service'] || r['Title'] || '—')}</td>
@@ -13877,7 +13865,7 @@ function showAnalyticsDrill(fieldEnc, keyEnc) {
     const custName = r['Customer Name'] || r['Customer'] || r['Name'] || '—';
     const status   = r['Status'] || '—';
     const value    = parseFloat(r['Value']) || 0;
-    const dateRaw  = r['Created'] || r['Date'] || r['Sent'] || '';
+    const dateRaw  = r['Sent'] || r['Created'] || r['Date'] || '';
     const dateStr  = dateRaw ? new Date(dateRaw).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
     const stColor  = STATUS_COLOR[status] || 'var(--text)';
     if (isClosed(status)) { closedCount++; totalRevenue += value; }
@@ -13907,7 +13895,7 @@ function renderPipelineTable(rows) {
   const open = rows
     .filter(r => r['Status'] === 'Open')
     .map(r => {
-      const sent     = parseAnalyticsDate(r['Created'] || r['Date']);
+      const sent     = parseAnalyticsDate(r['Sent'] || r['Date'] || r['Created']);
       const daysOpen = sent ? Math.floor((today - sent) / 86400000) : -1;
       return { ...r, _days: daysOpen, _sent: sent, _value: parseFloat(r['Value']) || 0 };
     });
@@ -14021,8 +14009,8 @@ function renderPerformance(filteredProposals, range) {
 
   // Count estimates and closures from filtered proposals
   proposals.forEach(r => {
-    // Estimate date = Created date (immutable; Sent gets overwritten by campaign re-sends)
-    const sentDate = parseAnalyticsDate(r['Created'] || r['Date']);
+    // Estimate date = Sent date (when proposal was sent to customer)
+    const sentDate = parseAnalyticsDate(r['Sent'] || r['Date']);
     // Lead date fallback if no contacts loaded
     const leadDate = parseAnalyticsDate(r['Created']);
 
