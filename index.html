@@ -131,7 +131,7 @@
   .collapsible-body{overflow:hidden;transition:max-height .25s ease,opacity .25s ease}
   .collapsible-body.collapsed{max-height:0!important;opacity:0;pointer-events:none}
   .collapsible-body.expanded{max-height:2000px;opacity:1}
-  .collapse-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;width:100%;min-height:44px;-webkit-tap-highlight-color:transparent}
+  .collapse-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;width:100%}
   .collapse-toggle .chevron{font-size:11px;color:var(--text3);transition:transform .2s;display:inline-block}
   .collapse-toggle.collapsed .chevron{transform:rotate(-90deg)}
 
@@ -731,23 +731,6 @@
   }
   @media(max-width:480px){
     .board-col{min-width:85vw!important}
-  }
-
-  /* ── FIX 6: iOS SAFARI — setup tab scroll + general glitch fixes ── */
-  @media(max-width:768px){
-    /* Setup tab: allow full scroll on iOS */
-    #s-setup{overflow-y:auto!important;-webkit-overflow-scrolling:touch}
-    /* Modals: prevent body scroll bleed on iOS */
-    .moverlay{-webkit-overflow-scrolling:touch}
-    .mbox{-webkit-overflow-scrolling:touch}
-    /* Inputs: prevent iOS zoom on focus (font-size must be ≥16px) */
-    #s-setup input,#s-setup select,#s-setup textarea{font-size:16px!important}
-    /* Cards: prevent tap highlight flash */
-    .card{-webkit-tap-highlight-color:transparent}
-    /* Nav drawer buttons: bigger tap zone */
-    .mob-nav-btn{min-height:48px;display:flex;align-items:center}
-    /* Collapsible sections in setup: ensure toggle is always tappable */
-    .collapse-toggle{padding:4px 0}
   }
 
   @media print{
@@ -1493,21 +1476,6 @@
     <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:6px" id="docNote"></div>
   </div>
 
-  <!-- ── DRIVE FILES ── -->
-  <div class="card" style="padding:14px 16px" id="driveFilesCard">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <span class="card-title" style="margin:0">☁️ Drive Files</span>
-      <span style="font-size:9px;font-weight:600;color:var(--text3);background:var(--surface2);padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em">Drop files in Drive folder</span>
-      <button id="driveFilesRefreshBtn" onclick="loadDriveFiles(true)"
-        style="margin-left:auto;font-size:11px;font-weight:700;color:var(--accent);background:none;border:1px solid var(--border);border-radius:5px;padding:3px 9px;cursor:pointer;display:none">
-        ↻ Refresh
-      </button>
-    </div>
-    <div id="driveFilesList">
-      <div style="font-size:12px;color:var(--text3);padding:8px 0">Save this estimate first to view Drive files.</div>
-    </div>
-  </div>
-
 </div><!-- est-main -->
 
 <!-- ══ SIDEBAR ══ -->
@@ -1639,7 +1607,7 @@
 
   <div class="sep"></div>
 
-  <!-- ── PROPOSAL AUDIT TRAIL ─────────────────────────────── -->\
+  <!-- ── PROPOSAL AUDIT TRAIL ─────────────────────────────── -->
   <div id="auditWrap" style="display:none">
     <div class="side-title" style="margin-top:4px;display:flex;align-items:center;gap:6px">
       📡 Proposal Activity
@@ -1648,7 +1616,7 @@
     </div>
     <div id="auditTimeline" style="margin-top:6px;display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
     <div id="auditEmpty" style="display:none;font-size:11px;color:var(--text3);padding:8px 0">No proposal sent yet for this estimate.</div>
-    <div id="auditLoading" style="font-size:11px;color:var(--text3);padding:8px 0">Loading...</div>
+    <div id="auditLoading" style="display:none;font-size:11px;color:var(--text3);padding:8px 0">Loading...</div>
   </div>
 
   <div class="sep" id="auditSep" style="display:none"></div>
@@ -2119,8 +2087,8 @@
   </div>
 </div>
 
-<div id="s-setup" class="screen" style="overflow-y:auto;-webkit-overflow-scrolling:touch">
-  <div style="padding:18px;max-width:640px;width:100%;box-sizing:border-box">
+<div id="s-setup" class="screen">
+  <div style="padding:18px;overflow-y:auto;max-width:640px">
     <div style="font-size:15px;font-weight:700;margin-bottom:16px">⚙ Cloud Setup</div>
 
     <!-- PASSPHRASE CARD — commented out (re-enable for cloud deployment)
@@ -4576,14 +4544,7 @@ let jobs = (() => {
   }
 })();
 let parts    = JSON.parse(localStorage.getItem('fp_parts')    || '[]');
-// ── Hardcoded defaults — app works on ANY device with zero setup ──
-const HARDCODED_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyV-y9YMwfl6181-xLaFoiJHvsn5QT1GAER-VJc533_Ifc-WYzNmTXyXpDq1JBi-RsI/exec';
-const HARDCODED_API_KEY    = 'fp_bwi_2026_xK9mQpLvNzRtWjYd';
-let settings = {
-  apiKey:    HARDCODED_API_KEY,
-  scriptUrl: HARDCODED_SCRIPT_URL,
-  ...JSON.parse(localStorage.getItem('fp_settings') || '{}')
-};
+let settings = { apiKey: 'fp_bwi_2026_xK9mQpLvNzRtWjYd', ...JSON.parse(localStorage.getItem('fp_settings') || '{}') };
 let curIdx = -1;
 let photos = [];  // [{dataUrl, name, uploaded}]
 let docs   = [];  // [{name, driveUrl, docType, uploadedAt, uploading}]
@@ -7052,35 +7013,22 @@ async function refreshAudit() {
 
   if (!wrap) return;
 
-  // Hide if no estimate loaded
-  if (!estimateId) {
+  // Hide if no estimate loaded or no cloud connection
+  if (!estimateId || !settings.scriptUrl) {
     wrap.style.display = 'none';
-    if (sep) sep.style.display = 'none';
+    sep.style.display  = 'none';
     return;
   }
 
-  // Show panel even if no cloud — display a helpful message
   wrap.style.display = 'block';
-  if (sep) sep.style.display = 'block';
+  sep.style.display  = 'block';
   timeline.innerHTML = '';
   empty.style.display   = 'none';
   loading.style.display = 'block';
 
-  if (!settings.scriptUrl) {
-    loading.style.display = 'none';
-    timeline.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0">⚠️ Cloud not connected — configure Script URL in Setup.</div>`;
-    return;
-  }
-
   try {
     const res = await cloudCall({ action: 'getProposalAudit', data: { estimateId } });
     loading.style.display = 'none';
-
-    // Surface any backend error
-    if (res.error) {
-      timeline.innerHTML = `<div style="font-size:11px;color:var(--red);padding:4px 0">⚠️ Backend error: ${res.error}</div>`;
-      return;
-    }
 
     if (!res.tokens || res.tokens.length === 0) {
       empty.style.display = 'block';
@@ -7090,8 +7038,7 @@ async function refreshAudit() {
     timeline.innerHTML = res.tokens.map(t => buildAuditCard(t)).join('');
   } catch(e) {
     loading.style.display = 'none';
-    timeline.innerHTML = `<div style="font-size:11px;color:var(--red);padding:4px 0">⚠️ ${e.message || 'Could not reach cloud'}</div>
-      <div style="font-size:10px;color:var(--text3);margin-top:3px">Check that Code.gs is deployed as the latest version.</div>`;
+    timeline.innerHTML = `<div style="color:var(--red);font-size:11px">Could not load audit data.</div>`;
   }
 }
 
@@ -7185,7 +7132,6 @@ function loadJobLocal(idx) {
   }));
   renderPhotos();
   renderDocs();
-  loadDriveFiles(false);
 
   // Helper — reads field from job object trying multiple key names
   // handles both camelCase local fields and Title Case Sheets fields
@@ -7268,11 +7214,6 @@ function newEst() {
   docs   = [];
   renderPhotos();
   renderDocs();
-  // Reset Drive Files panel
-  const dfList = document.getElementById('driveFilesList');
-  const dfBtn  = document.getElementById('driveFilesRefreshBtn');
-  if (dfList) dfList.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">Save this estimate first to view Drive files.</div>';
-  if (dfBtn)  dfBtn.style.display = 'none';
   const nums = ['matCost','laborCost','demoLF','addOns','cartFee','discount','numGates','totalLF','concBags'];
   nums.forEach(id => document.getElementById(id).value = '0');
   const strs = ['custName','custPhone','custEmail','jobAddr','jobAddr2','jobCity','jobState','custZip','custCity','custCounty','lostReason','scopeNotes','internalNotes','custChannel','custCampaign'];
@@ -8692,106 +8633,6 @@ function rmDoc(i) {
   persistJobs();
   renderDocs();
 }
-
-// ── DRIVE FILES ──────────────────────────────────────────────
-let _driveFilesCache = {}; // keyed by jobId
-
-async function loadDriveFiles(forceRefresh) {
-  const card    = document.getElementById('driveFilesCard');
-  const listEl  = document.getElementById('driveFilesList');
-  const btn     = document.getElementById('driveFilesRefreshBtn');
-  if (!card || !listEl) return;
-
-  const job = curIdx >= 0 ? jobs[curIdx] : null;
-  if (!job || !job.id) {
-    listEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">Save this estimate first to view Drive files.</div>';
-    if (btn) btn.style.display = 'none';
-    return;
-  }
-
-  if (btn) btn.style.display = '';
-
-  // Use cache unless forced refresh
-  if (!forceRefresh && _driveFilesCache[job.id]) {
-    _renderDriveFiles(_driveFilesCache[job.id], job);
-    return;
-  }
-
-  listEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">⏳ Loading Drive files…</div>';
-
-  if (!settings.scriptUrl) {
-    listEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">☁️ Connect cloud (Setup tab) to view Drive files.</div>';
-    return;
-  }
-
-  try {
-    const res = await cloudCall({ action: 'getJobFiles', data: { jobId: job.id, custName: job.custName || '' } });
-    if (res.error) throw new Error(res.error);
-    _driveFilesCache[job.id] = res;
-    _renderDriveFiles(res, job);
-  } catch(e) {
-    listEl.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:8px 0">⚠️ Could not load files: ${e.message}</div>`;
-  }
-}
-
-function _renderDriveFiles(res, job) {
-  const listEl = document.getElementById('driveFilesList');
-  if (!listEl) return;
-
-  if (!res.files || res.files.length === 0) {
-    const folderLink = res.folderUrl
-      ? `<a href="${res.folderUrl}" target="_blank" style="color:var(--accent);font-weight:600">Open Drive Folder ↗</a>`
-      : '';
-    listEl.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:6px 0">No files in this job's Drive folder yet. ${folderLink}<br><span style="font-size:11px">Drop files in Drive then hit ↻ Refresh.</span></div>`;
-    return;
-  }
-
-  // Group by subfolder
-  const groups = {};
-  res.files.forEach(f => {
-    const g = f.subfolder || '(root)';
-    if (!groups[g]) groups[g] = [];
-    groups[g].push(f);
-  });
-
-  const fmtDate = iso => {
-    try { return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); }
-    catch(e) { return ''; }
-  };
-
-  let html = '';
-  const sortedGroups = Object.keys(groups).sort((a,b) => {
-    if (a === '(root)') return 1;
-    if (b === '(root)') return -1;
-    return a.localeCompare(b);
-  });
-
-  sortedGroups.forEach(group => {
-    const label = group === '(root)' ? 'Root Folder' : group;
-    html += `<div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:8px 0 4px;padding-bottom:3px;border-bottom:1px solid var(--border)">${escHtml(label)}</div>`;
-    groups[group].forEach(f => {
-      html += `
-        <div style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:5px;background:var(--surface2);margin-bottom:3px">
-          <span style="font-size:15px;flex-shrink:0">${f.icon}</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:600;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(f.name)}">${escHtml(f.name)}</div>
-            <div style="font-size:10px;color:var(--text3)">${f.size}${f.updatedAt ? ' · ' + fmtDate(f.updatedAt) : ''}</div>
-          </div>
-          <a href="${f.url}" target="_blank"
-            style="font-size:11px;font-weight:700;color:var(--accent);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;text-decoration:none">
-            Open ↗
-          </a>
-        </div>`;
-    });
-  });
-
-  if (res.folderUrl) {
-    html += `<div style="margin-top:8px;text-align:right"><a href="${res.folderUrl}" target="_blank" style="font-size:10px;color:var(--text3)">📁 Open Job Folder in Drive ↗</a></div>`;
-  }
-
-  listEl.innerHTML = html;
-}
-// ─────────────────────────────────────────────────────────────
 
 function renderDocs() {
   const list = document.getElementById('docList');
@@ -13314,20 +13155,21 @@ function renderPipelineKPIs(rows) {
 
 // ══════════════════════════════════════════════════════════
 // BOOKING TIME ANALYSIS
-// Sent (col AB) → Accepted Date (col C) = days to book
+// Date (col B) → Accepted Date = days to book
+// Falls back to Created (col AC) if Date is missing
 // ══════════════════════════════════════════════════════════
 async function renderBookingTime(allRows, range) {
   // Filter on Accepted Date — we want "proposals accepted in this period"
-  // not "proposals sent in this period that happened to get accepted"
+  // not "proposals created in this period that happened to get accepted"
   if (!range) {
     const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
     range = getDateRange(rangeVal);
   }
 
   const data = allRows
-    .filter(r => (r['Status'] === 'Accepted' || r['Status'] === 'Complete') && r['Sent'] && r['Accepted Date'])
+    .filter(r => (r['Status'] === 'Accepted' || r['Status'] === 'Complete') && (r['Date'] || r['Created']) && r['Accepted Date'])
     .map(r => {
-      const sent     = parseAnalyticsDate(r['Sent']);
+      const sent     = parseAnalyticsDate(r['Date'] || r['Created']);
       const accepted = parseAnalyticsDate(r['Accepted Date']);
       if (!sent || !accepted) return null;
       // Apply range filter on Accepted Date
@@ -13458,13 +13300,13 @@ async function renderBookingTime(allRows, range) {
     <th style="${_thStyle('left')}">Customer</th>
     <th style="${_thStyle('left')}">Channel</th>
     <th style="${_thStyle('right')}">Value</th>
-    <th style="${_thStyle('right')}">Sent</th>
+    <th style="${_thStyle('right')}">Date</th>
     <th style="${_thStyle('right')}">Accepted</th>
     <th style="${_thStyle('right')}">Days to Book</th>
   </tr>`;
 
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No accepted proposals with both Sent and Accepted Date in this range</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No accepted proposals with a Date or Created date in this range</td></tr>';
     return;
   }
 
