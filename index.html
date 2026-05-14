@@ -1639,7 +1639,7 @@
 
   <div class="sep"></div>
 
-  <!-- ── PROPOSAL AUDIT TRAIL ─────────────────────────────── -->
+  <!-- ── PROPOSAL AUDIT TRAIL ─────────────────────────────── -->\
   <div id="auditWrap" style="display:none">
     <div class="side-title" style="margin-top:4px;display:flex;align-items:center;gap:6px">
       📡 Proposal Activity
@@ -1648,7 +1648,7 @@
     </div>
     <div id="auditTimeline" style="margin-top:6px;display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
     <div id="auditEmpty" style="display:none;font-size:11px;color:var(--text3);padding:8px 0">No proposal sent yet for this estimate.</div>
-    <div id="auditLoading" style="display:none;font-size:11px;color:var(--text3);padding:8px 0">Loading...</div>
+    <div id="auditLoading" style="font-size:11px;color:var(--text3);padding:8px 0">Loading...</div>
   </div>
 
   <div class="sep" id="auditSep" style="display:none"></div>
@@ -7052,22 +7052,35 @@ async function refreshAudit() {
 
   if (!wrap) return;
 
-  // Hide if no estimate loaded or no cloud connection
-  if (!estimateId || !settings.scriptUrl) {
+  // Hide if no estimate loaded
+  if (!estimateId) {
     wrap.style.display = 'none';
-    sep.style.display  = 'none';
+    if (sep) sep.style.display = 'none';
     return;
   }
 
+  // Show panel even if no cloud — display a helpful message
   wrap.style.display = 'block';
-  sep.style.display  = 'block';
+  if (sep) sep.style.display = 'block';
   timeline.innerHTML = '';
   empty.style.display   = 'none';
   loading.style.display = 'block';
 
+  if (!settings.scriptUrl) {
+    loading.style.display = 'none';
+    timeline.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0">⚠️ Cloud not connected — configure Script URL in Setup.</div>`;
+    return;
+  }
+
   try {
     const res = await cloudCall({ action: 'getProposalAudit', data: { estimateId } });
     loading.style.display = 'none';
+
+    // Surface any backend error
+    if (res.error) {
+      timeline.innerHTML = `<div style="font-size:11px;color:var(--red);padding:4px 0">⚠️ Backend error: ${res.error}</div>`;
+      return;
+    }
 
     if (!res.tokens || res.tokens.length === 0) {
       empty.style.display = 'block';
@@ -7077,7 +7090,8 @@ async function refreshAudit() {
     timeline.innerHTML = res.tokens.map(t => buildAuditCard(t)).join('');
   } catch(e) {
     loading.style.display = 'none';
-    timeline.innerHTML = `<div style="color:var(--red);font-size:11px">Could not load audit data.</div>`;
+    timeline.innerHTML = `<div style="font-size:11px;color:var(--red);padding:4px 0">⚠️ ${e.message || 'Could not reach cloud'}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">Check that Code.gs is deployed as the latest version.</div>`;
   }
 }
 
