@@ -8073,9 +8073,55 @@ async function loadCloud() {
       }
 
       const isValidId = j => { const p = String(j.id||'').split('-'); return p.length >= 4 && /^[A-Z]$/.test(p[2]); };
+
+      // Snapshot local workflow fields that only live in the Jobs sheet
+      // but can get zeroed out when the Estimates sheet row wins the merge.
+      // These are set by in-app accept/edit-acceptance and must survive a reload.
+      const localWorkflowMap = {};
+      jobs.forEach(j => {
+        if (!j.id) return;
+        if (j.contractPrice > 0 || j.contractPriceType) {
+          localWorkflowMap[j.id] = {
+            contractPrice:     j.contractPrice     || 0,
+            contractPriceType: j.contractPriceType || '',
+            depositRequired:   j.depositRequired   || 0,
+            depositType:       j.depositType       || '',
+            depositPaid:       j.depositPaid       || 0,
+            depositMethod:     j.depositMethod     || '',
+            depositDate:       j.depositDate       || '',
+            depositRef:        j.depositRef        || '',
+            balanceDue:        j.balanceDue        || 0,
+          };
+        }
+      });
+
       jobs = [
         ...data.jobs.map(j => {
           const norm = normalizeJob(j);
+
+          // Restore local workflow fields if the server returned zeros/blanks
+          // This happens when contractPrice lives only in Jobs tab but est row wins merge
+          const saved = localWorkflowMap[norm.id];
+          if (saved) {
+            if (saved.contractPrice > 0 && !(norm.contractPrice > 0))
+              norm.contractPrice = saved.contractPrice;
+            if (saved.contractPriceType && !norm.contractPriceType)
+              norm.contractPriceType = saved.contractPriceType;
+            if (saved.depositRequired > 0 && !(norm.depositRequired > 0))
+              norm.depositRequired = saved.depositRequired;
+            if (saved.depositType && !norm.depositType)
+              norm.depositType = saved.depositType;
+            if (saved.depositPaid > 0 && !(norm.depositPaid > 0))
+              norm.depositPaid = saved.depositPaid;
+            if (saved.depositMethod && !norm.depositMethod)
+              norm.depositMethod = saved.depositMethod;
+            if (saved.depositDate && !norm.depositDate)
+              norm.depositDate = saved.depositDate;
+            if (saved.depositRef && !norm.depositRef)
+              norm.depositRef = saved.depositRef;
+            if (saved.balanceDue > 0 && !(norm.balanceDue > 0))
+              norm.balanceDue = saved.balanceDue;
+          }
           // Decide whether local or cloud status should win.
           // If local has a recent statusChangedAt timestamp, local always wins
           // (user intentionally changed it — even if moving backwards in rank).
