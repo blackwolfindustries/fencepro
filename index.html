@@ -11328,6 +11328,14 @@ function sendDepositReceipt() {
   const fmtR = n => '$' + Math.round(n).toLocaleString();
   const pctPaid = contractPrice > 0 ? Math.round((depositPaid / contractPrice) * 100) : 0;
 
+  // Pull city/state/zip for customer address block
+  const jobCity    = job.jobCity  || '';
+  const jobState   = job.jobState || '';
+  const custZip    = job.custZip  || '';
+  const jobAddr2   = job.jobAddr2 || '';
+  const custCityLine = [jobCity, jobState, custZip].filter(Boolean).join(', ');
+  const priceTypeLabel = job.contractPriceType === 'Cash' ? 'Cash / Check' : job.contractPriceType === 'CC' ? 'CC / Finance' : '';
+
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -11337,92 +11345,155 @@ function sendDepositReceipt() {
 <style>
   * { margin:0;padding:0;box-sizing:border-box; }
   body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;padding:32px 16px; }
-  .card { max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12); }
-  .header { background:linear-gradient(135deg,#1B2B4B 0%,#0f1e35 100%);padding:28px 32px;text-align:center; }
-  .header .logo { font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;margin-bottom:12px; }
-  .receipt-badge { display:inline-block;background:rgba(242,101,34,.15);border:1px solid rgba(242,101,34,.4);color:#F26522;font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px;letter-spacing:.06em;text-transform:uppercase;margin-top:10px; }
-  .body { padding:28px 32px; }
-  .section-label { font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;margin-top:20px; }
-  .info-row { display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px; }
+  .card { max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12); }
+  /* ── HEADER ── */
+  .header { background:linear-gradient(135deg,#1B2B4B 0%,#0f1e35 100%);padding:28px 36px; display:flex;justify-content:space-between;align-items:flex-start; }
+  .header-left .co-name { font-size:20px;font-weight:800;color:#fff;letter-spacing:-.3px;margin-bottom:6px; }
+  .header-left .co-detail { font-size:11px;color:rgba(255,255,255,.55);line-height:1.8; }
+  .header-right { text-align:right;flex-shrink:0;margin-left:24px; }
+  .receipt-title { font-size:11px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px; }
+  .receipt-num { font-size:13px;font-weight:700;color:#F26522;font-family:monospace;margin-bottom:4px; }
+  .receipt-date { font-size:12px;color:rgba(255,255,255,.55); }
+  /* ── BILL-TO STRIP ── */
+  .billto { display:flex;gap:0;border-bottom:2px solid #f0f0f0; }
+  .billto-col { flex:1;padding:18px 36px; }
+  .billto-col:first-child { border-right:1px solid #f0f0f0; }
+  .billto-label { font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px; }
+  .billto-name { font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:3px; }
+  .billto-addr { font-size:12px;color:#666;line-height:1.6; }
+  /* ── BODY ── */
+  .body { padding:24px 36px; }
+  .section-label { font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;margin-top:20px; }
+  .info-row { display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:13px; }
   .info-row:last-child { border-bottom:none; }
   .info-row .label { color:#666; }
   .info-row .value { font-weight:600;color:#1a1a2e;text-align:right; }
-  .payment-block { background:#f8f9fb;border-radius:12px;padding:18px 20px;margin:20px 0; }
-  .payment-row { display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px; }
-  .payment-row.total { border-top:1.5px solid #e0e0e0;margin-top:8px;padding-top:12px; }
+  /* ── PAYMENT BLOCK ── */
+  .payment-block { background:#f8f9fb;border-radius:12px;padding:18px 20px;margin:20px 0;border:1px solid #eef0f3; }
+  .payment-row { display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px; }
+  .payment-row.total { border-top:1.5px solid #e0e0e0;margin-top:10px;padding-top:14px; }
   .payment-row .lbl { color:#555; }
-  .payment-row.total .lbl { font-weight:700;color:#1a1a2e;font-size:14px; }
+  .payment-row.total .lbl { font-weight:700;color:#1a1a2e;font-size:15px; }
   .payment-row .amt { font-weight:700;font-family:monospace;font-size:13px; }
   .payment-row.contract .amt { color:#1a1a2e; }
   .payment-row.deposit .amt { color:#16A34A;font-size:15px; }
-  .payment-row.balance .amt { color:#F26522;font-size:15px; }
-  .progress-wrap { margin:0 0 4px;height:6px;background:#e5e7eb;border-radius:99px;overflow:hidden; }
+  .payment-row.balance .amt { color:#F26522;font-size:16px; }
+  .progress-wrap { margin:4px 0;height:6px;background:#e5e7eb;border-radius:99px;overflow:hidden; }
   .progress-fill { height:100%;background:linear-gradient(90deg,#16A34A,#4ADE80);border-radius:99px; }
-  .progress-label { font-size:11px;color:#888;text-align:right;margin-bottom:16px; }
-  .confirm-box { background:linear-gradient(135deg,#0f2a1a,#163d26);border-radius:12px;padding:16px 20px;text-align:center;margin:20px 0; }
-  .confirm-box .check { font-size:28px;margin-bottom:6px; }
-  .confirm-box .msg { font-size:13px;font-weight:700;color:#4ADE80;margin-bottom:2px; }
-  .confirm-box .sub { font-size:11px;color:rgba(255,255,255,.4); }
-  .footer { background:#f8f9fb;padding:18px 32px;text-align:center;border-top:1px solid #eee; }
-  .footer p { font-size:11px;color:#888;line-height:1.7; }
+  .progress-label { font-size:11px;color:#888;text-align:right;margin-top:4px;margin-bottom:16px; }
+  .confirm-box { background:linear-gradient(135deg,#0f2a1a,#163d26);border-radius:12px;padding:18px 20px;text-align:center;margin:20px 0; }
+  .confirm-box .check { font-size:32px;margin-bottom:8px; }
+  .confirm-box .msg { font-size:14px;font-weight:700;color:#4ADE80;margin-bottom:4px; }
+  .confirm-box .sub { font-size:12px;color:rgba(255,255,255,.45); }
+  /* ── FOOTER ── */
+  .footer { background:#f8f9fb;padding:16px 36px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:16px; }
+  .footer-left { font-size:11px;color:#999;line-height:1.7; }
+  .footer-right { font-size:11px;color:#999;text-align:right;line-height:1.7;flex-shrink:0; }
+  @media(max-width:540px){
+    .header{flex-direction:column;gap:14px} .header-right{text-align:left;margin-left:0}
+    .billto{flex-direction:column} .billto-col:first-child{border-right:none;border-bottom:1px solid #f0f0f0}
+    .footer{flex-direction:column;text-align:center} .footer-right{text-align:center}
+  }
   @media print { body{background:#fff;padding:0} .card{box-shadow:none;border-radius:0} }
 </style>
 </head>
 <body>
 <div class="card">
+
+  <!-- Header: Company left, Receipt # right -->
   <div class="header">
-    <div class="logo">${escHtml(co)}</div>
-    <div class="receipt-badge">Deposit Receipt</div>
+    <div class="header-left">
+      <div class="co-name">${escHtml(co)}</div>
+      <div class="co-detail">
+        ${coAddr ? escHtml(coAddr) + '<br>' : ''}
+        ${coPhone ? escHtml(coPhone) : ''}${coPhone && coEmail ? ' &nbsp;·&nbsp; ' : ''}${coEmail ? escHtml(coEmail) : ''}
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="receipt-title">Deposit Receipt</div>
+      <div class="receipt-num">${escHtml(receiptNum)}</div>
+      <div class="receipt-date">${escHtml(dateStr)}</div>
+    </div>
   </div>
+
+  <!-- Bill To strip: Customer left, Job Address right -->
+  <div class="billto">
+    <div class="billto-col">
+      <div class="billto-label">Customer</div>
+      <div class="billto-name">${escHtml(custName)}</div>
+      ${custEmail ? `<div class="billto-addr">${escHtml(custEmail)}</div>` : ''}
+    </div>
+    <div class="billto-col">
+      <div class="billto-label">Job Address</div>
+      <div class="billto-name" style="font-size:13px">${escHtml(jobAddr || '—')}</div>
+      ${jobAddr2 ? `<div class="billto-addr">${escHtml(jobAddr2)}</div>` : ''}
+      ${custCityLine ? `<div class="billto-addr">${escHtml(custCityLine)}</div>` : ''}
+    </div>
+  </div>
+
+  <!-- Body -->
   <div class="body">
-    <div class="section-label">Receipt Details</div>
-    <div class="info-row"><span class="label">Receipt #</span><span class="value">${escHtml(receiptNum)}</span></div>
-    <div class="info-row"><span class="label">Date</span><span class="value">${escHtml(dateStr)}</span></div>
-    <div class="info-row"><span class="label">Estimate</span><span class="value">${escHtml(estId)}</span></div>
-    ${method ? `<div class="info-row"><span class="label">Payment Method</span><span class="value">${escHtml(method)}${ref ? ' · ' + escHtml(ref) : ''}</span></div>` : ''}
-    <div class="section-label">Customer</div>
-    <div class="info-row"><span class="label">Name</span><span class="value">${escHtml(custName)}</span></div>
-    ${jobAddr ? `<div class="info-row"><span class="label">Job Address</span><span class="value">${escHtml(jobAddr)}</span></div>` : ''}
+    <div class="section-label">Transaction Details</div>
+    <div class="info-row"><span class="label">Estimate #</span><span class="value">${escHtml(estId)}</span></div>
+    ${method ? `<div class="info-row"><span class="label">Payment Method</span><span class="value">${escHtml(method)}${ref ? ' &nbsp;·&nbsp; ' + escHtml(ref) : ''}</span></div>` : ''}
+    ${priceTypeLabel ? `<div class="info-row"><span class="label">Price Type</span><span class="value">${escHtml(priceTypeLabel)}</span></div>` : ''}
+
     <div class="section-label">Payment Summary</div>
     <div class="payment-block">
       <div class="payment-row contract"><span class="lbl">Contract Price</span><span class="amt">${fmt(contractPrice)}</span></div>
       <div class="payment-row deposit"><span class="lbl">✓ Deposit Received</span><span class="amt">${fmt(depositPaid)}</span></div>
-      <div class="payment-row balance total"><span class="lbl">Balance Due</span><span class="amt">${fmt(balanceDue)}</span></div>
+      <div class="payment-row balance total"><span class="lbl">Balance Due on Completion</span><span class="amt">${fmt(balanceDue)}</span></div>
     </div>
     <div class="progress-wrap"><div class="progress-fill" style="width:${pctPaid}%"></div></div>
-    <div class="progress-label">${pctPaid}% paid · ${fmtR(balanceDue)} remaining</div>
+    <div class="progress-label">${pctPaid}% paid &nbsp;·&nbsp; ${fmtR(balanceDue)} remaining</div>
+
     <div class="confirm-box">
       <div class="check">✅</div>
       <div class="msg">Deposit Confirmed — Thank You!</div>
-      <div class="sub">Balance of ${fmt(balanceDue)} due upon completion</div>
+      <div class="sub">Balance of ${fmt(balanceDue)} is due upon job completion</div>
     </div>
   </div>
+
+  <!-- Footer -->
   <div class="footer">
-    <p>
-      ${escHtml(co)}${coAddr ? ' · ' + escHtml(coAddr) : ''}<br>
-      ${coPhone ? escHtml(coPhone) : ''}${coPhone && coEmail ? ' · ' : ''}${coEmail ? escHtml(coEmail) : ''}<br>
-      Questions? Reply to this email or call us anytime.
-    </p>
+    <div class="footer-left">
+      <strong>${escHtml(co)}</strong><br>
+      ${coAddr ? escHtml(coAddr) + '<br>' : ''}
+      ${coEmail ? escHtml(coEmail) : ''}
+    </div>
+    <div class="footer-right">
+      ${coPhone ? '<strong>' + escHtml(coPhone) + '</strong><br>' : ''}
+      Questions? Call or reply to this email.
+    </div>
   </div>
+
 </div>
 </body>
 </html>`;
 
   // Build plain-text fallback for email clients that strip HTML
   const plainText =
-    'Deposit Receipt\n' +
+    co + '\n' +
+    (coAddr  ? coAddr  + '\n' : '') +
+    (coPhone ? coPhone + '\n' : '') +
+    (coEmail ? coEmail + '\n' : '') +
+    '\nDEPOSIT RECEIPT\n' +
     '===============\n' +
     'Receipt #: ' + receiptNum + '\n' +
-    'Date: ' + dateStr + '\n' +
-    'Estimate: ' + estId + '\n' +
-    (method ? 'Payment Method: ' + method + (ref ? ' · ' + ref : '') + '\n' : '') +
-    '\nCustomer: ' + custName + '\n' +
-    (jobAddr ? 'Job Address: ' + jobAddr + '\n' : '') +
-    '\nContract Price:    ' + fmt(contractPrice) + '\n' +
+    'Date:      ' + dateStr + '\n' +
+    'Estimate:  ' + estId + '\n' +
+    (method ? 'Payment:   ' + method + (ref ? ' · ' + ref : '') + '\n' : '') +
+    '\nCUSTOMER\n' +
+    'Name:      ' + custName + '\n' +
+    (jobAddr ? 'Address:   ' + jobAddr + '\n' : '') +
+    (jobAddr2 ? '           ' + jobAddr2 + '\n' : '') +
+    (custCityLine ? '           ' + custCityLine + '\n' : '') +
+    '\nPAYMENT SUMMARY\n' +
+    'Contract Price:    ' + fmt(contractPrice) + '\n' +
     'Deposit Received:  ' + fmt(depositPaid) + '\n' +
     'Balance Due:       ' + fmt(balanceDue) + '\n\n' +
     'Thank you for choosing ' + co + '!\n' +
-    (coPhone ? coPhone + '\n' : '');
+    (coPhone ? 'Call us: ' + coPhone + '\n' : '');
 
   // Store for use by send/print helpers
   _depositReceiptHtml = html;
