@@ -7920,7 +7920,8 @@ function updateWorkflowButtons(status) {
   // Show receipt button only when a deposit has actually been recorded
   const receiptBtn = document.getElementById('wf_receipt');
   if (receiptBtn) {
-    const hasDeposit = job?.depositPaid > 0 || job?.depositMethod || job?.depositDate;
+    const hasDeposit = job?.depositPaid > 0 || job?.depositMethod || job?.depositDate
+      || stageIdx >= STAGES.indexOf('Deposit Received');
     receiptBtn.style.display = hasDeposit ? '' : 'none';
   }
 
