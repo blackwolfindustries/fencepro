@@ -1550,6 +1550,7 @@
     <button class="btn btn-g btn-sm" style="justify-content:center;width:100%" onclick="convertJob()">📄 Proposal</button>
     <button id="wf_send"     class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="generateProposalLink()">📧 Send Proposal Link</button>
     <button id="wf_accept"   class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="openAcceptProposal()">✅ Accept Proposal</button>
+    <button id="wf_edit_accept" class="btn btn-sm" style="justify-content:center;width:100%;display:none;background:rgba(22,163,74,.12);color:#16A34A;border-color:rgba(22,163,74,.4)" onclick="openEditAcceptance()">✏️ Edit Acceptance</button>
     <button id="wf_deposit"  class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="openRecordDeposit()">💰 Record Deposit</button>
     <button id="wf_schedule" class="btn btn-sm" style="justify-content:center;width:100%;background:#D97706;color:#fff;border-color:#D97706" onclick="openScheduleJob()">📅 Schedule Job</button>
     <button id="wf_progress" class="btn btn-sm" style="justify-content:center;width:100%;background:#7C3AED;color:#fff;border-color:#7C3AED" onclick="markInProgress()">🔨 In Progress</button>
@@ -2987,8 +2988,8 @@
 <!-- ══ ACCEPT PROPOSAL MODAL ════════════════════════════════ -->
 <div class="moverlay hidden" id="mAccept">
   <div class="mbox" style="max-width:440px">
-    <div class="mtitle">✅ Accept Proposal</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Select the price the customer is accepting:</div>
+    <div class="mtitle" id="mAcceptTitle">✅ Accept Proposal</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px" id="mAcceptSubtitle">Select the price the customer is accepting:</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
       <button id="btnAcceptCC" onclick="selectAcceptPrice('CC')"
         style="padding:16px;border:2px solid var(--border);border-radius:var(--r);background:var(--surface);cursor:pointer;text-align:center">
@@ -3039,7 +3040,7 @@
     <input type="hidden" id="accept_price_val">
     <div class="mactions">
       <button class="btn" onclick="closeM('mAccept')">Cancel</button>
-      <button class="btn btn-a" onclick="confirmAcceptProposal()">Confirm Acceptance</button>
+      <button class="btn btn-a" id="btnConfirmAccept" onclick="confirmAcceptProposal()">Confirm Acceptance</button>
     </div>
   </div>
 </div>
@@ -3071,11 +3072,11 @@
     </div>
     <div style="background:var(--surface2);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px">
       <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-        <span style="color:var(--text3)">Contract Price</span>
+        <span style="color:var(--text3)">Contract Price (<span id="dep_price_type_label" style="color:var(--orange);font-weight:700">—</span>)</span>
         <span style="font-weight:700" id="dep_contract">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-        <span style="color:var(--text3)">Deposit Required (50%)</span>
+        <span style="color:var(--text3)" id="dep_required_label">Deposit Required</span>
         <span style="font-weight:700;color:var(--orange)" id="dep_required">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:3px">
@@ -7909,7 +7910,11 @@ function updateWorkflowButtons(status) {
   mark('wf_send', linkSent);
 
   // Accept Proposal — done once Accepted or beyond
-  mark('wf_accept',   stageIdx >= STAGES.indexOf('Accepted'));
+  const isAccepted = stageIdx >= STAGES.indexOf('Accepted');
+  mark('wf_accept', isAccepted);
+  // Show Edit Acceptance button once accepted so user can correct price type
+  const editAcceptBtn = document.getElementById('wf_edit_accept');
+  if (editAcceptBtn) editAcceptBtn.style.display = isAccepted ? '' : 'none';
 
   // Record Deposit — done if depositPaid > 0 OR depositType is 'none'
   const depositDone = (job?.depositPaid > 0) ||
@@ -9919,9 +9924,24 @@ function crmStartEstimate(uid) {
 // ════════════════════════════════════════════════
 
 // ── ACCEPT PROPOSAL ──────────────────────────────
-function openAcceptProposal() {
-  // Pre-fill deposit selector from estimate's deposit settings
+function openAcceptProposal(editMode) {
   const job = curIdx >= 0 ? jobs[curIdx] : null;
+
+  // Set modal title & subtitle based on mode
+  const titleEl    = document.getElementById('mAcceptTitle');
+  const subtitleEl = document.getElementById('mAcceptSubtitle');
+  const confirmBtn = document.getElementById('btnConfirmAccept');
+  if (editMode) {
+    if (titleEl)    titleEl.textContent    = '✏️ Edit Acceptance';
+    if (subtitleEl) subtitleEl.textContent = 'Correct the price type or deposit for this job:';
+    if (confirmBtn) confirmBtn.textContent = 'Save Changes';
+  } else {
+    if (titleEl)    titleEl.textContent    = '✅ Accept Proposal';
+    if (subtitleEl) subtitleEl.textContent = 'Select the price the customer is accepting:';
+    if (confirmBtn) confirmBtn.textContent = 'Confirm Acceptance';
+  }
+
+  // Pre-fill deposit selector from estimate's deposit settings
   const pct = job?.depositPct !== undefined ? job.depositPct : 50;
   const fix = job?.depositOverrideDol || 0;
   const sel = document.getElementById('accept_deposit_type');
@@ -9936,26 +9956,55 @@ function openAcceptProposal() {
       sel.value = '50pct';
     } else {
       sel.value = 'custom';
-      // Calculate custom amount from pct
       const price = job?.contractPrice || lastCalc.final || 0;
       const ca = document.getElementById('accept_custom_amt');
       if (ca) ca.value = Math.round(price * (pct/100) * 100) / 100;
     }
   }
+
   const ccPrice   = lastCalc.final || 0;
   const cashPrice = lastCalc.cash  || 0;
 
   document.getElementById('accept_cc_price').textContent   = '$' + Math.round(ccPrice).toLocaleString();
   document.getElementById('accept_cash_price').textContent = '$' + Math.round(cashPrice).toLocaleString();
-  document.getElementById('accept_summary').style.display  = 'none';
-  document.getElementById('accept_price_type').value = '';
-  document.getElementById('accept_price_val').value  = '';
 
-  // Reset button styles
-  document.getElementById('btnAcceptCC').style.borderColor   = 'var(--border)';
-  document.getElementById('btnAcceptCash').style.borderColor = 'var(--border)';
+  // In edit mode — pre-select the existing price type and show summary
+  if (editMode && job?.contractPriceType) {
+    const existingType  = job.contractPriceType; // 'CC' or 'Cash'
+    const existingPrice = job.contractPrice || (existingType === 'Cash' ? cashPrice : ccPrice);
+
+    document.getElementById('accept_price_type').value = existingType;
+    document.getElementById('accept_price_val').value  = existingPrice;
+    document.getElementById('accept_contract').textContent = '$' + Math.round(existingPrice).toLocaleString();
+    document.getElementById('accept_summary').style.display = 'block';
+    document.getElementById('btnAcceptCC').style.borderColor   = existingType === 'CC'   ? 'var(--orange)' : 'var(--border)';
+    document.getElementById('btnAcceptCash').style.borderColor = existingType === 'Cash' ? 'var(--green)'  : 'var(--border)';
+
+    // Pre-fill deposit type from saved job
+    if (sel && job.depositType) {
+      sel.value = job.depositType;
+      if (job.depositType === 'custom') {
+        const ca = document.getElementById('accept_custom_amt');
+        if (ca) ca.value = job.depositRequired || 0;
+        const customRow = document.getElementById('accept_custom_row');
+        if (customRow) customRow.style.display = 'block';
+      }
+    }
+    onDepositTypeChange();
+  } else {
+    // Fresh accept — reset everything
+    document.getElementById('accept_summary').style.display  = 'none';
+    document.getElementById('accept_price_type').value = '';
+    document.getElementById('accept_price_val').value  = '';
+    document.getElementById('btnAcceptCC').style.borderColor   = 'var(--border)';
+    document.getElementById('btnAcceptCash').style.borderColor = 'var(--border)';
+  }
 
   openM('mAccept');
+}
+
+function openEditAcceptance() {
+  openAcceptProposal(true);
 }
 
 function selectAcceptPrice(type) {
@@ -10053,10 +10102,35 @@ function openRecordDeposit() {
     alert('This job was set to No Deposit — the full balance is due on completion.\n\nUse "Record Final Payment" when collecting payment.');
     return;
   }
-  const contractPrice   = job?.contractPrice   || lastCalc.final || 0;
+  const contractPrice   = job?.contractPrice > 0
+    ? job.contractPrice
+    : (job?.contractPriceType === 'Cash' ? (lastCalc.cash || 0) : (lastCalc.final || 0));
   const depositPaid     = job?.depositPaid      || 0;
   const depositRequired = job?.depositRequired  || Math.round(contractPrice * 0.5 * 100) / 100;
   const balanceRemaining = Math.max(0, contractPrice - depositPaid);
+
+  // Show which price type this contract is based on
+  const priceTypeLabel = document.getElementById('dep_price_type_label');
+  if (priceTypeLabel) {
+    const pt = job?.contractPriceType || '';
+    priceTypeLabel.textContent = pt === 'Cash' ? 'Cash / Check' : pt === 'CC' ? 'CC / Finance' : '—';
+    priceTypeLabel.style.color = pt === 'Cash' ? 'var(--green)' : 'var(--orange)';
+  }
+
+  // Update deposit required label with actual %
+  const depLabelEl = document.getElementById('dep_required_label');
+  if (depLabelEl && job?.depositType) {
+    if (job.depositType === 'none') {
+      depLabelEl.textContent = 'Deposit Required';
+    } else if (job.depositType === '50pct') {
+      depLabelEl.textContent = 'Deposit Required (50%)';
+    } else if (job.depositType === 'custom' && contractPrice > 0) {
+      const pct = Math.round((depositRequired / contractPrice) * 100);
+      depLabelEl.textContent = 'Deposit Required (' + pct + '%)';
+    } else {
+      depLabelEl.textContent = 'Deposit Required';
+    }
+  }
 
   document.getElementById('dep_contract').textContent          = '$' + Math.round(contractPrice).toLocaleString();
   document.getElementById('dep_required').textContent          = '$' + Math.round(depositRequired).toLocaleString();
@@ -10081,7 +10155,9 @@ function confirmRecordDeposit() {
     jobs[curIdx].depositMethod     = method;
     jobs[curIdx].depositDate       = date;
     jobs[curIdx].depositRef        = ref;
-    const contractPrice = jobs[curIdx].contractPrice || lastCalc.final || 0;
+    const contractPrice = jobs[curIdx].contractPrice > 0
+      ? jobs[curIdx].contractPrice
+      : (jobs[curIdx].contractPriceType === 'Cash' ? (lastCalc.cash || 0) : (lastCalc.final || 0));
     jobs[curIdx].balanceDue        = Math.max(0, Math.round((contractPrice - jobs[curIdx].depositPaid) * 100) / 100);
     persistJobs();
   }
