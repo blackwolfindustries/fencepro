@@ -11124,7 +11124,9 @@ function sendDepositReceipt(jobOverride) {
   const contractPrice= job.contractPrice|| job.calc_final || 0;
   const depositPaid  = job.depositPaid  || 0;
   const balanceDue   = Math.max(0, contractPrice - depositPaid);
-  const method       = job.depositMethod|| '';
+  // sanitize method — if it looks like a date/ISO string, clear it
+  const rawMethod = job.depositMethod || '';
+  const method    = /^\d{4}-\d{2}/.test(rawMethod) ? '' : rawMethod;
   const ref          = job.depositRef   || '';
   const dateStr      = job.depositDate
     ? new Date(job.depositDate + 'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})
@@ -11135,6 +11137,15 @@ function sendDepositReceipt(jobOverride) {
   const fmtR = n => '$' + Math.round(n).toLocaleString();
   const pctPaid = contractPrice > 0 ? Math.round((depositPaid / contractPrice) * 100) : 0;
 
+  // Pull extra fields for the professional layout
+  const jobCity      = job.jobCity  || '';
+  const jobState     = job.jobState || '';
+  const custZip      = job.custZip  || '';
+  const jobAddr2     = job.jobAddr2 || '';
+  const custCityLine = [jobCity, jobState, custZip].filter(Boolean).join(', ');
+  const priceTypeLabel = job.contractPriceType === 'Cash' ? 'Cash / Check'
+                       : job.contractPriceType === 'CC'   ? 'CC / Finance' : '';
+
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -11142,77 +11153,103 @@ function sendDepositReceipt(jobOverride) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Deposit Receipt — ${escHtml(receiptNum)}</title>
 <style>
-  * { margin:0;padding:0;box-sizing:border-box; }
-  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;padding:32px 16px; }
-  .card { max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12); }
-  .header { background:linear-gradient(135deg,#1B2B4B 0%,#0f1e35 100%);padding:28px 32px;text-align:center; }
-  .header .logo { font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px;margin-bottom:4px; }
-  .header .logo span { color:#F26522; }
-  .header .sub { font-size:12px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase; }
-  .receipt-badge { display:inline-block;background:rgba(242,101,34,.15);border:1px solid rgba(242,101,34,.4);color:#F26522;font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px;letter-spacing:.06em;text-transform:uppercase;margin-top:10px; }
-  .body { padding:28px 32px; }
-  .section-label { font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;margin-top:20px; }
-  .info-row { display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px; }
-  .info-row:last-child { border-bottom:none; }
-  .info-row .label { color:#666; }
-  .info-row .value { font-weight:600;color:#1a1a2e;text-align:right; }
-  .payment-block { background:#f8f9fb;border-radius:12px;padding:18px 20px;margin:20px 0; }
-  .payment-row { display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px; }
-  .payment-row.total { border-top:1.5px solid #e0e0e0;margin-top:8px;padding-top:12px; }
-  .payment-row .lbl { color:#555; }
-  .payment-row.total .lbl { font-weight:700;color:#1a1a2e;font-size:14px; }
-  .payment-row .amt { font-weight:700;font-family:monospace;font-size:13px; }
-  .payment-row.contract .amt { color:#1a1a2e; }
-  .payment-row.deposit .amt { color:#16A34A;font-size:15px; }
-  .payment-row.balance .amt { color:#F26522;font-size:15px; }
-  .progress-wrap { margin:0 0 4px;height:6px;background:#e5e7eb;border-radius:99px;overflow:hidden; }
-  .progress-fill { height:100%;background:linear-gradient(90deg,#16A34A,#4ADE80);border-radius:99px; }
-  .progress-label { font-size:11px;color:#888;text-align:right;margin-bottom:16px; }
-  .confirm-box { background:linear-gradient(135deg,#0f2a1a,#163d26);border-radius:12px;padding:16px 20px;text-align:center;margin:20px 0; }
-  .confirm-box .check { font-size:28px;margin-bottom:6px; }
-  .confirm-box .msg { font-size:13px;font-weight:700;color:#4ADE80;margin-bottom:2px; }
-  .confirm-box .sub { font-size:11px;color:rgba(255,255,255,.4); }
-  .footer { background:#f8f9fb;padding:18px 32px;text-align:center;border-top:1px solid #eee; }
-  .footer p { font-size:11px;color:#888;line-height:1.7; }
-  @media print { body{background:#fff;padding:0} .card{box-shadow:none;border-radius:0} }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;padding:32px 16px}
+  .card{max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12)}
+  .hdr{background:linear-gradient(135deg,#1B2B4B 0%,#0f1e35 100%);padding:24px 32px;display:flex;justify-content:space-between;align-items:flex-start}
+  .hdr-left .co{font-size:19px;font-weight:800;color:#fff;letter-spacing:-.3px;margin-bottom:5px}
+  .hdr-left .co-sub{font-size:11px;color:rgba(255,255,255,.5);line-height:1.8}
+  .hdr-right{text-align:right;flex-shrink:0;margin-left:20px}
+  .rec-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px}
+  .rec-num{font-size:13px;font-weight:700;color:#F26522;font-family:monospace;margin-bottom:3px}
+  .rec-date{font-size:12px;color:rgba(255,255,255,.5)}
+  .billto{display:flex;border-bottom:2px solid #f0f0f0}
+  .billto-col{flex:1;padding:16px 32px}
+  .billto-col:first-child{border-right:1px solid #f0f0f0}
+  .bt-label{font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px}
+  .bt-name{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:2px}
+  .bt-addr{font-size:12px;color:#666;line-height:1.6}
+  .body{padding:22px 32px}
+  .slabel{font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.12em;margin-bottom:7px;margin-top:18px}
+  .irow{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:13px}
+  .irow:last-child{border-bottom:none}
+  .irow .lbl{color:#666}
+  .irow .val{font-weight:600;color:#1a1a2e;text-align:right}
+  .pblock{background:#f8f9fb;border-radius:12px;padding:16px 20px;margin:18px 0;border:1px solid #eef0f3}
+  .prow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px}
+  .prow.total{border-top:1.5px solid #e0e0e0;margin-top:10px;padding-top:12px}
+  .prow .pl{color:#555}
+  .prow.total .pl{font-weight:700;color:#1a1a2e;font-size:15px}
+  .prow .pa{font-weight:700;font-family:monospace;font-size:13px}
+  .prow.contract .pa{color:#1a1a2e}
+  .prow.deposit .pa{color:#16A34A;font-size:15px}
+  .prow.balance .pa{color:#F26522;font-size:16px}
+  .prog-wrap{height:6px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin:4px 0}
+  .prog-fill{height:100%;background:linear-gradient(90deg,#16A34A,#4ADE80);border-radius:99px}
+  .prog-lbl{font-size:11px;color:#888;text-align:right;margin-top:3px;margin-bottom:14px}
+  .cbox{background:linear-gradient(135deg,#0f2a1a,#163d26);border-radius:12px;padding:16px 20px;text-align:center;margin:18px 0}
+  .cbox .ck{font-size:30px;margin-bottom:6px}
+  .cbox .cm{font-size:14px;font-weight:700;color:#4ADE80;margin-bottom:3px}
+  .cbox .cs{font-size:12px;color:rgba(255,255,255,.4)}
+  .ftr{background:#f8f9fb;padding:14px 32px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:16px}
+  .ftr-l{font-size:11px;color:#999;line-height:1.7}
+  .ftr-r{font-size:11px;color:#999;text-align:right;line-height:1.7;flex-shrink:0}
+  @media(max-width:520px){
+    .hdr{flex-direction:column;gap:12px}.hdr-right{text-align:left;margin-left:0}
+    .billto{flex-direction:column}.billto-col:first-child{border-right:none;border-bottom:1px solid #f0f0f0}
+    .ftr{flex-direction:column;text-align:center}.ftr-r{text-align:center}
+  }
+  @media print{body{background:#fff;padding:0}.card{box-shadow:none;border-radius:0}}
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="header">
-    <div class="logo"><span>Fence</span>Pro</div>
-    <div class="sub">${escHtml(co)}</div>
-    <div class="receipt-badge">Deposit Receipt</div>
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="co">${escHtml(co)}</div>
+      <div class="co-sub">${coAddr ? escHtml(coAddr) + '<br>' : ''}${coPhone ? escHtml(coPhone) : ''}${coPhone && coEmail ? '&nbsp;&nbsp;·&nbsp;&nbsp;' : ''}${coEmail ? escHtml(coEmail) : ''}</div>
+    </div>
+    <div class="hdr-right">
+      <div class="rec-label">Deposit Receipt</div>
+      <div class="rec-num">${escHtml(receiptNum)}</div>
+      <div class="rec-date">${escHtml(dateStr)}</div>
+    </div>
+  </div>
+  <div class="billto">
+    <div class="billto-col">
+      <div class="bt-label">Customer</div>
+      <div class="bt-name">${escHtml(custName)}</div>
+      ${custEmail ? `<div class="bt-addr">${escHtml(custEmail)}</div>` : ''}
+    </div>
+    <div class="billto-col">
+      <div class="bt-label">Job Address</div>
+      <div class="bt-name" style="font-size:13px">${escHtml(jobAddr || '—')}</div>
+      ${jobAddr2 ? `<div class="bt-addr">${escHtml(jobAddr2)}</div>` : ''}
+      ${custCityLine ? `<div class="bt-addr">${escHtml(custCityLine)}</div>` : ''}
+    </div>
   </div>
   <div class="body">
-    <div class="section-label">Receipt Details</div>
-    <div class="info-row"><span class="label">Receipt #</span><span class="value">${escHtml(receiptNum)}</span></div>
-    <div class="info-row"><span class="label">Date</span><span class="value">${escHtml(dateStr)}</span></div>
-    <div class="info-row"><span class="label">Estimate</span><span class="value">${escHtml(estId)}</span></div>
-    ${method ? `<div class="info-row"><span class="label">Payment Method</span><span class="value">${escHtml(method)}${ref ? ' · ' + escHtml(ref) : ''}</span></div>` : ''}
-    <div class="section-label">Customer</div>
-    <div class="info-row"><span class="label">Name</span><span class="value">${escHtml(custName)}</span></div>
-    ${jobAddr ? `<div class="info-row"><span class="label">Job Address</span><span class="value">${escHtml(jobAddr)}</span></div>` : ''}
-    <div class="section-label">Payment Summary</div>
-    <div class="payment-block">
-      <div class="payment-row contract"><span class="lbl">Contract Price</span><span class="amt">${fmt(contractPrice)}</span></div>
-      <div class="payment-row deposit"><span class="lbl">✓ Deposit Received</span><span class="amt">${fmt(depositPaid)}</span></div>
-      <div class="payment-row balance total"><span class="lbl">Balance Due</span><span class="amt">${fmt(balanceDue)}</span></div>
+    <div class="slabel">Transaction Details</div>
+    <div class="irow"><span class="lbl">Estimate #</span><span class="val">${escHtml(estId)}</span></div>
+    ${method ? `<div class="irow"><span class="lbl">Payment Method</span><span class="val">${escHtml(method)}${ref ? '&nbsp;·&nbsp;' + escHtml(ref) : ''}</span></div>` : ''}
+    ${priceTypeLabel ? `<div class="irow"><span class="lbl">Price Type</span><span class="val">${escHtml(priceTypeLabel)}</span></div>` : ''}
+    <div class="slabel">Payment Summary</div>
+    <div class="pblock">
+      <div class="prow contract"><span class="pl">Contract Price</span><span class="pa">${fmt(contractPrice)}</span></div>
+      <div class="prow deposit"><span class="pl">✓ Deposit Received</span><span class="pa">${fmt(depositPaid)}</span></div>
+      <div class="prow balance total"><span class="pl">Balance Due on Completion</span><span class="pa">${fmt(balanceDue)}</span></div>
     </div>
-    <div class="progress-wrap"><div class="progress-fill" style="width:${pctPaid}%"></div></div>
-    <div class="progress-label">${pctPaid}% paid · ${fmtR(balanceDue)} remaining</div>
-    <div class="confirm-box">
-      <div class="check">✅</div>
-      <div class="msg">Deposit Confirmed — Thank You!</div>
-      <div class="sub">Balance of ${fmt(balanceDue)} due upon completion</div>
+    <div class="prog-wrap"><div class="prog-fill" style="width:${pctPaid}%"></div></div>
+    <div class="prog-lbl">${pctPaid}% paid &nbsp;·&nbsp; ${fmtR(balanceDue)} remaining</div>
+    <div class="cbox">
+      <div class="ck">✅</div>
+      <div class="cm">Deposit Confirmed — Thank You!</div>
+      <div class="cs">Balance of ${fmt(balanceDue)} is due upon job completion</div>
     </div>
   </div>
-  <div class="footer">
-    <p>
-      ${escHtml(co)}${coAddr ? ' · ' + escHtml(coAddr) : ''}<br>
-      ${coPhone ? escHtml(coPhone) : ''}${coPhone && coEmail ? ' · ' : ''}${coEmail ? escHtml(coEmail) : ''}<br>
-      Questions? Reply to this email or call us anytime.
-    </p>
+  <div class="ftr">
+    <div class="ftr-l"><strong>${escHtml(co)}</strong>${coAddr ? '<br>' + escHtml(coAddr) : ''}${coEmail ? '<br>' + escHtml(coEmail) : ''}</div>
+    <div class="ftr-r">${coPhone ? '<strong>' + escHtml(coPhone) + '</strong><br>' : ''}Questions? Call or reply to this email.</div>
   </div>
 </div>
 </body>
