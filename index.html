@@ -4689,8 +4689,16 @@ function normalizeJob(j) {
     calc_suppFee:    n(j.calc_suppFee,    null, 0),
     calc_concrete:   n(j.calc_concrete,   null, 0),
     // ── Workflow ────────────────────────────────
-    contractPrice:      n(j.contractPrice,      j['Contract Price'],      0),
-    contractPriceType:  s(j.contractPriceType,  j['Contract Price Type'], ''),
+    // contractPrice — prefer whichever source has a non-zero value.
+    // When a customer accepts via the proposal portal, contractPrice is written
+    // to the Jobs tab only. The Estimates row has 0. The getJobs() merge (est wins
+    // over job) would overwrite the correct Jobs value with 0 without this guard.
+    contractPrice: (() => {
+      const a = Number(j.contractPrice)       || 0;
+      const b = Number(j['Contract Price'])   || 0;
+      return a > 0 ? a : (b > 0 ? b : 0);
+    })(),
+    contractPriceType: s(j.contractPriceType, j['Contract Price Type'], ''),
     depositType:        s(j.depositType,        j['Deposit Type'],        '50pct'),
     depositPct:         n(j.depositPct,         j['Deposit Pct'],         50),
     depositOverrideDol: n(j.depositOverrideDol, j['Deposit Override Dol'],0),
@@ -10214,9 +10222,19 @@ function openRecordDeposit() {
     alert('This job was set to No Deposit — the full balance is due on completion.\n\nUse "Record Final Payment" when collecting payment.');
     return;
   }
-  const contractPrice   = job?.contractPrice > 0
-    ? job.contractPrice
-    : (job?.contractPriceType === 'Cash' ? (lastCalc.cash || 0) : (lastCalc.final || 0));
+  // Resolve contract price — prefer saved value, then infer from price type,
+  // then fall back to whichever calc price is closer to the saved value
+  let contractPrice = 0;
+  if (job?.contractPrice > 0) {
+    contractPrice = job.contractPrice;
+  } else if (job?.contractPriceType === 'Cash') {
+    contractPrice = lastCalc.cash || 0;
+  } else if (job?.contractPriceType === 'CC') {
+    contractPrice = lastCalc.final || 0;
+  } else {
+    // No type saved yet — default to CC price (the higher one)
+    contractPrice = lastCalc.final || 0;
+  }
   const depositPaid     = job?.depositPaid      || 0;
   const depositRequired = job?.depositRequired  || Math.round(contractPrice * 0.5 * 100) / 100;
   const balanceRemaining = Math.max(0, contractPrice - depositPaid);
