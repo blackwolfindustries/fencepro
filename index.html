@@ -13596,18 +13596,21 @@ function renderKPIs(csvRows, allCsvRows) {
   // Analytics is CSV-only. No live jobs data is used here.
   allCsvRows = allCsvRows || csvRows;
 
-  const csvAccepted = allCsvRows.filter(r => r['Status'] === 'Accepted' || r['Status'] === 'Scheduled');
-  const csvComplete = csvRows.filter(r => r['Status'] === 'Complete');
-  const csvOpen     = csvRows.filter(r => r['Status'] === 'Open');
-  const csvClosed   = csvAccepted.length + csvComplete.length;
+  // Backlog, revenue, close rate — always all-time so they reflect true pipeline health
+  // Open pipeline and total proposals — use date-filtered csvRows
+  const allAccepted  = allCsvRows.filter(r => r['Status'] === 'Accepted' || r['Status'] === 'Scheduled');
+  const allComplete  = allCsvRows.filter(r => r['Status'] === 'Complete');
+  const allClosed    = allAccepted.length + allComplete.length;
+  const csvOpen      = csvRows.filter(r => r['Status'] === 'Open');
 
-  const csvRevenue  = csvComplete.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
-  const csvBacklog  = csvAccepted.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
-  const csvPipeline = csvOpen.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  const csvRevenue   = allComplete.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  const csvBacklog   = allAccepted.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  const csvPipeline  = csvOpen.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
 
   const totalProposals = csvRows.length;
-  const closeRate      = totalProposals > 0 ? (csvClosed / totalProposals * 100).toFixed(1) : '0.0';
-  const avgVal         = csvClosed > 0 ? (csvRevenue + csvBacklog) / csvClosed : 0;
+  const closeRate      = allCsvRows.length > 0 ? (allClosed / allCsvRows.length * 100).toFixed(1) : '0.0';
+  const avgVal         = allClosed > 0 ? (csvRevenue + csvBacklog) / allClosed : 0;
+  const csvClosed      = allClosed; // keep for any downstream use
 
   document.getElementById('kpi_total').textContent     = totalProposals.toLocaleString();
   document.getElementById('kpi_closerate').textContent = closeRate + '%';
