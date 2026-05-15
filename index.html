@@ -13099,7 +13099,7 @@ function getDateRange(rangeVal) {
 }
 
 function isClosed(status) {
-  return status === 'Accepted' || status === 'Complete';
+  return status === 'Accepted' || status === 'Complete' || status === 'Scheduled';
 }
 
 // ── MAIN RENDER ──────────────────────────────────
@@ -13181,7 +13181,7 @@ function renderAnalytics() {
     // Fall back to Sent date if Created is blank.
     // Records with NO parseable date are excluded from all range filters
     // (they were showing up in every range because null was passing through).
-    const d = parseAnalyticsDate(r['Created'] || r['Sent'] || r['Date']);
+    const d = parseAnalyticsDate(r['Date'] || r['Created'] || r['Sent']);
     if (!d) return rangeVal === 'all'; // only include undated records on "All Time"
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
@@ -13217,7 +13217,7 @@ function renderPipelineKPIs(rows) {
   const open  = rows.filter(r => r['Status'] === 'Open');
   const totalVal = open.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
   const overdue  = open.filter(r => {
-    const sent = parseAnalyticsDate(r['Created'] || r['Sent'] || r['Date']);
+    const sent = parseAnalyticsDate(r['Date'] || r['Created'] || r['Sent']);
     return sent && Math.floor((today - sent) / 86400000) >= 14;
   }).length;
   const c = document.getElementById('pipe_kpi_count');
@@ -13244,7 +13244,7 @@ async function renderBookingTime(allRows, range) {
   const data = allRows
     .filter(r => (r['Status'] === 'Accepted' || r['Status'] === 'Complete') && (r['Date'] || r['Created']) && r['Accepted Date'])
     .map(r => {
-      const sent     = parseAnalyticsDate(r['Created'] || r['Date'] || r['Sent']);
+      const sent     = parseAnalyticsDate(r['Date'] || r['Created'] || r['Sent']);
       const accepted = parseAnalyticsDate(r['Accepted Date']);
       if (!sent || !accepted) return null;
       // Apply range filter on Accepted Date
@@ -13507,7 +13507,7 @@ function kpiDrillDown(kpi) {
   const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
   const range    = getDateRange(rangeVal);
   const filtered = analyticsData.filter(r => {
-    const d = parseAnalyticsDate(r['Created'] || r['Sent']);
+    const d = parseAnalyticsDate(r['Date'] || r['Created'] || r['Sent']);
     if (!d) return rangeVal === 'all';
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
@@ -13596,7 +13596,7 @@ function renderKPIs(csvRows, allCsvRows) {
   // Analytics is CSV-only. No live jobs data is used here.
   allCsvRows = allCsvRows || csvRows;
 
-  const csvAccepted = allCsvRows.filter(r => r['Status'] === 'Accepted');
+  const csvAccepted = allCsvRows.filter(r => r['Status'] === 'Accepted' || r['Status'] === 'Scheduled');
   const csvComplete = csvRows.filter(r => r['Status'] === 'Complete');
   const csvOpen     = csvRows.filter(r => r['Status'] === 'Open');
   const csvClosed   = csvAccepted.length + csvComplete.length;
@@ -13627,7 +13627,7 @@ async function renderMonthChart(rows) {
   // Group by month
   const byMonth = {};
   rows.forEach(r => {
-    const d = parseAnalyticsDate(r['Created']);
+    const d = parseAnalyticsDate(r['Date'] || r['Created']);
     if (!d) return;
     const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
     if (!byMonth[key]) byMonth[key] = { total: 0, closed: 0, revenue: 0 };
@@ -13850,7 +13850,7 @@ function renderPipelineTable(rows) {
   const open = rows
     .filter(r => r['Status'] === 'Open')
     .map(r => {
-      const sent     = parseAnalyticsDate(r['Created'] || r['Sent'] || r['Date']);
+      const sent     = parseAnalyticsDate(r['Date'] || r['Created'] || r['Sent']);
       const daysOpen = sent ? Math.floor((today - sent) / 86400000) : -1;
       return { ...r, _days: daysOpen, _sent: sent, _value: parseFloat(r['Value']) || 0 };
     });
@@ -13922,7 +13922,7 @@ function renderPerformance(filteredProposals, range) {
 
   // Filter proposals by global date range
   const proposals = filteredProposals.filter(r => {
-    const d = parseAnalyticsDate(r['Created']);
+    const d = parseAnalyticsDate(r['Date'] || r['Created']);
     if (!d) return false;
     if (range.start && d < range.start) return false;
     if (range.end   && d > range.end)   return false;
