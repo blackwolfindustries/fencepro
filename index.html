@@ -8309,10 +8309,42 @@ async function boardMoveJob(jobIdx, newStage) {
 // ════════════════════════════════════════════════
 let _reverseDepositIdx = -1;
 
-function openReverseDeposit(jobIdx, event) {
+async function openReverseDeposit(jobIdx, event) {
   event.stopPropagation(); // don't open the estimate
-  const job = jobs[jobIdx];
+  let job = jobs[jobIdx];
   if (!job) return;
+  const prevIdx = curIdx; curIdx = jobIdx;
+  if (settings.scriptUrl && job) {
+    try {
+      const fresh = await cloudCall({ action: 'getJob', data: { jobId: job.jobId || job.id.split('-')[0], estimateId: job.id } });
+      if (fresh?.job) {
+        const norm = normalizeJob(fresh.job);
+        ['contractPrice','contractPriceType','depositType','depositRequired',
+         'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
+         'scheduledDate','scheduledCrew','scheduleNotes',
+         'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef'].forEach(f => {
+          const v = norm[f];
+          if (v !== undefined && v !== null && v !== '') {
+            if (typeof v === 'number' || !isNaN(Number(v))) {
+              if (Number(v) > 0) { job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v; }
+            } else {
+              job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v;
+            }
+          }
+        });
+        // Infer contractPrice from priceType + lastCalc if server returned 0
+        if (!(job.contractPrice > 0)) {
+          const pt = job.contractPriceType || '';
+          job.contractPrice = pt === 'Cash' ? (lastCalc.cash || 0)
+                            : pt === 'CC'   ? (lastCalc.final || 0)
+                            : (lastCalc.final || 0);
+          if (curIdx >= 0) jobs[curIdx].contractPrice = job.contractPrice;
+        }
+        persistJobs();
+      }
+    } catch(e) { console.warn('fresh fetch failed, using local data', e); }
+  }
+  curIdx = prevIdx;
   _reverseDepositIdx = jobIdx;
 
   // Reset form
@@ -8754,11 +8786,25 @@ async function openInvoice() {
         // Merge fresh workflow fields into local record
         ['contractPrice','contractPriceType','depositType','depositRequired',
          'depositPaid','depositMethod','depositDate','depositRef','balanceDue'].forEach(f => {
-          if (norm[f] !== undefined && norm[f] !== null && norm[f] !== '' && norm[f] !== 0) {
-            job[f] = norm[f];
-            if (curIdx >= 0) jobs[curIdx][f] = norm[f];
+          const v = norm[f];
+          if (v !== undefined && v !== null && v !== '') {
+            // For numeric fields: prefer server value if > 0, keep local if server is 0
+            if (typeof v === 'number' || !isNaN(Number(v))) {
+              if (Number(v) > 0) { job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v; }
+              // else keep local value (server has 0 due to stale Estimates row winning merge)
+            } else {
+              job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v;
+            }
           }
         });
+        // If server returned contractPrice=0 but we have priceType, infer from lastCalc
+        if (!(job.contractPrice > 0)) {
+          const pt = job.contractPriceType || '';
+          job.contractPrice = pt === 'Cash' ? (lastCalc.cash || 0)
+                            : pt === 'CC'   ? (lastCalc.final || 0)
+                            : (lastCalc.final || 0);
+          if (curIdx >= 0) jobs[curIdx].contractPrice = job.contractPrice;
+        }
         persistJobs();
       }
     } catch(e) {
@@ -10113,8 +10159,17 @@ function confirmRecordDeposit() {
     jobs[curIdx].depositMethod     = method;
     jobs[curIdx].depositDate       = date;
     jobs[curIdx].depositRef        = ref;
-    const contractPrice = jobs[curIdx].contractPrice || lastCalc.final || 0;
-    jobs[curIdx].balanceDue        = Math.max(0, Math.round((contractPrice - jobs[curIdx].depositPaid) * 100) / 100);
+    // Resolve contractPrice — never fall back to lastCalc.final (CC price) for cash jobs
+    const pt = jobs[curIdx].contractPriceType || '';
+    const contractPrice = jobs[curIdx].contractPrice > 0
+      ? jobs[curIdx].contractPrice
+      : pt === 'Cash' ? (lastCalc.cash || 0)
+      : pt === 'CC'   ? (lastCalc.final || 0)
+      : (lastCalc.final || 0);
+    if (!jobs[curIdx].contractPrice && contractPrice > 0) {
+      jobs[curIdx].contractPrice = contractPrice; // backfill if missing
+    }
+    jobs[curIdx].balanceDue = Math.max(0, Math.round((contractPrice - jobs[curIdx].depositPaid) * 100) / 100);
     persistJobs();
   }
 
@@ -10280,8 +10335,41 @@ function populateCrewDropdown() {
     crews.map(c => `<option value="${escHtml(c)}" ${c===current?'selected':''}>${escHtml(c)}</option>`).join('');
 }
 
-function openScheduleJob() {
-  const job = curIdx >= 0 ? jobs[curIdx] : null;
+async function openScheduleJob() {
+  let job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job) return;
+  // Fresh fetch from server so workflow fields are never stale
+  if (settings.scriptUrl && job) {
+    try {
+      const fresh = await cloudCall({ action: 'getJob', data: { jobId: job.jobId || job.id.split('-')[0], estimateId: job.id } });
+      if (fresh?.job) {
+        const norm = normalizeJob(fresh.job);
+        ['contractPrice','contractPriceType','depositType','depositRequired',
+         'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
+         'scheduledDate','scheduledCrew','scheduleNotes',
+         'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef'].forEach(f => {
+          const v = norm[f];
+          if (v !== undefined && v !== null && v !== '') {
+            if (typeof v === 'number' || !isNaN(Number(v))) {
+              if (Number(v) > 0) { job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v; }
+            } else {
+              job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v;
+            }
+          }
+        });
+        // Infer contractPrice from priceType + lastCalc if server returned 0
+        if (!(job.contractPrice > 0)) {
+          const pt = job.contractPriceType || '';
+          job.contractPrice = pt === 'Cash' ? (lastCalc.cash || 0)
+                            : pt === 'CC'   ? (lastCalc.final || 0)
+                            : (lastCalc.final || 0);
+          if (curIdx >= 0) jobs[curIdx].contractPrice = job.contractPrice;
+        }
+        persistJobs();
+      }
+    } catch(e) { console.warn('fresh fetch failed, using local data', e); }
+  }
+
   document.getElementById('sched_date').value  = job?.scheduledDate || '';
   document.getElementById('sched_notes').value = job?.scheduleNotes || '';
   populateCrewDropdown();
@@ -11153,9 +11241,41 @@ function openDepositReceiptForJob(jobObj) {
   curIdx = prevIdx; // restore
 }
 
-function sendDepositReceipt(jobOverride) {
-  const job = jobOverride || (curIdx >= 0 ? jobs[curIdx] : null);
+async function sendDepositReceipt(jobOverride) {
+  let job = jobOverride || (curIdx >= 0 ? jobs[curIdx] : null);
   if (!job) return;
+  // Fresh fetch from server so workflow fields are never stale
+  if (settings.scriptUrl && job) {
+    try {
+      const fresh = await cloudCall({ action: 'getJob', data: { jobId: job.jobId || job.id.split('-')[0], estimateId: job.id } });
+      if (fresh?.job) {
+        const norm = normalizeJob(fresh.job);
+        ['contractPrice','contractPriceType','depositType','depositRequired',
+         'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
+         'scheduledDate','scheduledCrew','scheduleNotes',
+         'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef'].forEach(f => {
+          const v = norm[f];
+          if (v !== undefined && v !== null && v !== '') {
+            if (typeof v === 'number' || !isNaN(Number(v))) {
+              if (Number(v) > 0) { job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v; }
+            } else {
+              job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v;
+            }
+          }
+        });
+        // Infer contractPrice from priceType + lastCalc if server returned 0
+        if (!(job.contractPrice > 0)) {
+          const pt = job.contractPriceType || '';
+          job.contractPrice = pt === 'Cash' ? (lastCalc.cash || 0)
+                            : pt === 'CC'   ? (lastCalc.final || 0)
+                            : (lastCalc.final || 0);
+          if (curIdx >= 0) jobs[curIdx].contractPrice = job.contractPrice;
+        }
+        persistJobs();
+      }
+    } catch(e) { console.warn('fresh fetch failed, using local data', e); }
+  }
+
 
   const co           = settings.companyName  || 'FencePro';
   const coPhone      = settings.companyPhone || '';
@@ -12818,9 +12938,41 @@ async function saveMultiProposalPDF() {
   }
 }
 
-function printInvoice() {
+async function printInvoice() {
+  let job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job) return;
+  if (settings.scriptUrl && job) {
+    try {
+      const fresh = await cloudCall({ action: 'getJob', data: { jobId: job.jobId || job.id.split('-')[0], estimateId: job.id } });
+      if (fresh?.job) {
+        const norm = normalizeJob(fresh.job);
+        ['contractPrice','contractPriceType','depositType','depositRequired',
+         'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
+         'scheduledDate','scheduledCrew','scheduleNotes',
+         'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef'].forEach(f => {
+          const v = norm[f];
+          if (v !== undefined && v !== null && v !== '') {
+            if (typeof v === 'number' || !isNaN(Number(v))) {
+              if (Number(v) > 0) { job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v; }
+            } else {
+              job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v;
+            }
+          }
+        });
+        // Infer contractPrice from priceType + lastCalc if server returned 0
+        if (!(job.contractPrice > 0)) {
+          const pt = job.contractPriceType || '';
+          job.contractPrice = pt === 'Cash' ? (lastCalc.cash || 0)
+                            : pt === 'CC'   ? (lastCalc.final || 0)
+                            : (lastCalc.final || 0);
+          if (curIdx >= 0) jobs[curIdx].contractPrice = job.contractPrice;
+        }
+        persistJobs();
+      }
+    } catch(e) { console.warn('fresh fetch failed, using local data', e); }
+  }
+
   // Populate the invoice document then open it
-  const job          = curIdx >= 0 ? jobs[curIdx] : null;
   const contractPrice = job?.contractPrice     || lastCalc.final || 0;
   const priceType     = job?.contractPriceType || 'CC';
   const depositType   = job?.depositType       || '50pct';
