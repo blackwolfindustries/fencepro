@@ -1550,7 +1550,7 @@
     <button class="btn btn-g btn-sm" style="justify-content:center;width:100%" onclick="convertJob()">📄 Proposal</button>
     <button id="wf_send"     class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="generateProposalLink()">📧 Send Proposal Link</button>
     <button id="wf_accept"   class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="openAcceptProposal()">✅ Accept Proposal</button>
-    <button id="wf_edit_accept" class="btn btn-sm" style="justify-content:center;width:100%;display:none;background:rgba(22,163,74,.12);color:#16A34A;border-color:rgba(22,163,74,.4)" onclick="openEditAcceptance()">✏️ Edit Acceptance</button>
+    <button id="wf_edit_accept" class="btn btn-sm" style="justify-content:center;width:100%;background:rgba(22,163,74,.12);color:#16A34A;border-color:rgba(22,163,74,.4)" onclick="openEditAcceptance()">✏️ Edit Acceptance</button>
     <button id="wf_deposit"  class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="openRecordDeposit()">💰 Record Deposit</button>
     <button id="wf_receipt" class="btn btn-sm" style="justify-content:center;width:100%;display:none;background:#F0FDF4;color:#16A34A;border-color:#86EFAC" onclick="openDepositReceiptForJob()">📄 View / Resend Receipt</button>
     <button id="wf_schedule" class="btn btn-sm" style="justify-content:center;width:100%;background:#D97706;color:#fff;border-color:#D97706" onclick="openScheduleJob()">📅 Schedule Job</button>
@@ -7914,7 +7914,11 @@ function updateWorkflowButtons(status) {
   mark('wf_accept',   stageIdx >= STAGES.indexOf('Accepted'));
   // Show Edit Acceptance on any stage at or beyond Accepted so you can always correct price/type
   const editAcceptBtn = document.getElementById('wf_edit_accept');
-  if (editAcceptBtn) editAcceptBtn.style.display = stageIdx >= STAGES.indexOf('Accepted') ? '' : 'none';
+  if (editAcceptBtn) {
+    // Hide only for pre-acceptance stages — show for everything else including unknown status
+    const earlyStage = ['Draft','Committed','Sent'].includes(status);
+    editAcceptBtn.style.display = earlyStage ? 'none' : '';
+  }
 
   // Record Deposit — done if depositPaid > 0 OR depositType is 'none'
   const depositDone = (job?.depositPaid > 0) ||
