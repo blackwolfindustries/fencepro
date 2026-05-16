@@ -8738,10 +8738,34 @@ function sendEmail() {
 // ════════════════════════════════════════════════
 // INVOICE
 // ════════════════════════════════════════════════
-function openInvoice() {
+async function openInvoice() {
   const today = new Date();
   const due   = new Date(today); due.setDate(due.getDate() + (parseInt(tmplVal('invoice_due_days'))||14));
-  const job   = curIdx >= 0 ? jobs[curIdx] : null;
+  let job     = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job) return;
+
+  // Always fetch fresh job data from server before opening invoice
+  // so deposit, contractPrice, and priceType are never stale from local cache.
+  if (settings.scriptUrl) {
+    try {
+      const fresh = await cloudCall({ action: 'getJob', data: { jobId: job.jobId || job.id.split('-')[0], estimateId: job.id } });
+      if (fresh?.job) {
+        const norm = normalizeJob(fresh.job);
+        // Merge fresh workflow fields into local record
+        ['contractPrice','contractPriceType','depositType','depositRequired',
+         'depositPaid','depositMethod','depositDate','depositRef','balanceDue'].forEach(f => {
+          if (norm[f] !== undefined && norm[f] !== null && norm[f] !== '' && norm[f] !== 0) {
+            job[f] = norm[f];
+            if (curIdx >= 0) jobs[curIdx][f] = norm[f];
+          }
+        });
+        persistJobs();
+      }
+    } catch(e) {
+      // If fetch fails, proceed with local data
+      console.warn('openInvoice: could not refresh job data', e);
+    }
+  }
 
   // Restore existing invoice ID if already invoiced
   const existingInvId  = job?.invoiceId     || '';
@@ -10462,8 +10486,28 @@ function markReadyForInvoice() {
 }
 
 // ── RECORD FINAL PAYMENT ──────────────────────────
-function openRecordFinalPayment() {
-  const job           = curIdx >= 0 ? jobs[curIdx] : null;
+async function openRecordFinalPayment() {
+  let job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job) return;
+
+  // Fetch fresh data so deposit is never stale
+  if (settings.scriptUrl) {
+    try {
+      const fresh = await cloudCall({ action: 'getJob', data: { jobId: job.jobId || job.id.split('-')[0], estimateId: job.id } });
+      if (fresh?.job) {
+        const norm = normalizeJob(fresh.job);
+        ['contractPrice','contractPriceType','depositType','depositRequired',
+         'depositPaid','depositMethod','depositDate','depositRef','balanceDue'].forEach(f => {
+          if (norm[f] !== undefined && norm[f] !== null && norm[f] !== '' && norm[f] !== 0) {
+            job[f] = norm[f];
+            if (curIdx >= 0) jobs[curIdx][f] = norm[f];
+          }
+        });
+        persistJobs();
+      }
+    } catch(e) { console.warn('openRecordFinalPayment: could not refresh', e); }
+  }
+
   const contractPrice = job?.contractPrice     || lastCalc.final || 0;
   const priceType     = job?.contractPriceType || 'CC';
   const depositType   = job?.depositType       || '50pct';
