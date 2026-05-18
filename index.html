@@ -2552,6 +2552,10 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       Booking Time
     </button>
+    <button id="atab_dow" class="atab" onclick="showAnalyticsTab('dow')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Day of Week
+    </button>
   </div>
 
   <!-- TAB PANELS — only one visible at a time, controlled by showAnalyticsTab() -->
@@ -2766,12 +2770,52 @@
         <div style="overflow-x:auto"><canvas id="bookingTimeChart" height="200"></canvas></div>
       </div>
 
-      <!-- Day of Week Heatmap -->
+      <!-- Detail table -->
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="card-title">Booking Detail — All Accepted Proposals</div>
+        <div style="overflow-x:auto;max-height:400px;overflow-y:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead id="bookingTableHead" style="position:sticky;top:0;background:var(--surface)"></thead>
+            <tbody id="bookingTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- end atab-booking -->
+
+    <!-- ── DAY OF WEEK TAB ── -->
+    <div id="atab-dow" style="display:none;flex-direction:column;gap:16px;padding:16px">
+
+      <!-- KPI tiles -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Best Day</div>
+          <div style="font-size:28px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="dow_best_day">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px" id="dow_best_count">—</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Slowest Day</div>
+          <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="dow_worst_day">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px" id="dow_worst_count">—</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Weekend Bookings</div>
+          <div style="font-size:28px;font-weight:900;color:var(--green);font-family:var(--mono)" id="dow_weekend_pct">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">of total bookings</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Bookings</div>
+          <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="dow_total">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">with accepted date</div>
+        </div>
+      </div>
+
+      <!-- Bar chart + toggle -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
           <div>
-            <div class="card-title" style="margin-bottom:2px">📅 What Day of the Week Do Customers Book?</div>
-            <div style="font-size:11px;color:var(--text3)">Based on Accepted Date — toggle between bookings count and total value</div>
+            <div class="card-title" style="margin-bottom:2px">Bookings by Day of Week</div>
+            <div style="font-size:11px;color:var(--text3)">Based on Accepted Date — when the customer said yes</div>
           </div>
           <div style="display:flex;gap:6px">
             <button id="dowToggleCount" onclick="dowToggle('count')"
@@ -2785,22 +2829,16 @@
           </div>
         </div>
         <div id="dowChart" style="display:flex;flex-direction:column;gap:10px"></div>
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:20px" id="dowHeatmap"></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:10px;text-align:center" id="dowFooter"></div>
       </div>
 
-      <!-- Detail table -->
+      <!-- Heatmap tiles -->
       <div class="card">
-        <div class="card-title">Booking Detail — All Accepted Proposals</div>
-        <div style="overflow-x:auto;max-height:400px;overflow-y:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead id="bookingTableHead" style="position:sticky;top:0;background:var(--surface)"></thead>
-            <tbody id="bookingTableBody"></tbody>
-          </table>
-        </div>
+        <div class="card-title" style="margin-bottom:14px">Weekly Heatmap</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px" id="dowHeatmap"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:12px;text-align:center" id="dowFooter"></div>
       </div>
 
-    </div><!-- end atab-booking -->
+    </div><!-- end atab-dow -->
 
   </div><!-- end scroll area -->
 </div>
@@ -13381,7 +13419,7 @@ function isClosed(status) {
 
 // ── MAIN RENDER ──────────────────────────────────
 function showAnalyticsTab(tab) {
-  const tabs = ['overview','pipeline','performance','breakdown','booking'];
+  const tabs = ['overview','pipeline','performance','breakdown','booking','dow'];
   tabs.forEach(t => {
     const btn   = document.getElementById('atab_' + t);
     const panel = document.getElementById('atab-' + t);
@@ -13390,6 +13428,11 @@ function showAnalyticsTab(tab) {
     if (panel) panel.style.display = on ? 'flex' : 'none';
   });
   localStorage.setItem('fp_analyticsTab', tab);
+  // Render DOW on demand when tab is clicked
+  if (tab === 'dow' && analyticsData.length) {
+    const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
+    renderDayOfWeek(analyticsData, getDateRange(rangeVal));
+  }
 }
 
 function renderAnalytics() {
@@ -13486,6 +13529,8 @@ function renderAnalytics() {
   renderBreakdownFromJobs('analyticsSupplierTable', 'analyticsSupplierHead', 'supplier',    'Supplier');
   renderPerformance(analyticsData, range);
   renderBookingTime(analyticsData, range); // filters internally on Accepted Date
+  // DOW renders on tab switch — only pre-render if tab is active
+  if (document.getElementById('atab-dow')?.style.display !== 'none') renderDayOfWeek(analyticsData, range);
 }
 
 // ── PIPELINE KPIs ─────────────────────────────────────────
@@ -13676,126 +13721,93 @@ async function renderBookingTime(allRows, range) {
         <td style="padding:7px 8px;text-align:right;font-weight:800;font-family:var(--mono);color:${c}">${d.days}d</td>
       </tr>`;
     }).join('');
-
-  // ── DAY OF WEEK CHART ──────────────────────────────────────
-  renderDayOfWeekChart(allRows, range);
 }
 
 // ── DAY OF WEEK BOOKING HEATMAP ───────────────────────────
-const DAYS_OF_WEEK = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-let _dowMode = 'count'; // 'count' or 'value'
-let _dowRows = [];
-let _dowRange = null;
 
-function dowToggle(mode) {
-  _dowMode = mode;
-  document.getElementById('dowToggleCount').style.background = mode === 'count' ? 'var(--orange)' : 'var(--surface)';
-  document.getElementById('dowToggleCount').style.color      = mode === 'count' ? '#fff' : 'var(--text2)';
-  document.getElementById('dowToggleCount').style.borderColor= mode === 'count' ? 'var(--orange)' : 'var(--border)';
-  document.getElementById('dowToggleValue').style.background = mode === 'value' ? 'var(--orange)' : 'var(--surface)';
-  document.getElementById('dowToggleValue').style.color      = mode === 'value' ? '#fff' : 'var(--text2)';
-  document.getElementById('dowToggleValue').style.borderColor= mode === 'value' ? 'var(--orange)' : 'var(--border)';
-  _drawDOW(_dowRows, _dowRange);
-}
 
-function renderDayOfWeekChart(allRows, range) {
-  _dowRows  = allRows;
-  _dowRange = range;
-  _drawDOW(allRows, range);
-}
-
-function _drawDOW(allRows, range) {
-  const chartEl   = document.getElementById('dowChart');
-  const heatEl    = document.getElementById('dowHeatmap');
-  const footerEl  = document.getElementById('dowFooter');
+function _drawDOW() {
+  const chartEl  = document.getElementById('dowChart');
+  const heatEl   = document.getElementById('dowHeatmap');
+  const footerEl = document.getElementById('dowFooter');
   if (!chartEl || !heatEl) return;
 
-  // Build counts and values per day
   const counts = {}, values = {};
-  DAYS_OF_WEEK.forEach(d => { counts[d] = 0; values[d] = 0; });
-
+  DAYS_OF_WEEK.forEach(d => { counts[d]=0; values[d]=0; });
   let total = 0;
-  allRows.forEach(r => {
-    const ad = (r['Accepted Date'] || '').trim();
+
+  _dowAllRows.forEach(r => {
+    const ad = (r['Accepted Date']||'').trim();
     if (!ad) return;
     const d = parseAnalyticsDate(ad);
     if (!d) return;
-    // Apply range filter
-    if (range?.start && d < range.start) return;
-    if (range?.end   && d > range.end)   return;
-    // Only won jobs
-    const status = r['Status'] || '';
-    if (!['Accepted','Scheduled','Complete'].includes(status)) return;
+    if (_dowRange?.start && d < _dowRange.start) return;
+    if (_dowRange?.end   && d > _dowRange.end)   return;
+    if (!['Accepted','Scheduled','Complete'].includes(r['Status']||'')) return;
     const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
-    counts[dayName] = (counts[dayName] || 0) + 1;
-    values[dayName] = (values[dayName] || 0) + (parseFloat(r['Value']) || 0);
+    counts[dayName] = (counts[dayName]||0) + 1;
+    values[dayName] = (values[dayName]||0) + (parseFloat(r['Value'])||0);
     total++;
   });
 
-  const mode    = _dowMode;
-  const data    = DAYS_OF_WEEK.map(d => ({ day: d, count: counts[d] || 0, value: values[d] || 0 }));
-  const maxVal  = Math.max(...data.map(d => mode === 'count' ? d.count : d.value), 1);
-  const bestDay = data.reduce((a, b) => (mode === 'count' ? b.count > a.count : b.value > a.value) ? b : a);
+  const mode   = _dowMode;
+  const data   = DAYS_OF_WEEK.map(d => ({ day:d, count:counts[d]||0, value:values[d]||0 }));
+  const maxVal = Math.max(...data.map(d => mode==='count' ? d.count : d.value), 1);
+  const bestDay  = data.reduce((a,b) => (mode==='count' ? b.count>a.count : b.value>a.value) ? b : a);
+  const worstDay = data.filter(d=>d.count>0).reduce((a,b) => (mode==='count' ? b.count<a.count : b.value<a.value) ? b : a, data.find(d=>d.count>0)||data[0]);
 
-  // ── Horizontal bar chart ──
+  // Update KPI tiles
+  const setBest = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+  setBest('dow_best_day',    bestDay?.day?.slice(0,3).toUpperCase()||'—');
+  setBest('dow_best_count',  bestDay ? `${bestDay.count} bookings · $${Math.round(bestDay.value).toLocaleString()}` : '—');
+  setBest('dow_worst_day',   worstDay?.day?.slice(0,3).toUpperCase()||'—');
+  setBest('dow_worst_count', worstDay ? `${worstDay.count} bookings` : '—');
+  const wknd = ((counts['Saturday']||0)+(counts['Sunday']||0));
+  setBest('dow_weekend_pct', total>0 ? Math.round(wknd/total*100)+'%' : '—');
+  setBest('dow_total', total.toString());
+
+  // Bar chart
   chartEl.innerHTML = data.map(d => {
-    const raw   = mode === 'count' ? d.count : d.value;
-    const pct   = maxVal > 0 ? (raw / maxVal * 100) : 0;
-    const isBest = d.day === bestDay.day;
-    const label = mode === 'count'
-      ? `${d.count} booking${d.count !== 1 ? 's' : ''}`
-      : `$${Math.round(d.value).toLocaleString()}`;
-    const pctOfTotal = total > 0 && mode === 'count'
-      ? ` · ${Math.round(d.count/total*100)}%`
-      : '';
+    const raw    = mode==='count' ? d.count : d.value;
+    const pct    = maxVal>0 ? (raw/maxVal*100) : 0;
+    const isBest = d.day === bestDay?.day;
+    const label  = mode==='count' ? `${d.count} booking${d.count!==1?'s':''}` : `$${Math.round(d.value).toLocaleString()}`;
+    const pctStr = total>0 && mode==='count' ? ` · ${Math.round(d.count/total*100)}%` : '';
     return `
-      <div style="display:grid;grid-template-columns:100px 1fr 120px;align-items:center;gap:10px">
-        <div style="font-size:12px;font-weight:${isBest?'800':'600'};color:${isBest?'var(--orange)':'var(--text1)'};text-align:right">
-          ${d.day}${isBest ? ' 🏆' : ''}
+      <div style="display:grid;grid-template-columns:100px 1fr 130px;align-items:center;gap:10px">
+        <div style="font-size:12px;font-weight:${isBest?'800':'600'};color:${isBest?'var(--orange)':'var(--text1)'};text-align:right;white-space:nowrap">
+          ${d.day}${isBest?' 🏆':''}
         </div>
-        <div style="background:var(--surface2);border-radius:4px;height:28px;overflow:hidden;position:relative">
-          <div style="
-            position:absolute;left:0;top:0;bottom:0;
-            width:${pct}%;
-            background:${isBest
-              ? 'linear-gradient(90deg,var(--orange),#f97316)'
-              : 'linear-gradient(90deg,var(--navy),#2563EB)'};
-            border-radius:4px;
-            transition:width .4s ease
-          "></div>
-          ${pct > 18 ? `<div style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:#fff;white-space:nowrap">${label}${pctOfTotal}</div>` : ''}
+        <div style="background:var(--surface2);border-radius:5px;height:30px;overflow:hidden;position:relative">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;
+            background:${isBest?'linear-gradient(90deg,var(--orange),#f97316)':'linear-gradient(90deg,var(--navy),#2563EB)'};
+            border-radius:5px;transition:width .5s ease"></div>
+          ${pct>20?`<div style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:#fff;white-space:nowrap">${label}${pctStr}</div>`:''}
         </div>
         <div style="font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap">
-          ${pct <= 18 ? label + pctOfTotal : ''}
+          ${pct<=20 ? label+pctStr : ''}
         </div>
       </div>`;
   }).join('');
 
-  // ── Compact heatmap tiles ──
-  const maxCount = Math.max(...data.map(d => d.count), 1);
+  // Heatmap tiles
+  const maxCount = Math.max(...data.map(d=>d.count), 1);
   heatEl.innerHTML = data.map(d => {
-    const intensity = maxCount > 0 ? d.count / maxCount : 0;
-    const bg = intensity === 0
-      ? 'var(--surface2)'
-      : `rgba(242,101,34,${0.12 + intensity * 0.85})`;
-    const textColor = intensity > 0.55 ? '#fff' : 'var(--text1)';
+    const intensity = maxCount>0 ? d.count/maxCount : 0;
+    const bg = intensity===0 ? 'var(--surface2)' : `rgba(242,101,34,${0.12+intensity*0.85})`;
+    const tc = intensity>0.55 ? '#fff' : 'var(--text1)';
+    const tc2 = intensity>0.55 ? 'rgba(255,255,255,.65)' : 'var(--text3)';
     return `
-      <div style="
-        background:${bg};border-radius:8px;padding:10px 6px;text-align:center;
-        border:1px solid ${intensity===0?'var(--border)':'transparent'}
-      ">
-        <div style="font-size:9px;font-weight:700;color:${intensity>0.55?'rgba(255,255,255,.7)':'var(--text3)'};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${d.day.slice(0,3)}</div>
-        <div style="font-size:22px;font-weight:900;color:${textColor};font-family:var(--mono);line-height:1">${d.count}</div>
-        <div style="font-size:9px;color:${intensity>0.55?'rgba(255,255,255,.7)':'var(--text3)'};margin-top:2px">bookings</div>
+      <div style="background:${bg};border-radius:10px;padding:12px 6px;text-align:center;border:1px solid ${intensity===0?'var(--border)':'transparent'}">
+        <div style="font-size:9px;font-weight:700;color:${tc2};text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">${d.day.slice(0,3)}</div>
+        <div style="font-size:26px;font-weight:900;color:${tc};font-family:var(--mono);line-height:1">${d.count}</div>
+        <div style="font-size:9px;color:${tc2};margin-top:3px">bookings</div>
+        <div style="font-size:9px;color:${tc2}">$${Math.round(d.value/1000)}K</div>
       </div>`;
   }).join('');
 
-  // Footer
   if (footerEl) {
-    const pctWeekend = total > 0
-      ? Math.round(((counts['Saturday']||0) + (counts['Sunday']||0)) / total * 100)
-      : 0;
-    footerEl.textContent = `${total} total bookings analyzed · ${pctWeekend}% booked on weekends · Best day: ${bestDay.day}`;
+    footerEl.textContent = `${total} bookings analyzed · Best day: ${bestDay?.day||'—'} · ${Math.round(wknd/total*100)||0}% weekend bookings`;
   }
 }
 
