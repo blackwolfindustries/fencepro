@@ -12284,6 +12284,21 @@ function openProposalPreview() {
 // ══════════════════════════════════════════════════════════
 // HTML EMAIL BUILDER
 // ══════════════════════════════════════════════════════════
+
+function clientDepositSentence(job) {
+  const dt  = (job?.depositType || '50pct').trim();
+  const req = Number(job?.depositRequired || 0);
+  if (dt === 'none') return 'Full balance is due upon completion of the work.';
+  if (dt === 'custom' && req > 0) return `A $${Math.round(req).toLocaleString()} deposit is required to secure the job/materials/scheduling time. Balance due upon completion of the work.`;
+  return '50% deposit is required to secure the job/materials/scheduling time. Balance due upon completion of the work.';
+}
+function clientProceedText(job) {
+  const dt  = job?.depositType || '50pct';
+  const req = Number(job?.depositRequired || 0);
+  if (dt === 'none') return 'Please review this estimate. Full payment is due upon completion of the work.';
+  const lbl = dt==='custom' && req>0 ? `$${Math.round(req).toLocaleString()} deposit` : '50% deposit';
+  return `Once accepted, a payment link will be sent to collect the ${lbl}. Balance is due upon job completion.`;
+}
 function buildProposalEmailHtml(opts) {
   // opts: { custFirst, custName, ccPrice, cashPrice, proposalUrl, company, phone, fenceType, jobAddr, scopeNotes }
   const tokens = {
@@ -12753,9 +12768,11 @@ function selectMultiCompany(co) {
   document.getElementById('moBtnTRF').style.color      = co==='TRF' ? '#fff' : 'rgba(255,255,255,.6)';
   const name = co==='TRF' ? 'Top Rail Fence Huntington' : 'Black Wolf Industries LLC';
   document.getElementById('mo_companyName').textContent = name;
+  const curJob  = curIdx >= 0 ? jobs[curIdx] : null;
+  const depText = clientProceedText(curJob);
   const proceed = co==='BWI'
-    ? 'Please review each option below and reply indicating which option you would like to proceed with. A payment link will be sent to collect the 50% deposit. If paying cash or check we will make arrangements to pick up deposit. Balance is due at job completion.'
-    : 'Please review each option below and reply indicating which option you would like to proceed with. A payment link will be sent to collect the 50% deposit. Balance is due at job completion.';
+    ? `Please review each option below and reply indicating which option you would like to proceed with. ${depText} If paying cash or check we will make arrangements to pick up deposit.`
+    : `Please review each option below and reply indicating which option you would like to proceed with. ${depText}`;
   document.getElementById('mo_proceed').innerHTML = proceed;
 }
 
