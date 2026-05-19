@@ -7198,11 +7198,27 @@ function loadJobLocal(idx) {
 
   const d = jobs[idx];
   curIdx  = idx;
-  photos = (d.photos||[]).map(p =>
-    typeof p === 'string'
-      ? { name: p, uploaded: true, driveUrl: '' }
-      : { name: p.name||'', uploaded: true, driveUrl: p.driveUrl||'' }
+  // Load photos — use in-memory array first, fall back to photoUrls/Photo URLs field
+  const rawPhotos   = d.photos || [];
+  const fallbackUrls = (
+    (d.photoUrls?.filter(Boolean).length > 0 ? d.photoUrls : null) ||
+    String(d['Photo URLs']||'').split(',').map(u=>u.trim()).filter(Boolean)
   );
+  if (rawPhotos.length > 0) {
+    photos = rawPhotos.map((p, i) => {
+      const base = typeof p === 'string'
+        ? { name: p, uploaded: true, driveUrl: '' }
+        : { name: p.name||'', uploaded: true, driveUrl: p.driveUrl||'' };
+      // Backfill driveUrl from fallback if missing
+      if (!base.driveUrl && fallbackUrls[i]) base.driveUrl = fallbackUrls[i];
+      return base;
+    });
+  } else if (fallbackUrls.length > 0) {
+    // No photos array — reconstruct from Drive URLs saved in sheet
+    photos = fallbackUrls.map(u => ({ name: 'Photo', uploaded: true, driveUrl: u }));
+  } else {
+    photos = [];
+  }
   docs = (d.docs||[]).map(doc => ({
     name:       doc.name      || '',
     driveUrl:   doc.driveUrl  || '',
