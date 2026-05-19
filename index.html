@@ -4737,7 +4737,15 @@ function normalizeJob(j) {
     contractPrice:      n(j.contractPrice,      j['Contract Price'],      0),
     contractPriceType:  s(j.contractPriceType,  j['Contract Price Type'], ''),
     depositType:        s(j.depositType,        j['Deposit Type'],        '50pct'),
-    depositPct:         n(j.depositPct,         j['Deposit Pct'],         50),
+    depositPct:         (() => {
+      // If depositPct is explicitly set, use it. Otherwise derive from depositType.
+      const raw = j.depositPct !== undefined ? j.depositPct : j['Deposit Pct'];
+      if (raw !== undefined && raw !== null && raw !== '') return Number(raw);
+      const dt = (j.depositType || j['Deposit Type'] || '50pct').toString().trim();
+      if (dt === 'none')   return 0;
+      if (dt === '50pct')  return 50;
+      return 50; // custom — actual amount is in depositRequired
+    })(),
     depositOverrideDol: n(j.depositOverrideDol, j['Deposit Override Dol'],0),
     depositRequired:    n(j.depositRequired,    j['Deposit Required'],    0),
     depositPaid:        n(j.depositPaid,        j['Deposit Paid'],        0),
@@ -6782,7 +6790,7 @@ function calcCashMarkup() {
 function collectData() {
   // Use full estimate ID (e.g. '938-Josh-B-2026') — NOT jobNo which is just the numeric prefix
   const fullEstId  = (document.getElementById('estId')?.textContent || '').trim();
-  const validEstId = /^\d+-\S+-[A-Z]-\d{4}$/.test(fullEstId) ? fullEstId : '';
+  const validEstId = /^\d+-.+-[A-Z]-\d{4}$/.test(fullEstId) ? fullEstId : '';
   const existingId = validEstId || '';
   return {
     id:          existingId,        // blank = new estimate, server assigns ID
@@ -6849,8 +6857,17 @@ function collectData() {
     // Workflow fields — preserved from job record
     contractPrice:      curIdx >= 0 ? (jobs[curIdx]?.contractPrice      || 0)   : 0,
     contractPriceType:  curIdx >= 0 ? (jobs[curIdx]?.contractPriceType  || '')  : '',
-    depositType:        curIdx >= 0 ? (jobs[curIdx]?.depositType        || '50pct') : '50pct',
-    depositPct:         parseFloat(document.getElementById('depositPct')?.value) || 50,
+    depositType:        (() => {
+      // Derive depositType from the actual UI value — don't rely on stale jobs[] value
+      const pct = parseFloat(document.getElementById('depositPct')?.value);
+      const fix = parseFloat(document.getElementById('depositOverride')?.value) || 0;
+      if (fix > 0)         return 'custom';
+      if (!isNaN(pct) && pct === 0) return 'none';
+      if (!isNaN(pct) && pct !== 50) return 'custom';
+      // Fall back to saved value
+      return curIdx >= 0 ? (jobs[curIdx]?.depositType || '50pct') : '50pct';
+    })(),
+    depositPct:         (() => { const v = parseFloat(document.getElementById('depositPct')?.value); return isNaN(v) ? 50 : v; })(),
     depositOverrideDol: parseFloat(document.getElementById('depositOverride')?.value) || 0,
     depositRequired:    curIdx >= 0 ? (jobs[curIdx]?.depositRequired    || 0)   : 0,
     depositPaid:        curIdx >= 0 ? (jobs[curIdx]?.depositPaid        || 0)   : 0,
@@ -7241,7 +7258,14 @@ function loadJobLocal(idx) {
   // Restore deposit fields
   const dp = document.getElementById('depositPct');
   const dv = document.getElementById('depositOverride');
-  if (dp) dp.value = d.depositPct !== undefined ? d.depositPct : 50;
+  // Set deposit fields based on depositType — not just raw depositPct
+  if (dp) {
+    const dt = d.depositType || '50pct';
+    if (dt === 'none')        dp.value = 0;
+    else if (dt === '50pct')  dp.value = 50;
+    else if (dt === 'custom') dp.value = d.depositPct || '';
+    else                      dp.value = d.depositPct !== undefined ? d.depositPct : 50;
+  }
   if (dv) dv.value = d.depositOverrideDol || '';
   // completionNotes is job-level only, not in form fields
   setVal('projDesc',    g('projDesc',   'Project Description'));
