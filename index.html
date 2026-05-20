@@ -13044,48 +13044,37 @@ function renderInvoicesTab() {
 }
 
 async function viewInvoiceFromTab(jobId) {
-  // jobId is the numeric prefix — match against full estimate ID or jobId field
-  const numericId = String(jobId).split('-')[0];
-  let idx = jobs.findIndex(j =>
-    j.id === jobId ||
-    String(j.jobId || j.id.split('-')[0]) === numericId
-  );
+  const numericId = String(jobId || '').split('-')[0].trim();
+  if (!numericId) { alert('No job ID on this invoice.'); return; }
 
-  // If not found locally, try a fresh cloud load first
+  // Try every possible match — id, jobId, numeric prefix of id
+  const findJob = () => jobs.findIndex(j => {
+    const jNum = String(j.jobId || j.id || '').split('-')[0].trim();
+    return jNum === numericId ||
+           String(j.id    || '') === jobId ||
+           String(j.jobId || '') === numericId ||
+           String(j.jobId || '') === jobId;
+  });
+
+  let idx = findJob();
+
+  // Not found locally — reload from cloud and try again
   if (idx < 0 && settings.scriptUrl) {
-    try {
-      await loadCloud();
-      idx = jobs.findIndex(j =>
-        j.id === jobId ||
-        String(j.jobId || j.id.split('-')[0]) === numericId
-      );
-    } catch(e) {}
+    setCloud('saving', 'Loading jobs...');
+    try { await loadCloud(); } catch(e) {}
+    idx = findJob();
   }
 
   if (idx >= 0) {
+    show('est');  // switch to estimator tab
     loadJobLocal(idx);
     setTimeout(async () => {
       await openInvoice();
       setTimeout(() => printInvoice(), 400);
-    }, 150);
+    }, 300);
   } else {
-    // Still not found — show a softer message with a reload option
-    if (confirm('Job not found in loaded data. Click OK to reload jobs from cloud and try again.')) {
-      await loadCloud();
-      const idx2 = jobs.findIndex(j =>
-        j.id === jobId ||
-        String(j.jobId || j.id.split('-')[0]) === numericId
-      );
-      if (idx2 >= 0) {
-        loadJobLocal(idx2);
-        setTimeout(async () => {
-          await openInvoice();
-          setTimeout(() => printInvoice(), 400);
-        }, 150);
-      } else {
-        alert('Job still not found. Please go to the Estimator tab and open the estimate manually.');
-      }
-    }
+    // Last resort — ask user to switch tabs manually
+    showToast('⚠ Could not find job ' + numericId + ' — go to Estimator tab and open it manually');
   }
 }
 
