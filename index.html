@@ -4752,8 +4752,14 @@ function normalizeJob(j) {
     calc_suppFee:    n(j.calc_suppFee,    null, 0),
     calc_concrete:   n(j.calc_concrete,   null, 0),
     // ── Workflow ────────────────────────────────
-    contractPrice:      n(j.contractPrice,      j['Contract Price'],      0),
-    contractPriceType:  s(j.contractPriceType,  j['Contract Price Type'], ''),
+    // contractPrice: prefer whichever source has a non-zero value
+    contractPrice: (() => {
+      const a = Number(j.contractPrice)       || 0;
+      const b = Number(j['Contract Price'])   || 0;
+      return a > 0 ? a : (b > 0 ? b : 0);
+    })(),
+    contractPriceType: s(j.contractPriceType, j['Contract Price Type'], '') ||
+                       (j['contractPriceType'] || ''),
     depositType:        s(j.depositType,        j['Deposit Type'],        '50pct'),
     depositPct:         (() => {
       // If depositPct is explicitly set, use it. Otherwise derive from depositType.
@@ -6943,8 +6949,15 @@ function collectData() {
     finalPrice:     Math.round(lastCalc.final||0),
     cashPrice:      Math.round(lastCalc.cash||0),
     // Workflow fields — preserved from job record
-    contractPrice:      curIdx >= 0 ? (jobs[curIdx]?.contractPrice      || 0)   : 0,
-    contractPriceType:  curIdx >= 0 ? (jobs[curIdx]?.contractPriceType  || '')  : '',
+    // contractPrice — use accepted value from jobs[], fall back to calc prices
+    // This ensures every save writes the accepted price to the Estimates sheet
+    contractPrice: (() => {
+      const saved = curIdx >= 0 ? (jobs[curIdx]?.contractPrice || 0) : 0;
+      if (saved > 0) return saved;
+      // Not yet accepted — don't write a price (keeps 0 so Code.gs preserves existing)
+      return 0;
+    })(),
+    contractPriceType: curIdx >= 0 ? (jobs[curIdx]?.contractPriceType || '') : '',
     depositType:        (() => {
       // Derive depositType from the actual UI value — don't rely on stale jobs[] value
       const pct = parseFloat(document.getElementById('depositPct')?.value);
@@ -10327,8 +10340,8 @@ function openAcceptProposal(editMode) {
     document.getElementById('accept_summary').style.display = 'block';
     const ccBtn   = document.getElementById('btnAcceptCC');
     const cashBtn = document.getElementById('btnAcceptCash');
-    if (ccBtn)   ccBtn.style.borderColor   = existingType === 'CC'   ? 'var(--orange)' : 'var(--border)';
-    if (cashBtn) cashBtn.style.borderColor = existingType === 'Cash' ? 'var(--green)'  : 'var(--border)';
+    // Use selectAcceptPrice so price, type, button highlighting all set correctly
+    selectAcceptPrice(existingType, existingPrice);
     // Pre-fill deposit type from saved job
     const sel = document.getElementById('accept_deposit_type');
     if (sel && job.depositType) {
@@ -10358,10 +10371,14 @@ function openAcceptProposal(editMode) {
   openM('mAccept');
 }
 
-function selectAcceptPrice(type) {
-  const ccPrice   = lastCalc.final || 0;
-  const cashPrice = lastCalc.cash  || 0;
-  const price     = type === 'CC' ? ccPrice : cashPrice;
+function selectAcceptPrice(type, overridePrice) {
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  // Use override price (edit mode) or lastCalc — fallback to saved job prices
+  const ccPrice   = lastCalc.final  > 0 ? lastCalc.final  : (job?.calc_final  || 0);
+  const cashPrice = lastCalc.cash   > 0 ? lastCalc.cash   : (job?.calc_cash   || 0);
+  const price     = overridePrice  > 0 ? overridePrice
+                  : type === 'CC'  ? ccPrice
+                  : cashPrice;
 
   document.getElementById('accept_price_type').value = type;
   document.getElementById('accept_price_val').value  = price;
@@ -10407,9 +10424,19 @@ function openEditAcceptance() {
 
 function confirmAcceptProposal() {
   const priceType   = document.getElementById('accept_price_type').value;
-  const priceVal    = parseFloat(document.getElementById('accept_price_val').value) || 0;
+  let   priceVal    = parseFloat(document.getElementById('accept_price_val').value) || 0;
   const depositType = document.getElementById('accept_deposit_type').value;
   if (!priceType) { alert('Please select CC or Cash price'); return; }
+  // If price is still 0 (can happen when editing from Job Board where lastCalc isn't loaded)
+  // fall back to the saved contract price or calculate from last known values
+  if (priceVal <= 0 && curIdx >= 0) {
+    const job = jobs[curIdx];
+    priceVal = job?.contractPrice > 0 ? job.contractPrice
+             : priceType === 'Cash'   ? (lastCalc.cash  || job?.calc_cash  || 0)
+             :                          (lastCalc.final || job?.calc_final || 0);
+    if (priceVal > 0) document.getElementById('accept_price_val').value = priceVal;
+  }
+  if (priceVal <= 0) { alert('Could not determine contract price. Please open the estimate first to load the pricing, then edit acceptance.'); return; }
 
   let depositRequired = 0;
   if (depositType === '50pct') {
@@ -13498,6 +13525,10 @@ async function saveInvoiceEdit() {
 async function deleteInvoice(invId) {
   if (!confirm('Delete invoice ' + invId + '? This cannot be undone.')) return;
 
+  // Find the job this invoice belongs to so we can reset its status
+  const inv = invoices.find(i => (i['Invoice ID']||i.invoiceId) === invId);
+  const invJobId = inv ? (inv['Job ID'] || inv.jobId || '') : '';
+
   // Remove locally
   invoices = invoices.filter(i => (i['Invoice ID']||i.invoiceId) !== invId);
   localStorage.setItem('fp_invoices', JSON.stringify(invoices));
@@ -13507,19 +13538,56 @@ async function deleteInvoice(invId) {
   if (!deleted.includes(invId)) deleted.push(invId);
   localStorage.setItem('fp_deletedInvoices', JSON.stringify(deleted));
 
-  // Re-render immediately from local state
-  renderInvoicesTab();
+  // ── Reset job status from 'Invoiced' → 'Ready for Invoice' ──
+  // Find matching job in jobs[] by jobId (numeric prefix)
+  if (invJobId) {
+    const jobIdx = jobs.findIndex(j =>
+      (j.jobId || j.id.split('-')[0]) === String(invJobId)
+    );
+    if (jobIdx >= 0 && jobs[jobIdx].propStatus === 'Invoiced') {
+      jobs[jobIdx].propStatus = 'Ready for Invoice';
+      persistJobs();
+      // If this is the currently open estimate, update the status badge
+      if (curIdx === jobIdx) {
+        document.getElementById('propStatus').value = 'Ready for Invoice';
+        updateBadge();
+      }
+      // Sync status change to cloud
+      if (settings.scriptUrl) {
+        const jobData = { ...collectDataForJob(jobs[jobIdx]), propStatus: 'Ready for Invoice' };
+        cloudCall({ action: 'updateStatus', data: {
+          jobId:         jobs[jobIdx].jobId || jobs[jobIdx].id.split('-')[0],
+          contactUID:    jobs[jobIdx].contactUID || '',
+          custName:      jobs[jobIdx].custName   || '',
+          status:        'Ready for Invoice',
+          contractPrice: jobs[jobIdx].contractPrice || 0,
+          contractPriceType: jobs[jobIdx].contractPriceType || '',
+          depositType:   jobs[jobIdx].depositType   || '50pct',
+          depositRequired: jobs[jobIdx].depositRequired || 0,
+          depositPaid:   jobs[jobIdx].depositPaid   || 0,
+          depositMethod: jobs[jobIdx].depositMethod  || '',
+          depositDate:   jobs[jobIdx].depositDate    || '',
+          depositRef:    jobs[jobIdx].depositRef     || '',
+          balanceDue:    jobs[jobIdx].balanceDue     || 0,
+        }}).catch(()=>{});
+      }
+    }
+  }
 
-  // Sync deletion to cloud in background
+  // Re-render immediately
+  renderInvoicesTab();
+  renderBoard();
+
+  // Sync deletion to cloud
   if (settings.scriptUrl) {
     try {
       await cloudCall({ action: 'deleteInvoice', data: { invoiceId: invId } });
-      showToast('✓ Invoice ' + invId + ' deleted and synced');
+      showToast('✓ Invoice ' + invId + ' deleted — status reset to Ready for Invoice');
     } catch(e) {
       showToast('✓ Invoice ' + invId + ' deleted locally — cloud sync pending');
     }
   } else {
-    showToast('✓ Invoice ' + invId + ' deleted');
+    showToast('✓ Invoice ' + invId + ' deleted — status reset to Ready for Invoice');
   }
 }
 // ════ END INVOICE EDIT & DELETE ════════════════════════════
