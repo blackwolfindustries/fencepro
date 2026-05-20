@@ -13043,17 +13043,49 @@ function renderInvoicesTab() {
   }).join('');
 }
 
-function viewInvoiceFromTab(jobId) {
-  // Find the job, load it, and open invoice
-  const idx = jobs.findIndex(j => j.id === jobId);
+async function viewInvoiceFromTab(jobId) {
+  // jobId is the numeric prefix — match against full estimate ID or jobId field
+  const numericId = String(jobId).split('-')[0];
+  let idx = jobs.findIndex(j =>
+    j.id === jobId ||
+    String(j.jobId || j.id.split('-')[0]) === numericId
+  );
+
+  // If not found locally, try a fresh cloud load first
+  if (idx < 0 && settings.scriptUrl) {
+    try {
+      await loadCloud();
+      idx = jobs.findIndex(j =>
+        j.id === jobId ||
+        String(j.jobId || j.id.split('-')[0]) === numericId
+      );
+    } catch(e) {}
+  }
+
   if (idx >= 0) {
     loadJobLocal(idx);
-    setTimeout(() => {
-      openInvoice();
-      setTimeout(() => printInvoice(), 300);
-    }, 100);
+    setTimeout(async () => {
+      await openInvoice();
+      setTimeout(() => printInvoice(), 400);
+    }, 150);
   } else {
-    alert('Job not found in local data — try refreshing the board first.');
+    // Still not found — show a softer message with a reload option
+    if (confirm('Job not found in loaded data. Click OK to reload jobs from cloud and try again.')) {
+      await loadCloud();
+      const idx2 = jobs.findIndex(j =>
+        j.id === jobId ||
+        String(j.jobId || j.id.split('-')[0]) === numericId
+      );
+      if (idx2 >= 0) {
+        loadJobLocal(idx2);
+        setTimeout(async () => {
+          await openInvoice();
+          setTimeout(() => printInvoice(), 400);
+        }, 150);
+      } else {
+        alert('Job still not found. Please go to the Estimator tab and open the estimate manually.');
+      }
+    }
   }
 }
 
