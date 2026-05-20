@@ -9220,6 +9220,27 @@ async function saveInvoice() {
     paymentDate:   val('invPayDate'),
     notes:         val('invPayNote'),
     customerNote:  (document.getElementById('invCustomerNote')?.value || '').trim(),
+    // Snapshot all display fields so invoice can be recalled without opening the estimate
+    custName:      val('custName')   || '',
+    custPhone:     val('custPhone')  || '',
+    custEmail:     val('custEmail')  || '',
+    jobAddr:       val('jobAddr')    || '',
+    jobAddr2:      val('jobAddr2')   || '',
+    jobCity:       val('custCity')   || '',
+    jobState:      val('jobState')   || 'NY',
+    jobZip:        val('custZip')    || '',
+    fenceType:     val('fenceType')  || '',
+    projDesc:      val('projDesc')   || '',
+    scopeNotes:    val('scopeNotes') || '',
+    contractPrice: _invContractPrice || 0,
+    contractPriceType: _invPriceType || '',
+    depositPaid:   _invDepositPaid   || 0,
+    balanceDue:    _invBalanceDue    || 0,
+    depositType:   _invDepositType   || '50pct',
+    payNote:       document.getElementById('invPayNote')?.value || '',
+    companyName:   settings.companyName || (activeCompany === 'TRF' ? 'Top Rail Fence Huntington' : 'Black Wolf Industries LLC'),
+    companyAddr:   settings.companyAddr || '169 Commack Rd #1009, Commack, NY 11725',
+    companyPhone:  settings.companyPhone || '631-275-2020',
   };
 
   // Move status to Invoiced
@@ -13035,7 +13056,7 @@ function renderInvoicesTab() {
         <span style="display:inline-block;padding:3px 8px;border-radius:12px;font-size:10px;font-weight:700;background:${statusColor}22;color:${statusColor}">${escHtml(status)}</span>
       </td>
       <td style="padding:10px 14px;text-align:center;white-space:nowrap">
-        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="viewInvoiceFromTab('${escHtml(jobId)}')">View</button>
+        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="viewInvoiceFromTab('${escHtml(invId)}')">View</button>
         <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;margin-left:4px;background:var(--navy);color:#fff;border-color:var(--navy)" onclick="openEditInvoice('${escHtml(invId)}')">✏</button>
         <button class="btn btn-sm inv-del-btn" style="font-size:11px;padding:3px 8px;margin-left:4px;color:var(--red);border-color:var(--border)" onmouseover="this.style.background='var(--red)';this.style.color='#fff'" onmouseout="this.style.background='';this.style.color='var(--red)'" onclick="deleteInvoice('${escHtml(invId)}')">🗑</button>
       </td>
@@ -13043,43 +13064,118 @@ function renderInvoicesTab() {
   }).join('');
 }
 
-async function viewInvoiceFromTab(jobId) {
-  const numericId = String(jobId || '').split('-')[0].trim();
-  if (!numericId) { alert('No job ID on this invoice.'); return; }
+function viewInvoiceFromTab(invId) {
+  // Find invoice by invoice ID
+  const inv = invoices.find(i =>
+    (i['Invoice ID'] || i.invoiceId || '') === invId ||
+    (i['Job ID'] || i.jobId || '') === invId
+  );
+  if (!inv) { showToast('⚠ Invoice not found — try refreshing'); return; }
 
-  // Try every possible match — id, jobId, numeric prefix of id
-  const findJob = () => jobs.findIndex(j => {
-    const jNum = String(j.jobId || j.id || '').split('-')[0].trim();
-    return jNum === numericId ||
-           String(j.id    || '') === jobId ||
-           String(j.jobId || '') === numericId ||
-           String(j.jobId || '') === jobId;
-  });
+  // Build invoice directly from saved invoice data — no estimate needed
+  renderInvoiceFromRecord(inv);
+}
 
-  let idx = findJob();
+function renderInvoiceFromRecord(inv) {
+  // Pull all data from the invoice record snapshot
+  const co          = inv.companyName  || settings.companyName || (activeCompany === 'TRF' ? 'Top Rail Fence Huntington' : 'Black Wolf Industries LLC');
+  const coAddr      = inv.companyAddr  || settings.companyAddr  || '169 Commack Rd #1009, Commack, NY 11725';
+  const coPhone     = inv.companyPhone || settings.companyPhone || '631-275-2020';
+  const custName    = inv['Customer Name'] || inv.custName    || '-';
+  const jobAddr     = inv['Job Address']   || inv.jobAddr     || '';
+  const jobAddr2    = inv.jobAddr2    || '';
+  const jobCity     = inv.jobCity     || '';
+  const jobState    = inv.jobState    || '';
+  const jobZip      = inv.jobZip      || '';
+  const cityLine    = [jobCity, jobState, jobZip].filter(Boolean).join(', ');
+  const custPhone   = inv.custPhone   || '';
+  const custEmail   = inv['Email'] || inv.custEmail || '';
+  const fenceType   = inv['Fence Type'] || inv.fenceType  || 'Fence Installation';
+  const projDesc    = inv.projDesc    || '';
+  const scopeNotes  = inv.scopeNotes  || '';
+  const invNum      = inv['Invoice Number'] || inv.invoiceNumber || inv['Invoice ID'] || inv.invoiceId || 'Pending';
+  const invDate     = inv['Invoice Date']   || inv.invoiceDate   || '';
+  const dueDate     = inv['Due Date']       || inv.dueDate       || '';
+  const status      = inv['Payment Status'] || inv.status        || 'Unpaid';
+  const jobNum      = String(inv['Job ID']  || inv.jobId || '').split('-')[0];
+  const contractPrice   = inv.contractPrice     || Number(inv['Contract Price'])  || 0;
+  const priceType       = inv.contractPriceType || inv['Contract Price Type']     || 'CC';
+  const depositPaid     = inv.depositPaid       || Number(inv['Deposit Paid'])    || 0;
+  const depositType     = inv.depositType       || '50pct';
+  const balanceDue      = inv.balanceDue        > 0 ? inv.balanceDue
+                        : Number(inv['Amount Due']) > 0 ? Number(inv['Amount Due'])
+                        : Math.max(0, contractPrice - depositPaid);
+  const payNote         = inv.payNote || inv['Payment Instructions'] ||
+    (coPhone ? 'Check payable to Cash or ' + co + ' · Zelle: blackwolfindustries' : '');
+  const customerNote    = inv.customerNote || inv.notes || '';
+  const noDeposit       = depositType === 'none';
 
-  // Not found locally — reload from cloud and try again
-  if (idx < 0 && settings.scriptUrl) {
-    setCloud('saving', 'Loading jobs...');
-    try { await loadCloud(); } catch(e) {}
-    idx = findJob();
-  }
+  const itemDesc = projDesc ? projDesc
+    : scopeNotes ? scopeNotes.split('\n').slice(0,2).join(' · ')
+    : 'See attached proposal for full scope of work details.';
 
-  if (idx >= 0) {
-    show('est');  // switch to estimator tab
-    loadJobLocal(idx);
-    setTimeout(async () => {
-      await openInvoice();
-      setTimeout(() => printInvoice(), 400);
-    }, 300);
+  const fmtDate = d => {
+    if (!d) return '-';
+    const dt = String(d).includes('T') ? new Date(d) : new Date(d + 'T12:00:00');
+    return isNaN(dt.getTime()) ? '-' : dt.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  };
+  const fmt = n => '$' + Math.round(n).toLocaleString();
+
+  // Populate company header
+  document.getElementById('inv_companyName').textContent = co;
+  const coAddrEl = document.getElementById('inv_companyAddr');
+  if (coAddrEl) coAddrEl.textContent = coAddr;
+  const coPhoneEl = document.getElementById('inv_companyPhone');
+  if (coPhoneEl) coPhoneEl.textContent = coPhone;
+
+  // Customer
+  document.getElementById('inv_custName').textContent     = custName;
+  document.getElementById('inv_custAddr').textContent     = jobAddr;
+  const addr2El = document.getElementById('inv_custAddr2');
+  if (addr2El) addr2El.textContent = jobAddr2;
+  document.getElementById('inv_custCityLine').textContent = cityLine;
+  document.getElementById('inv_custPhone').textContent    = custPhone;
+  document.getElementById('inv_custEmail').textContent    = custEmail;
+
+  // Invoice meta
+  document.getElementById('inv_num').textContent  = invNum;
+  document.getElementById('inv_date').textContent = fmtDate(invDate);
+  document.getElementById('inv_due').textContent  = fmtDate(dueDate);
+  document.getElementById('inv_jobId').textContent = jobNum || '-';
+  const statusEl = document.getElementById('inv_status');
+  statusEl.textContent = status;
+  statusEl.style.color = status === 'Paid in Full' ? '#16A34A' : status === 'Unpaid' ? '#F26522' : '#2563EB';
+
+  // Line item
+  document.getElementById('inv_item').textContent    = fenceType;
+  document.getElementById('inv_desc').textContent    = itemDesc;
+  document.getElementById('inv_lineamt').textContent = fmt(contractPrice);
+
+  // Totals
+  document.getElementById('inv_priceType').textContent   = priceType === 'Cash' ? 'Cash / Check' : 'CC / Finance';
+  document.getElementById('inv_contractAmt').textContent = fmt(contractPrice);
+  document.getElementById('inv_balDue').textContent      = fmt(balanceDue);
+
+  const depRow = document.getElementById('inv_depositRow');
+  if (noDeposit || depositPaid === 0) {
+    if (depRow) depRow.style.display = 'none';
   } else {
-    // Last resort — ask user to switch tabs manually
-    showToast('⚠ Could not find job ' + numericId + ' — go to Estimator tab and open it manually');
+    if (depRow) depRow.style.display = '';
+    document.getElementById('inv_depositAmt').textContent = '-' + fmt(depositPaid);
   }
+
+  // Payment instructions & note
+  document.getElementById('inv_payNote').textContent = payNote;
+  const noteSection = document.getElementById('inv_noteSection');
+  const noteEl2     = document.getElementById('inv_customerNote');
+  if (noteSection) noteSection.style.display = customerNote ? '' : 'none';
+  if (noteEl2)     noteEl2.textContent = customerNote;
+
+  openM('mInvoiceDoc');
 }
 
 // ════════════════════════════════════════════════
-// ALL ESTIMATES LIST — compact chips at bottom of board
+// ALL ESTIMATES LIST - compact chips at bottom of board
 // ════════════════════════════════════════════════
 function renderEstList() {
   const wrap = document.getElementById('estListWrap');
