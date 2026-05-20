@@ -2428,7 +2428,7 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
           <div class="f">
             <label>PAYMENT DUE AFTER (DAYS)</label>
-            <input type="number" id="tmpl_invoice_due_days" value="14" min="1" max="90" style="max-width:80px">
+            <input type="number" id="tmpl_invoice_due_days" value="0" min="0" max="90" style="max-width:80px">
           </div>
         </div>
         <div class="f" style="margin-bottom:10px">
@@ -4054,6 +4054,7 @@
             <div id="inv_custName" style="font-size:14px;font-weight:700;color:#1B2B4B;margin-bottom:3px"></div>
             <div style="font-size:12px;color:#555;line-height:1.4">
               <div id="inv_custAddr"></div>
+              <div id="inv_custAddr2"></div>
               <div id="inv_custCityLine"></div>
               <div id="inv_custPhone"></div>
               <div id="inv_custEmail"></div>
@@ -7751,7 +7752,7 @@ Customer Obligations:
 5. Any images attached to the proposal are for reference only and may be slightly different in person.`,
   proceed_bwi: `If you would like to proceed, reply to the email or text stating you approve and a payment link will be sent to collect the 50% deposit. If paying cash or check we will make arrangements to pick up deposit. Balance is due at job completion.`,
   proceed_trf: `If you would like to proceed, reply to the email stating you approve and a payment link will be sent to collect the 50% deposit. Balance is due at job completion.`,
-  invoice_due_days:  14,
+  invoice_due_days:  0,
   invoice_notes:     `Check payable to Cash or Black Wolf Industries LLC · Zelle: blackwolfindustries`,
   invoice_footer:    `Thank you for your business.`,
   email_subject:     `Your Fence Estimate — {{company}}`,
@@ -8889,9 +8890,18 @@ function sendEmail() {
 // ════════════════════════════════════════════════
 // INVOICE
 // ════════════════════════════════════════════════
+// Cached values set by openInvoice — used by saveInvoice and printInvoice
+let _invContractPrice = 0;
+let _invPriceType     = 'CC';
+let _invDepositPaid   = 0;
+let _invBalanceDue    = 0;
+let _invDepositType   = '50pct';
+
 async function openInvoice() {
   const today = new Date();
-  const due   = new Date(today); due.setDate(due.getDate() + (parseInt(tmplVal('invoice_due_days'))||14));
+  // Due immediately by default (0 days). tmplVal('invoice_due_days') can override.
+  const dueDays = parseInt(tmplVal('invoice_due_days')) || 0;
+  const due     = new Date(today); due.setDate(due.getDate() + dueDays);
   let job     = curIdx >= 0 ? jobs[curIdx] : null;
   if (!job) return;
 
@@ -8936,9 +8946,12 @@ async function openInvoice() {
   const existingInvId  = job?.invoiceId     || '';
   const existingInvNum = job?.invoiceNumber  || '';
 
-  // Pull from accepted contract — fall back to calc if not yet accepted
-  const contractPrice  = job?.contractPrice    || lastCalc.final || 0;
-  const priceType      = job?.contractPriceType || 'CC';
+  // Pull from accepted contract — use priceType to pick correct fallback price
+  const priceType     = job?.contractPriceType || 'CC';
+  const contractPrice = job?.contractPrice > 0
+    ? job.contractPrice
+    : priceType === 'Cash' ? (lastCalc.cash  || lastCalc.final || 0)
+    :                        (lastCalc.final || 0);
   const depositType    = job?.depositType       || '50pct';
   const depositPaid    = Number(job?.depositPaid) || 0;
 
@@ -8960,6 +8973,13 @@ async function openInvoice() {
   }
 
   const noDeposit = depositType === 'none';
+
+  // Cache for saveInvoice and printInvoice
+  _invContractPrice = contractPrice;
+  _invPriceType     = priceType;
+  _invDepositPaid   = depositPaid;
+  _invBalanceDue    = balanceDue;
+  _invDepositType   = depositType;
 
   document.getElementById('invId').value        = existingInvId;
   document.getElementById('invNum').textContent = existingInvId || 'Auto-assigned on save';
@@ -9001,13 +9021,17 @@ async function saveInvoice() {
     custName:      val('custName'),
     custEmail:     val('custEmail'),
     jobAddr:       val('jobAddr'),
+    jobCity:       val('custCity')  || '',
+    jobState:      val('jobState')  || '',
+    jobZip:        val('custZip')   || '',
     fenceType:     val('fenceType'),
     invoiceDate:   val('invDate'),
     dueDate:       val('invDue'),
-    finalPrice:    jobs[curIdx >= 0 ? curIdx : 0]?.contractPrice || lastCalc.final || 0,
+    finalPrice:    _invContractPrice || lastCalc.final || 0,
+    contractPriceType: _invPriceType || '',
     cashPrice:     lastCalc.cash    || 0,
     custTax:       lastCalc.custTax || 0,
-    amountDue:     parseFloat(document.getElementById('invBalDue').textContent.replace(/[^0-9.]/g,'')) || 0,
+    amountDue:     _invBalanceDue,
     status:        val('invStatus'),
     paymentMethod: val('invPayMethod'),
     paymentDate:   val('invPayDate'),
@@ -13163,34 +13187,31 @@ async function printInvoice() {
     } catch(e) { console.warn('fresh fetch failed, using local data', e); }
   }
 
-  // Populate the invoice document then open it
-  const contractPrice = job?.contractPrice     || lastCalc.final || 0;
-  const priceType     = job?.contractPriceType || 'CC';
-  const depositType   = job?.depositType       || '50pct';
-  const depositPaid   = Number(job?.depositPaid) || 0;
+  // Use values cached by openInvoice — they reflect the fresh-fetched data
+  // with correct price type (Cash vs CC) already resolved
+  const contractPrice = _invContractPrice > 0 ? _invContractPrice : (job?.contractPrice || lastCalc.final || 0);
+  const priceType     = _invPriceType     || job?.contractPriceType || 'CC';
+  const depositType   = _invDepositType   || job?.depositType       || '50pct';
+  const depositPaid   = _invDepositPaid   > 0 ? _invDepositPaid   : (Number(job?.depositPaid) || 0);
   const noDeposit     = depositType === 'none';
-
-  // Same logic as openInvoice — never trust stored balanceDue = 0
-  let balanceDue;
-  if (depositType === 'none') {
-    balanceDue = contractPrice;
-  } else if (depositPaid > 0) {
-    balanceDue = Math.max(0, contractPrice - depositPaid);
-  } else {
-    balanceDue = contractPrice;
-  }
+  const balanceDue    = _invBalanceDue    > 0 ? _invBalanceDue    : contractPrice;
 
   // Company name
   const co = activeCompany === 'TRF' ? 'Top Rail Fence Huntington' : 'Black Wolf Industries LLC';
   document.getElementById('inv_companyName').textContent = co;
 
   // Customer info
+  // Pull all address parts — form fields first, then job object fallback
   const custCity    = val('custCity')  || job?.jobCity  || job?.['Job City']  || '';
-  const custState   = val('jobState')  || job?.jobState || job?.['Job State'] || '';
+  const custState   = val('jobState')  || job?.jobState || job?.['Job State'] || 'NY';
   const custZip     = val('custZip')   || job?.custZip  || job?.['Zip']       || '';
   const cityLine    = [custCity, custState, custZip].filter(Boolean).join(', ');
+  const addr2Val    = val('jobAddr2')  || job?.jobAddr2 || job?.['Job Address 2'] || '';
   document.getElementById('inv_custName').textContent     = val('custName')  || '—';
   document.getElementById('inv_custAddr').textContent     = val('jobAddr')   || '';
+  // addr2 — show if present
+  const addr2El = document.getElementById('inv_custAddr2');
+  if (addr2El) addr2El.textContent = addr2Val;
   document.getElementById('inv_custCityLine').textContent = cityLine;
   document.getElementById('inv_custPhone').textContent    = val('custPhone') || '';
   document.getElementById('inv_custEmail').textContent    = val('custEmail') || '';
