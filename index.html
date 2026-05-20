@@ -4012,6 +4012,9 @@
     <div class="f"><label>PAYMENT INSTRUCTIONS</label>
       <input id="invPayNote" placeholder="Check payable to... | Venmo @... | Zelle ...">
     </div>
+    <div class="f" style="margin-top:8px"><label>NOTE TO CUSTOMER <span style="font-weight:400;color:var(--text3)">(optional — appears on invoice)</span></label>
+      <textarea id="invCustomerNote" rows="2" placeholder="e.g. Thank you for your business! Please remit payment within 14 days." style="resize:vertical;font-size:13px"></textarea>
+    </div>
     <input type="hidden" id="invId">
     <div class="mactions">
       <button class="btn" onclick="closeM('mInvoice')">Cancel</button>
@@ -4051,6 +4054,7 @@
             <div id="inv_custName" style="font-size:14px;font-weight:700;color:#1B2B4B;margin-bottom:3px"></div>
             <div style="font-size:12px;color:#555;line-height:1.4">
               <div id="inv_custAddr"></div>
+              <div id="inv_custCityLine"></div>
               <div id="inv_custPhone"></div>
               <div id="inv_custEmail"></div>
             </div>
@@ -4122,6 +4126,12 @@
         <div style="background:#F7F8FA;border-radius:4px;padding:16px 18px;border-left:3px solid #1B2B4B;margin-bottom:24px">
           <div style="font-size:9px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px">Payment Instructions</div>
           <div id="inv_payNote" style="font-size:12px;color:#444;line-height:1.7"></div>
+        </div>
+
+        <!-- Customer Note -->
+        <div id="inv_noteSection" style="display:none;margin-bottom:24px">
+          <div style="font-size:9px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Note</div>
+          <div id="inv_customerNote" style="font-size:12px;color:#444;line-height:1.7;white-space:pre-wrap"></div>
         </div>
 
         <!-- Footer -->
@@ -8968,6 +8978,10 @@ async function openInvoice() {
   document.getElementById('invBalDue').textContent     = '$' + Math.round(balanceDue).toLocaleString();
   document.getElementById('invDepositRow').style.display = depositType === 'none' ? 'none' : 'flex';
 
+  // Clear customer note field
+  const noteField = document.getElementById('invCustomerNote');
+  if (noteField) noteField.value = '';
+
   document.getElementById('invPayNote').value = resolveTokens(
     tmplVal('invoice_notes'),
     { company: settings.companyName || 'FencePro LLC', phone: settings.companyPhone || '' }
@@ -8998,6 +9012,7 @@ async function saveInvoice() {
     paymentMethod: val('invPayMethod'),
     paymentDate:   val('invPayDate'),
     notes:         val('invPayNote'),
+    customerNote:  (document.getElementById('invCustomerNote')?.value || '').trim(),
   };
 
   // Move status to Invoiced
@@ -13170,10 +13185,15 @@ async function printInvoice() {
   document.getElementById('inv_companyName').textContent = co;
 
   // Customer info
-  document.getElementById('inv_custName').textContent  = val('custName')  || '—';
-  document.getElementById('inv_custAddr').textContent  = val('jobAddr')   || '';
-  document.getElementById('inv_custPhone').textContent = val('custPhone') || '';
-  document.getElementById('inv_custEmail').textContent = val('custEmail') || '';
+  const custCity    = val('custCity')  || job?.jobCity  || job?.['Job City']  || '';
+  const custState   = val('jobState')  || job?.jobState || job?.['Job State'] || '';
+  const custZip     = val('custZip')   || job?.custZip  || job?.['Zip']       || '';
+  const cityLine    = [custCity, custState, custZip].filter(Boolean).join(', ');
+  document.getElementById('inv_custName').textContent     = val('custName')  || '—';
+  document.getElementById('inv_custAddr').textContent     = val('jobAddr')   || '';
+  document.getElementById('inv_custCityLine').textContent = cityLine;
+  document.getElementById('inv_custPhone').textContent    = val('custPhone') || '';
+  document.getElementById('inv_custEmail').textContent    = val('custEmail') || '';
 
   // Invoice details
   const invNum  = document.getElementById('invNum').textContent;
@@ -13189,9 +13209,16 @@ async function printInvoice() {
   statusEl.textContent = invStatus;
   statusEl.style.color = invStatus === 'Paid in Full' ? '#16A34A' : invStatus === 'Unpaid' ? '#F26522' : '#2563EB';
 
-  // Line item
+  // Line item — use fence type for item, project description for description
+  const projDescVal = val('projDesc') || job?.projDesc || '';
+  const scopeNotesVal = val('scopeNotes') || job?.scopeNotes || '';
+  const itemDesc = projDescVal
+    ? projDescVal
+    : scopeNotesVal
+    ? scopeNotesVal.split('\n').slice(0,2).join(' · ')
+    : 'See attached proposal for full scope of work details.';
   document.getElementById('inv_item').textContent    = val('fenceType') || 'Fence Installation';
-  document.getElementById('inv_desc').textContent    = 'See attached proposal for full scope of work details.';
+  document.getElementById('inv_desc').textContent    = itemDesc;
   document.getElementById('inv_lineamt').textContent = '$' + Math.round(contractPrice).toLocaleString();
 
   // Totals
@@ -13209,6 +13236,13 @@ async function printInvoice() {
   // Payment instructions
   document.getElementById('inv_payNote').textContent = document.getElementById('invPayNote').value ||
     (settings.companyPhone ? 'Check payable to ' + co + ' · Zelle/Venmo ' + settings.companyPhone : '');
+
+  // Customer note — show section only if note was entered
+  const customerNote = (document.getElementById('invCustomerNote')?.value || '').trim();
+  const noteSection  = document.getElementById('inv_noteSection');
+  const noteEl       = document.getElementById('inv_customerNote');
+  if (noteSection) noteSection.style.display = customerNote ? '' : 'none';
+  if (noteEl)      noteEl.textContent = customerNote;
 
   openM('mInvoiceDoc');
 }
