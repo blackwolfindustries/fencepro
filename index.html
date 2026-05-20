@@ -8573,7 +8573,7 @@ function auditInvoicedStatus() {
       // Sync to cloud
       if (settings.scriptUrl) {
         cloudCall({ action: 'updateStatus', data: {
-          jobId: jobId, custName: j.custName || '',
+          jobId: jobId, estimateId: j.id || '', custName: j.custName || '',
           contactUID: j.contactUID || '',
           status: 'Ready for Invoice',
           contractPrice: j.contractPrice || 0,
@@ -10621,7 +10621,7 @@ function confirmAcceptProposal() {
 }
 
 // ── RECORD DEPOSIT ────────────────────────────────
-function openRecordDeposit() {
+async function openRecordDeposit() {
   // Reset modal to default state (hide success bar if previously shown)
   const sb = document.getElementById('dep_successBar');
   const sb2 = document.getElementById('dep_saveBtn');
@@ -10630,22 +10630,75 @@ function openRecordDeposit() {
   if (sb2) sb2.style.display = '';
   if (ma)  ma.style.display  = '';
 
-  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  let job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!job) return;
+
+  // ── Always fetch fresh from sheet before opening ──
+  // This guarantees we show the real depositPaid even if local cache is stale
+  if (settings.scriptUrl) {
+    try {
+      const fresh = await cloudCall({ action: 'getJob', data: {
+        jobId:      job.jobId || job.id.split('-')[0],
+        estimateId: job.id
+      }});
+      if (fresh?.job) {
+        const norm = normalizeJob(fresh.job);
+        // Restore all workflow fields from sheet
+        const WF = ['contractPrice','contractPriceType','depositType','depositRequired',
+                    'depositPaid','depositMethod','depositDate','depositRef','balanceDue'];
+        WF.forEach(f => {
+          const v = norm[f];
+          if (v !== undefined && v !== null && v !== '') {
+            if (typeof v === 'number' ? v >= 0 : true) {
+              job[f] = v;
+              if (curIdx >= 0) jobs[curIdx][f] = v;
+            }
+          }
+        });
+        persistJobs();
+      }
+    } catch(e) {
+      console.warn('openRecordDeposit: fresh fetch failed, using local data');
+    }
+  }
+
   if (job?.depositType === 'none') {
     alert('This job was set to No Deposit — the full balance is due on completion.\n\nUse "Record Final Payment" when collecting payment.');
     return;
   }
-  const contractPrice   = job?.contractPrice   || lastCalc.final || 0;
-  const depositPaid     = job?.depositPaid      || 0;
-  const depositRequired = job?.depositRequired  || Math.round(contractPrice * 0.5 * 100) / 100;
+
+  // Resolve contract price correctly
+  const priceType     = job.contractPriceType || '';
+  const contractPrice = job.contractPrice > 0 ? job.contractPrice
+    : priceType === 'Cash' ? (lastCalc.cash  || lastCalc.final || 0)
+    : priceType === 'CC'   ? (lastCalc.final || 0)
+    : (lastCalc.final || 0);
+
+  const depositPaid     = job.depositPaid     || 0;
+  const depositRequired = job.depositRequired || Math.round(contractPrice * 0.5 * 100) / 100;
   const balanceRemaining = Math.max(0, contractPrice - depositPaid);
+
+  // Show price type label
+  const priceTypeLabel = document.getElementById('dep_price_type_label');
+  if (priceTypeLabel) {
+    priceTypeLabel.textContent = priceType === 'Cash' ? 'Cash / Check'
+                                : priceType === 'CC'   ? 'CC / Finance' : '-';
+    priceTypeLabel.style.color = priceType === 'Cash' ? 'var(--green)' : 'var(--orange)';
+  }
+  const depLabelEl = document.getElementById('dep_required_label');
+  if (depLabelEl) {
+    depLabelEl.textContent = job.depositType === 'none'   ? 'Deposit Required'
+      : job.depositType === '50pct'                       ? 'Deposit Required (50%)'
+      : job.depositType === 'custom' && contractPrice > 0 ? 'Deposit Required (' + Math.round(depositRequired/contractPrice*100) + '%)'
+      : 'Deposit Required';
+  }
 
   document.getElementById('dep_contract').textContent          = '$' + Math.round(contractPrice).toLocaleString();
   document.getElementById('dep_required').textContent          = '$' + Math.round(depositRequired).toLocaleString();
   document.getElementById('dep_balance_remaining').textContent = '$' + Math.round(balanceRemaining).toLocaleString();
   document.getElementById('dep_amount').value  = depositRequired > depositPaid ? (depositRequired - depositPaid).toFixed(2) : '';
   document.getElementById('dep_date').value    = new Date().toISOString().split('T')[0];
-  document.getElementById('dep_method').value  = 'Check';
+  document.getElementById('dep_method').value  = job.depositMethod || 'Check';
   document.getElementById('dep_ref').value     = '';
   openM('mDeposit');
 }
@@ -13851,6 +13904,7 @@ async function deleteInvoice(invId) {
       if (settings.scriptUrl) {
         cloudCall({ action: 'updateStatus', data: {
           jobId:             j.jobId || j.id.split('-')[0],
+          estimateId:        j.id                || '',
           contactUID:        j.contactUID        || '',
           custName:          j.custName          || '',
           status:            'Ready for Invoice',
