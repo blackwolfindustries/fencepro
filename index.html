@@ -4248,6 +4248,11 @@ function loadLists() {
 function saveLists(fenceTypes, suppliers) {
   localStorage.setItem('fp_fenceTypes', JSON.stringify(fenceTypes));
   localStorage.setItem('fp_suppliers',  JSON.stringify(suppliers));
+  // Sync to cloud
+  if (settings.scriptUrl) {
+    cloudCall({ action: 'saveSetupData', data: { type: 'fenceTypes', payload: fenceTypes } }).catch(()=>{});
+    cloudCall({ action: 'saveSetupData', data: { type: 'suppliers',  payload: suppliers  } }).catch(()=>{});
+  }
 }
 
 function saveRailingList(key, items) {
@@ -4341,6 +4346,8 @@ function lmLoad(tab) {
 
 function lmSave(tab, items) {
   localStorage.setItem(LM_CONFIG[tab].key, JSON.stringify(items));
+  // Sync to cloud so lists survive device switches and browser clears
+  if (settings.scriptUrl) cloudCall({ action: 'saveSetupData', data: { type: tab, payload: items } }).catch(()=>{});
   // After save — refresh any dropdowns that depend on this list
   if (tab === 'fenceTypes') { populateFenceTypes(); }
   if (tab === 'crews')      { populateCrewDropdown(); }
@@ -5230,29 +5237,64 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize the rest of the app
   showApp();
   setFavicon(activeCompany);
-  // Populate dynamic dropdowns from stored lists
-  populateFenceTypes();
-  populateSuppliers();
-  initParts();
-  // Auto-sync from cloud on startup if connected
-  if (settings.scriptUrl) {
-    loadCloudSettings().then(() => {
-      return loadCloud();
-    }).then(() => {
-      loadCloudContacts();
-      updateContactsStatus();
-    }).catch(() => {});
-  }
-  renderParts();
-  renderBoard();
-  renderEstList();
-  renderJobsList();
-  assembleId();
-  recalc();
   loadSettings();
   updateCloudStatus();
   onFranchChange();
-  loadContacts();
+
+  // ── CLOUD-FIRST STARTUP ──
+  // Always try to load everything from cloud first.
+  // localStorage is only a fallback for when cloud is unreachable.
+  if (settings.scriptUrl) {
+    setCloud('saving', 'Loading from cloud...');
+    // Load in sequence: settings+setup → jobs → contacts
+    loadCloudSettings()
+      .then(() => {
+        // Setup data (fence types, suppliers, crews, parts) restored inside loadCloudSettings
+        populateFenceTypes();
+        populateSuppliers && populateSuppliers();
+        initParts();
+        populateCrewDropdown && populateCrewDropdown();
+        return loadCloud(); // loads jobs from Sheets
+      })
+      .then(() => {
+        return loadCloudContacts(); // loads contacts from Sheets
+      })
+      .then(() => {
+        updateContactsStatus();
+        renderBoard();
+        renderEstList();
+        renderJobsList();
+        renderParts();
+        assembleId();
+        recalc();
+        loadContacts();
+      })
+      .catch((e) => {
+        console.warn('Cloud startup failed — falling back to local cache:', e);
+        // Fall back gracefully to whatever is in localStorage
+        populateFenceTypes();
+        initParts();
+        renderBoard();
+        renderEstList();
+        renderJobsList();
+        renderParts();
+        assembleId();
+        recalc();
+        loadContacts();
+      });
+  } else {
+    // No cloud configured — use localStorage
+    populateFenceTypes();
+    populateSuppliers && populateSuppliers();
+    initParts();
+    renderParts();
+    renderBoard();
+    renderEstList();
+    renderJobsList();
+    assembleId();
+    recalc();
+    loadContacts();
+  }
 });
 
 // ════════════════════════════════════════════════
@@ -5292,7 +5334,11 @@ function show(id) {
   document.querySelectorAll('.nav-tab')[map[id]].classList.add('active');
   // Sync active state on mobile drawer buttons
   document.querySelectorAll('.mob-nav-btn').forEach((b,i) => b.classList.toggle('active', i === map[id]));
-  if (id === 'board')     { renderBoard(); renderEstList(); }
+  if (id === 'board')     {
+    renderBoard(); renderEstList();
+    // Refresh from cloud if data is stale (> 2 min old)
+    if (settings.scriptUrl && _cloudDataAge() > 120000) loadCloud().then(() => { renderBoard(); renderEstList(); }).catch(()=>{});
+  }
   if (id === 'jobs')      { updateSortIcons(); renderCRM(); }
   if (id === 'summary')   {
     // Restore search input to last searched job
@@ -5310,9 +5356,40 @@ function show(id) {
     }
   }
   if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList(); initSetupCollapse(); }
-  if (id === 'analytics') { renderAnalytics(); if (!localStorage.getItem('fp_analyticsTab')) showAnalyticsTab('overview'); }
+  if (id === 'analytics') {
+    // Try to get latest analytics from cloud first
+    if (settings.scriptUrl && !analyticsData.length) {
+      cloudCall({ action: 'getAnalytics', data: {} }).then(res => {
+        if (res?.records?.length) {
+          analyticsData = res.records;
+          localStorage.setItem('fp_analytics', JSON.stringify(analyticsData));
+        }
+        renderAnalytics();
+        if (!localStorage.getItem('fp_analyticsTab')) showAnalyticsTab('overview');
+      }).catch(() => {
+        renderAnalytics();
+        if (!localStorage.getItem('fp_analyticsTab')) showAnalyticsTab('overview');
+      });
+    } else {
+      renderAnalytics();
+      if (!localStorage.getItem('fp_analyticsTab')) showAnalyticsTab('overview');
+    }
+  }
   // Refresh SUPPLIERS map whenever supplier tab opened
-  if (id === 'invoices') loadInvoicesTab();
+  if (id === 'invoices') {
+    // Always refresh from cloud when opening invoices tab
+    if (settings.scriptUrl) {
+      cloudCall({ action: 'getInvoices', data: {} }).then(res => {
+        if (res?.invoices) {
+          invoices = res.invoices;
+          localStorage.setItem('fp_invoices', JSON.stringify(invoices));
+        }
+        loadInvoicesTab();
+      }).catch(() => loadInvoicesTab());
+    } else {
+      loadInvoicesTab();
+    }
+  }
   if (id === 'calendar') renderCalendar();
   if (id === 'setup')   SUPPLIERS = buildSuppliersMap();
 }
@@ -8346,9 +8423,57 @@ async function loadCloudSettings() {
 
     localStorage.setItem('fp_settings', JSON.stringify(settings));
     loadSettings(); // refresh the UI fields
-    status('Settings synced from cloud ✓');
+
+    // Restore templates from cloud settings
+    if (s.templates) {
+      try {
+        const t = typeof s.templates === 'string' ? JSON.parse(s.templates) : s.templates;
+        localStorage.setItem('fp_templates', JSON.stringify(t));
+      } catch(e) {}
+    }
+    if (s.emailTemplates) {
+      try {
+        const t = typeof s.emailTemplates === 'string' ? JSON.parse(s.emailTemplates) : s.emailTemplates;
+        localStorage.setItem('fp_email_templates', JSON.stringify(t));
+      } catch(e) {}
+    }
+    // Restore apiKey from cloud if missing locally
+    if (s.apiKey) settings.apiKey = s.apiKey;
+
+    localStorage.setItem('fp_settings', JSON.stringify(settings));
+    loadSettings();
+    status('Settings synced ✓');
   } catch(e) {
     console.log('Settings cloud sync failed (non-fatal):', e.message);
+  }
+
+  // ── Load setup data (fence types, suppliers, crews, parts, lists) ──
+  try {
+    const setupRes = await cloudCall({ action: 'getSetupData', data: {} });
+    if (setupRes?.setupData) {
+      const sd = setupRes.setupData;
+      const restore = (key, localKey) => {
+        if (sd[key] && Array.isArray(sd[key]) && sd[key].length > 0) {
+          localStorage.setItem(localKey, JSON.stringify(sd[key]));
+        }
+      };
+      restore('fenceTypes', 'fp_fenceTypes');
+      restore('suppliers',  'fp_suppliers');
+      restore('crews',      'fp_crews');
+      restore('parts',      'fp_parts');
+      // List manager tabs
+      ['railingCategories','railingStyles','railingHeights'].forEach(k => {
+        if (sd[k] && Array.isArray(sd[k])) localStorage.setItem('fp_' + k, JSON.stringify(sd[k]));
+      });
+      // Re-populate dropdowns with fresh data
+      populateFenceTypes();
+      populateSuppliers && populateSuppliers();
+      populateCrewDropdown && populateCrewDropdown();
+      if (typeof initParts === 'function') initParts();
+      status('Setup data synced from cloud ✓');
+    }
+  } catch(e) {
+    console.log('Setup data cloud sync failed (non-fatal):', e.message);
   }
 }
 
@@ -9162,7 +9287,10 @@ function savePart() {
   saveParts(); renderParts(); closeM('mPart');
 }
 function deletePart(i) { if(confirm('Remove this part?')) { parts.splice(i,1); saveParts(); renderParts(); } }
-function saveParts() { localStorage.setItem('fp_parts', JSON.stringify(parts)); }
+function saveParts() {
+  localStorage.setItem('fp_parts', JSON.stringify(parts));
+  if (settings.scriptUrl) cloudCall({ action: 'saveSetupData', data: { type: 'parts', payload: parts } }).catch(()=>{});
+}
 function usePart(i) {
   const p = parts[i];
   if (p.cat === 'Labor') {
@@ -10503,6 +10631,7 @@ function loadCrews() {
 }
 function saveCrews(crews) {
   localStorage.setItem('fp_crews', JSON.stringify(crews));
+  if (settings.scriptUrl) cloudCall({ action: 'saveSetupData', data: { type: 'crews', payload: crews } }).catch(()=>{});
 }
 
 function renderCrewList() {
