@@ -10493,24 +10493,71 @@ function confirmAcceptProposal() {
 
   const balanceDue = Math.round((priceVal - depositRequired) * 100) / 100;
 
-  if (curIdx >= 0) {
-    jobs[curIdx].contractPriceType = priceType;
-    jobs[curIdx].contractPrice     = priceVal;
-    jobs[curIdx].depositType       = depositType;
-    jobs[curIdx].depositRequired   = depositRequired;
-    jobs[curIdx].depositPaid       = jobs[curIdx].depositPaid || 0;
-    jobs[curIdx].balanceDue        = balanceDue;
-    persistJobs();
+  if (curIdx < 0) { alert('No estimate open'); return; }
+
+  const job = jobs[curIdx];
+
+  // Update local jobs array
+  job.contractPriceType = priceType;
+  job.contractPrice     = priceVal;
+  job.depositType       = depositType;
+  job.depositRequired   = depositRequired;
+  job.depositPaid       = job.depositPaid || 0;
+  job.balanceDue        = balanceDue;
+
+  // Only advance status to Accepted if currently at a lower stage
+  // Don't downgrade a job that's already at Deposit Received, Scheduled, etc.
+  const STATUS_RANK = {
+    'Draft':0,'Committed':1,'Sent':2,'Accepted':3,
+    'Deposit Received':4,'Scheduled':5,'In Progress':6,
+    'Ready for Invoice':7,'Invoiced':8,'Paid in Full':9,'Lost':2
+  };
+  const currentStatus = job.propStatus || 'Draft';
+  const currentRank   = STATUS_RANK[currentStatus] ?? 0;
+  if (currentRank < STATUS_RANK['Accepted']) {
+    job.propStatus = 'Accepted';
+    document.getElementById('propStatus').value = 'Accepted';
+  }
+  // Always update the badge to reflect current state
+  updateBadge();
+  persistJobs();
+
+  closeM('mAccept');
+
+  // ── Sync to cloud via updateStatus (writes Jobs sheet only, no status downgrade) ──
+  // This is more reliable than saveJob() which can trigger a full reload
+  if (settings.scriptUrl) {
+    cloudCall({ action: 'updateStatus', data: {
+      jobId:             job.jobId || job.id.split('-')[0],
+      contactUID:        job.contactUID        || '',
+      custName:          job.custName          || '',
+      status:            job.propStatus,
+      contractPrice:     priceVal,
+      contractPriceType: priceType,
+      depositType:       depositType,
+      depositRequired:   depositRequired,
+      depositPaid:       job.depositPaid       || 0,
+      depositMethod:     job.depositMethod     || '',
+      depositDate:       job.depositDate       || '',
+      depositRef:        job.depositRef        || '',
+      balanceDue:        balanceDue,
+      notes:             job.notes             || '',
+      lostReason:        job.lostReason        || '',
+    }}).then(() => {
+      // Also trigger a full saveJob so Estimates sheet gets updated too
+      saveJob();
+    }).catch(e => {
+      console.warn('updateStatus failed, falling back to saveJob:', e);
+      saveJob();
+    });
+  } else {
+    saveJob();
   }
 
-  document.getElementById('propStatus').value = 'Accepted';
-  updateBadge();
-  closeM('mAccept');
-  saveJob();
   const depositLabel = depositType === 'none' ? 'No deposit' :
     depositType === 'custom' ? 'Custom deposit $' + Math.round(depositRequired).toLocaleString() :
     '50% deposit $' + Math.round(depositRequired).toLocaleString();
-  status('✓ Accepted — ' + priceType + ' $' + Math.round(priceVal).toLocaleString() + ' · ' + depositLabel);
+  status('✓ Saved — ' + priceType + ' $' + Math.round(priceVal).toLocaleString() + ' · ' + depositLabel);
 }
 
 // ── RECORD DEPOSIT ────────────────────────────────
