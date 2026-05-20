@@ -3974,7 +3974,7 @@
 
 <!-- Invoice -->
 <div class="moverlay hidden" id="mInvoice">
-  <div class="mbox">
+  <div class="mbox" style="max-height:90vh;overflow-y:auto">
     <div class="mtitle">Generate Invoice</div>
     <!-- Invoice ID display — assigned by server -->
     <div style="background:var(--navy);border-radius:var(--r);padding:8px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
@@ -7752,7 +7752,7 @@ Customer Obligations:
   proceed_bwi: `If you would like to proceed, reply to the email or text stating you approve and a payment link will be sent to collect the 50% deposit. If paying cash or check we will make arrangements to pick up deposit. Balance is due at job completion.`,
   proceed_trf: `If you would like to proceed, reply to the email stating you approve and a payment link will be sent to collect the 50% deposit. Balance is due at job completion.`,
   invoice_due_days:  14,
-  invoice_notes:     `Check payable to {{company}} · Zelle/Venmo {{phone}}`,
+  invoice_notes:     `Check payable to Cash or Black Wolf Industries LLC · Zelle: blackwolfindustries`,
   invoice_footer:    `Thank you for your business.`,
   email_subject:     `Your Fence Estimate — {{company}}`,
   email_body: `Hi {{firstName}},\n\nThank you for the opportunity to earn your business. Please find your estimate details below.\n\nCC / Finance Price: {{ccPrice}}\nCash / Check Price: {{cashPrice}}\n\n{{proposalLink}}\n\nThis link is secure and will expire in 30 days. Once you accept, we will be in touch to collect the deposit and get you scheduled.\n\nPlease don't hesitate to call or text with any questions.\n\nThank you,\n{{company}}\n{{phone}}`
