@@ -11032,16 +11032,62 @@ function confirmScheduleJob() {
   document.getElementById('propStatus').value = 'Scheduled';
   updateBadge();
   closeM('mSchedule');
-  saveJob();
+
+  // Use updateStatus instead of saveJob() to avoid creating a new estimate revision.
+  // saveJob() re-reads form fields and if the estimator isn't fully loaded it can
+  // assign a new letter. updateStatus only writes to the Jobs sheet — safe.
+  const j = curIdx >= 0 ? jobs[curIdx] : null;
+  if (j && settings.scriptUrl) {
+    cloudCall({ action: 'updateStatus', data: {
+      jobId:             j.jobId || j.id.split('-')[0],
+      estimateId:        j.id                || '',
+      contactUID:        j.contactUID        || '',
+      custName:          j.custName          || '',
+      status:            'Scheduled',
+      contractPrice:     j.contractPrice     || 0,
+      contractPriceType: j.contractPriceType || '',
+      depositType:       j.depositType       || '50pct',
+      depositRequired:   j.depositRequired   || 0,
+      depositPaid:       j.depositPaid       || 0,
+      depositMethod:     j.depositMethod     || '',
+      depositDate:       j.depositDate       || '',
+      depositRef:        j.depositRef        || '',
+      scheduledDate:     date,
+      scheduledCrew:     crew,
+      scheduleNotes:     notes,
+      balanceDue:        j.balanceDue        || 0,
+      notes:             j.notes             || '',
+      lostReason:        j.lostReason        || '',
+    }}).catch(e => console.warn('Schedule sync failed:', e));
+  } else if (j) {
+    // No cloud — just persist locally
+    persistJobs();
+  }
+
   const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
   showToast('✓ Scheduled' + (crew ? ' — ' + crew : '') + ' · ' + dateStr);
+  renderBoard();
 }
 
 // ── MARK IN PROGRESS ──────────────────────────────
 function markInProgress() {
   document.getElementById('propStatus').value = 'In Progress';
   updateBadge();
-  saveJob();
+  if (curIdx >= 0) { jobs[curIdx].propStatus = 'In Progress'; persistJobs(); }
+  const _j = curIdx >= 0 ? jobs[curIdx] : null;
+  if (_j && settings.scriptUrl) {
+    cloudCall({ action: 'updateStatus', data: {
+      jobId: _j.jobId || _j.id.split('-')[0], estimateId: _j.id||'',
+      contactUID: _j.contactUID||'', custName: _j.custName||'',
+      status: _j.propStatus||'', contractPrice: _j.contractPrice||0,
+      contractPriceType: _j.contractPriceType||'', depositType: _j.depositType||'50pct',
+      depositRequired: _j.depositRequired||0, depositPaid: _j.depositPaid||0,
+      depositMethod: _j.depositMethod||'', depositDate: _j.depositDate||'',
+      depositRef: _j.depositRef||'', scheduledDate: _j.scheduledDate||'',
+      scheduledCrew: _j.scheduledCrew||'', scheduleNotes: _j.scheduleNotes||'',
+      balanceDue: _j.balanceDue||0, notes: _j.notes||'', lostReason: _j.lostReason||'',
+    }}).catch(()=>{});
+  }
   status('✓ Job marked In Progress');
 }
 
