@@ -5389,12 +5389,10 @@ function show(id) {
         if (res?.invoices) {
           invoices = res.invoices;
           localStorage.setItem('fp_invoices', JSON.stringify(invoices));
-          auditInvoicedStatus(); // fix any jobs stuck as Invoiced with no invoice
         }
         loadInvoicesTab();
       }).catch(() => loadInvoicesTab());
     } else {
-      auditInvoicedStatus();
       loadInvoicesTab();
     }
   }
@@ -8512,48 +8510,6 @@ const SCOLS  = {
 };
 
 let _dragJobIdx = null;
-
-// Checks for jobs stuck in 'Invoiced' with no matching invoice and resets them
-function auditInvoicedStatus() {
-  let changed = false;
-  jobs.forEach((j, idx) => {
-    if (j.propStatus !== 'Invoiced') return;
-    const jobId = String(j.jobId || j.id.split('-')[0]);
-    const hasInvoice = invoices.some(inv =>
-      String(inv['Job ID'] || inv.jobId || '').split('-')[0] === jobId ||
-      String(inv['Job ID'] || inv.jobId || '') === jobId
-    );
-    if (!hasInvoice) {
-      jobs[idx].propStatus = 'Ready for Invoice';
-      changed = true;
-      // If this is the open estimate, update the badge
-      if (curIdx === idx) {
-        const sel = document.getElementById('propStatus');
-        if (sel) sel.value = 'Ready for Invoice';
-        updateBadge();
-      }
-      // Sync to cloud
-      if (settings.scriptUrl) {
-        cloudCall({ action: 'updateStatus', data: {
-          jobId: jobId, custName: j.custName || '',
-          contactUID: j.contactUID || '',
-          status: 'Ready for Invoice',
-          contractPrice: j.contractPrice || 0,
-          contractPriceType: j.contractPriceType || '',
-          depositType: j.depositType || '50pct',
-          depositRequired: j.depositRequired || 0,
-          depositPaid: j.depositPaid || 0,
-          depositMethod: j.depositMethod || '',
-          depositDate: j.depositDate || '',
-          depositRef: j.depositRef || '',
-          balanceDue: j.balanceDue || 0,
-          notes: j.notes || '', lostReason: j.lostReason || '',
-        }}).catch(()=>{});
-      }
-    }
-  });
-  if (changed) persistJobs();
-}
 
 function renderBoard() {
   const wrap = document.getElementById('boardWrap');
@@ -13583,42 +13539,37 @@ async function deleteInvoice(invId) {
   localStorage.setItem('fp_deletedInvoices', JSON.stringify(deleted));
 
   // ── Reset job status from 'Invoiced' → 'Ready for Invoice' ──
+  // Find matching job in jobs[] by jobId (numeric prefix)
   if (invJobId) {
     const jobIdx = jobs.findIndex(j =>
-      String(j.jobId || j.id.split('-')[0]) === String(invJobId)
+      (j.jobId || j.id.split('-')[0]) === String(invJobId)
     );
-    if (jobIdx >= 0) {
-      const j = jobs[jobIdx];
-      // Reset regardless of current local status — invoice is gone so Invoiced is wrong
-      j.propStatus = 'Ready for Invoice';
+    if (jobIdx >= 0 && jobs[jobIdx].propStatus === 'Invoiced') {
+      jobs[jobIdx].propStatus = 'Ready for Invoice';
       persistJobs();
-
-      // Update the estimator status badge if this job is currently open
+      // If this is the currently open estimate, update the status badge
       if (curIdx === jobIdx) {
         document.getElementById('propStatus').value = 'Ready for Invoice';
         updateBadge();
       }
-
-      // Also update the Estimates sheet status column via saveJob
-      // (updateStatus only writes to Jobs tab — saveJob writes to both)
+      // Sync status change to cloud
       if (settings.scriptUrl) {
+        const jobData = { ...collectDataForJob(jobs[jobIdx]), propStatus: 'Ready for Invoice' };
         cloudCall({ action: 'updateStatus', data: {
-          jobId:             j.jobId || j.id.split('-')[0],
-          contactUID:        j.contactUID        || '',
-          custName:          j.custName          || '',
-          status:            'Ready for Invoice',
-          contractPrice:     j.contractPrice     || 0,
-          contractPriceType: j.contractPriceType || '',
-          depositType:       j.depositType       || '50pct',
-          depositRequired:   j.depositRequired   || 0,
-          depositPaid:       j.depositPaid       || 0,
-          depositMethod:     j.depositMethod     || '',
-          depositDate:       j.depositDate       || '',
-          depositRef:        j.depositRef        || '',
-          balanceDue:        j.balanceDue        || 0,
-          notes:             j.notes             || '',
-          lostReason:        j.lostReason        || '',
-        }}).catch(e => console.warn('Status reset failed:', e));
+          jobId:         jobs[jobIdx].jobId || jobs[jobIdx].id.split('-')[0],
+          contactUID:    jobs[jobIdx].contactUID || '',
+          custName:      jobs[jobIdx].custName   || '',
+          status:        'Ready for Invoice',
+          contractPrice: jobs[jobIdx].contractPrice || 0,
+          contractPriceType: jobs[jobIdx].contractPriceType || '',
+          depositType:   jobs[jobIdx].depositType   || '50pct',
+          depositRequired: jobs[jobIdx].depositRequired || 0,
+          depositPaid:   jobs[jobIdx].depositPaid   || 0,
+          depositMethod: jobs[jobIdx].depositMethod  || '',
+          depositDate:   jobs[jobIdx].depositDate    || '',
+          depositRef:    jobs[jobIdx].depositRef     || '',
+          balanceDue:    jobs[jobIdx].balanceDue     || 0,
+        }}).catch(()=>{});
       }
     }
   }
