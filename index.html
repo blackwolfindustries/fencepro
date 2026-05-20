@@ -8256,6 +8256,33 @@ async function loadCloud() {
       }
 
       const isValidId = j => { const p = String(j.id||'').split('-'); return p.length >= 4 && /^[A-Z]$/.test(p[2]); };
+
+      // ── SNAPSHOT all local workflow fields before cloud overwrites jobs[] ──
+      // depositPaid, contractPrice, depositDate etc only live in the Jobs sheet.
+      // If the sheet hasn't updated yet (race condition after save), the cloud
+      // response has zeros and we lose the data. Local snapshot prevents this.
+      const WF_FIELDS = [
+        'contractPrice','contractPriceType',
+        'depositType','depositRequired','depositPaid',
+        'depositMethod','depositDate','depositRef',
+        'balanceDue','scheduledDate','scheduledCrew','scheduleNotes',
+        'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef'
+      ];
+      const localWFMap = {};
+      jobs.forEach(j => {
+        if (!j.id) return;
+        const snap = {};
+        let hasData = false;
+        WF_FIELDS.forEach(f => {
+          const v = j[f];
+          if (v !== undefined && v !== null && v !== '' && v !== 0) {
+            snap[f] = v;
+            hasData = true;
+          }
+        });
+        if (hasData) localWFMap[j.id] = snap;
+      });
+
       jobs = [
         ...data.jobs.map(j => {
           const norm = normalizeJob(j);
@@ -8295,6 +8322,17 @@ async function loadCloud() {
             if (localNotes.scopeNotes && !norm.scopeNotes) {
               norm.scopeNotes = localNotes.scopeNotes;
             }
+          }
+          // ── RESTORE local workflow fields if cloud returned zeros/blanks ──
+          const localWF = localWFMap[norm.id];
+          if (localWF) {
+            WF_FIELDS.forEach(f => {
+              const lv = localWF[f];
+              const cv = norm[f];
+              const localHas = lv !== undefined && lv !== null && lv !== '' && lv !== 0;
+              const cloudHas = cv !== undefined && cv !== null && cv !== '' && cv !== 0;
+              if (localHas && !cloudHas) norm[f] = lv;
+            });
           }
           return norm;
         }).filter(isValidId),
@@ -10641,7 +10679,36 @@ function confirmRecordDeposit() {
 
   document.getElementById('propStatus').value = 'Deposit Received';
   updateBadge();
-  saveJob();
+
+  // Use updateStatus to write deposit directly to Jobs sheet immediately.
+  // This is faster and more targeted than saveJob() which can trigger
+  // a full loadCloud() that races with the deposit write.
+  const j = jobs[curIdx];
+  if (settings.scriptUrl && j) {
+    cloudCall({ action: 'updateStatus', data: {
+      jobId:             j.jobId || j.id.split('-')[0],
+      contactUID:        j.contactUID        || '',
+      custName:          j.custName          || '',
+      status:            'Deposit Received',
+      contractPrice:     j.contractPrice     || 0,
+      contractPriceType: j.contractPriceType || '',
+      depositType:       j.depositType       || '50pct',
+      depositRequired:   j.depositRequired   || 0,
+      depositPaid:       j.depositPaid       || 0,
+      depositMethod:     j.depositMethod     || method,
+      depositDate:       j.depositDate       || date,
+      depositRef:        j.depositRef        || ref,
+      balanceDue:        j.balanceDue        || 0,
+      notes:             j.notes             || '',
+      lostReason:        j.lostReason        || '',
+    }}).then(() => {
+      // After deposit is safely written, do the full save
+      saveJob();
+    }).catch(() => saveJob());
+  } else {
+    saveJob();
+  }
+
   status('✓ Deposit recorded — $' + amount.toLocaleString() + ' via ' + method);
 
   // Show success bar with receipt option — hide the save/cancel buttons
