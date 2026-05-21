@@ -3146,6 +3146,8 @@
         <span style="font-weight:700;color:var(--green)" id="dep_balance_remaining">—</span>
       </div>
     </div>
+    <!-- Payment history — shown when prior payments exist on this job -->
+    <div id="dep_payment_history" style="display:none;background:var(--surface2);border-radius:var(--r);padding:10px 14px;margin-bottom:12px"></div>
     <div class="mactions">
       <button class="btn" onclick="closeM('mDeposit')">Cancel</button>
       <button class="btn btn-a" id="dep_saveBtn" onclick="confirmRecordDeposit()">Save Deposit</button>
@@ -3300,6 +3302,8 @@
         <span style="font-weight:700;color:var(--orange)" id="fp_balance_due">—</span>
       </div>
     </div>
+    <!-- Payment history — shown when prior payments exist -->
+    <div id="fp_payment_history" style="display:none;background:var(--surface2);border-radius:var(--r);padding:10px 14px;margin-bottom:12px"></div>
     <div class="mactions">
       <button class="btn" onclick="closeM('mFinalPayment')">Cancel</button>
       <button class="btn btn-a" onclick="confirmFinalPayment()">Save & Close Job</button>
@@ -4786,6 +4790,10 @@ function normalizeJob(j) {
     finalPaymentRef:    s(j.finalPaymentRef,    j['Final Payment Ref'],   ''),
     invoiceId:          s(j.invoiceId,          j['Invoice ID'],          ''),
     invoiceNumber:      s(j.invoiceNumber,      '',                       ''),
+    // ── Payments sheet data (attached by Code.gs getJobs/getJob) ──
+    payments:       Array.isArray(j.payments)   ? j.payments   : [],
+    totalPaid:      n(j.totalPaid,      null, 0),
+    balanceDue_calc:n(j.balanceDue_calc,null, 0),
     // ── Display prices (always stored as integers) ──────
     finalPrice: (() => {
       const v = j.finalPrice !== undefined ? j.finalPrice : (j.calc_final || 0);
@@ -9134,8 +9142,14 @@ async function openInvoice() {
         const norm = normalizeJob(fresh.job);
         // Merge fresh workflow fields into local record
         ['contractPrice','contractPriceType','depositType','depositRequired',
-         'depositPaid','depositMethod','depositDate','depositRef','balanceDue'].forEach(f => {
+         'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
+         'payments','totalPaid','balanceDue_calc'].forEach(f => {
           const v = norm[f];
+          if (f === 'payments') {
+            job[f] = Array.isArray(v) ? v : [];
+            if (curIdx >= 0) jobs[curIdx][f] = job[f];
+            return;
+          }
           if (v !== undefined && v !== null && v !== '') {
             // For numeric fields: prefer server value if > 0, keep local if server is 0
             if (typeof v === 'number' || !isNaN(Number(v))) {
@@ -9173,22 +9187,18 @@ async function openInvoice() {
     : priceType === 'Cash' ? (lastCalc.cash  || lastCalc.final || 0)
     :                        (lastCalc.final || 0);
   const depositType    = job?.depositType       || '50pct';
-  const depositPaid    = Number(job?.depositPaid) || 0;
+  // Use totalPaid from Payments sheet when available — reflects all payments, not just deposit
+  const depositPaid    = job?.totalPaid > 0 ? job.totalPaid : (Number(job?.depositPaid) || 0);
 
-  // Calculate balance due correctly based on deposit type:
-  // - If deposit was paid: contractPrice - what was paid
-  // - If no deposit (none type): full contract price is balance
-  // - If deposit required but not yet paid: full contract price
-  // Never trust stored balanceDue = 0 unless Paid in Full
+  // Use balanceDue_calc (from Payments sheet sum) when available — most accurate
   let balanceDue;
-  if (depositType === 'none') {
-    // No deposit arrangement — full amount is due
+  if (job?.balanceDue_calc > 0) {
+    balanceDue = job.balanceDue_calc;
+  } else if (depositType === 'none') {
     balanceDue = contractPrice;
   } else if (depositPaid > 0) {
-    // Deposit was paid — balance is remainder
     balanceDue = Math.max(0, contractPrice - depositPaid);
   } else {
-    // Deposit required but not yet paid — full amount still due
     balanceDue = contractPrice;
   }
 
@@ -10645,9 +10655,15 @@ async function openRecordDeposit() {
         const norm = normalizeJob(fresh.job);
         // Restore all workflow fields from sheet
         const WF = ['contractPrice','contractPriceType','depositType','depositRequired',
-                    'depositPaid','depositMethod','depositDate','depositRef','balanceDue'];
+                    'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
+                    'payments','totalPaid','balanceDue_calc'];
         WF.forEach(f => {
           const v = norm[f];
+          if (f === 'payments') {
+            job[f] = Array.isArray(v) ? v : [];
+            if (curIdx >= 0) jobs[curIdx][f] = job[f];
+            return;
+          }
           if (v !== undefined && v !== null && v !== '') {
             if (typeof v === 'number' ? v >= 0 : true) {
               job[f] = v;
@@ -10674,9 +10690,10 @@ async function openRecordDeposit() {
     : priceType === 'CC'   ? (lastCalc.final || 0)
     : (lastCalc.final || 0);
 
-  const depositPaid     = job.depositPaid     || 0;
+  const depositPaid     = job.totalPaid > 0 ? job.totalPaid : (job.depositPaid || 0);
   const depositRequired = job.depositRequired || Math.round(contractPrice * 0.5 * 100) / 100;
-  const balanceRemaining = Math.max(0, contractPrice - depositPaid);
+  const balanceRemaining = job.balanceDue_calc > 0 ? job.balanceDue_calc
+    : Math.max(0, contractPrice - depositPaid);
 
   // Show price type label
   const priceTypeLabel = document.getElementById('dep_price_type_label');
@@ -10700,6 +10717,29 @@ async function openRecordDeposit() {
   document.getElementById('dep_date').value    = new Date().toISOString().split('T')[0];
   document.getElementById('dep_method').value  = job.depositMethod || 'Check';
   document.getElementById('dep_ref').value     = '';
+
+  // Payment history — show if any payments already recorded
+  const pmts = Array.isArray(job.payments) ? job.payments : [];
+  const histEl = document.getElementById('dep_payment_history');
+  if (histEl) {
+    if (pmts.length > 0) {
+      const rows = pmts.map(p => {
+        const d = p.date ? new Date(p.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+        return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--text3)">${d} · ${p.type} · ${p.method || '—'}</span>
+          <span style="font-weight:700;color:var(--green)">+$${Math.round(p.amount).toLocaleString()}</span>
+        </div>`;
+      }).join('');
+      histEl.innerHTML = `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Payment History</div>${rows}
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;font-weight:700">
+          <span>Total Paid</span><span style="color:var(--green)">$${Math.round(depositPaid).toLocaleString()}</span>
+        </div>`;
+      histEl.style.display = '';
+    } else {
+      histEl.style.display = 'none';
+    }
+  }
+
   openM('mDeposit');
 }
 
@@ -11211,16 +11251,22 @@ async function openRecordFinalPayment() {
   let job = curIdx >= 0 ? jobs[curIdx] : null;
   if (!job) return;
 
-  // Fetch fresh data so deposit is never stale
   if (settings.scriptUrl) {
     try {
       const fresh = await cloudCall({ action: 'getJob', data: { jobId: job.jobId || job.id.split('-')[0], estimateId: job.id } });
       if (fresh?.job) {
         const norm = normalizeJob(fresh.job);
         ['contractPrice','contractPriceType','depositType','depositRequired',
-         'depositPaid','depositMethod','depositDate','depositRef','balanceDue'].forEach(f => {
-          if (norm[f] !== undefined && norm[f] !== null && norm[f] !== '' && norm[f] !== 0) {
-            job[f] = norm[f];
+         'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
+         'payments','totalPaid','balanceDue_calc'].forEach(f => {
+          const v = norm[f];
+          if (f === 'payments') {
+            job[f] = Array.isArray(v) ? v : [];
+            if (curIdx >= 0) jobs[curIdx][f] = job[f];
+            return;
+          }
+          if (v !== undefined && v !== null && v !== '' && v !== 0) {
+            job[f] = v;
             if (curIdx >= 0) jobs[curIdx][f] = norm[f];
           }
         });
@@ -11232,15 +11278,17 @@ async function openRecordFinalPayment() {
   const contractPrice = job?.contractPrice     || lastCalc.final || 0;
   const priceType     = job?.contractPriceType || 'CC';
   const depositType   = job?.depositType       || '50pct';
-  const depositPaid   = Number(job?.depositPaid) || 0;
+  const totalPaid     = job?.totalPaid > 0 ? job.totalPaid : (Number(job?.depositPaid) || 0);
   const noDeposit     = depositType === 'none';
 
-  // Same logic as openInvoice — calculate fresh, never trust stored 0
+  // Use balanceDue_calc from Payments sheet when available — most accurate
   let balanceDue;
-  if (depositType === 'none') {
+  if (job?.balanceDue_calc > 0) {
+    balanceDue = job.balanceDue_calc;
+  } else if (depositType === 'none') {
     balanceDue = contractPrice;
-  } else if (depositPaid > 0) {
-    balanceDue = Math.max(0, contractPrice - depositPaid);
+  } else if (totalPaid > 0) {
+    balanceDue = Math.max(0, contractPrice - totalPaid);
   } else {
     balanceDue = contractPrice;
   }
@@ -11249,12 +11297,35 @@ async function openRecordFinalPayment() {
   document.getElementById('fp_contract').textContent     = '$' + Math.round(contractPrice).toLocaleString() + ' (' + priceLabel + ')';
   document.getElementById('fp_deposit_paid').textContent = noDeposit
     ? 'None (waived)'
-    : '$' + Math.round(depositPaid).toLocaleString();
+    : '$' + Math.round(totalPaid).toLocaleString();
   document.getElementById('fp_balance_due').textContent  = '$' + Math.round(balanceDue).toLocaleString();
   document.getElementById('fp_amount').value  = balanceDue > 0 ? balanceDue.toFixed(2) : '';
   document.getElementById('fp_date').value    = new Date().toISOString().split('T')[0];
   document.getElementById('fp_method').value  = 'Check';
   document.getElementById('fp_ref').value     = '';
+
+  // Payment history
+  const pmtsFP = Array.isArray(job?.payments) ? job.payments : [];
+  const fpHistEl = document.getElementById('fp_payment_history');
+  if (fpHistEl) {
+    if (pmtsFP.length > 0) {
+      const rows = pmtsFP.map(p => {
+        const d = p.date ? new Date(p.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+        return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--text3)">${d} · ${p.type} · ${p.method || '—'}</span>
+          <span style="font-weight:700;color:var(--green)">+$${Math.round(p.amount).toLocaleString()}</span>
+        </div>`;
+      }).join('');
+      fpHistEl.innerHTML = `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Payment History</div>${rows}
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;font-weight:700">
+          <span>Total Paid</span><span style="color:var(--green)">$${Math.round(totalPaid).toLocaleString()}</span>
+        </div>`;
+      fpHistEl.style.display = '';
+    } else {
+      fpHistEl.style.display = 'none';
+    }
+  }
+
   openM('mFinalPayment');
 }
 
@@ -11886,8 +11957,14 @@ async function sendDepositReceipt(jobOverride) {
         ['contractPrice','contractPriceType','depositType','depositRequired',
          'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
          'scheduledDate','scheduledCrew','scheduleNotes',
-         'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef'].forEach(f => {
+         'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef',
+         'payments','totalPaid','balanceDue_calc'].forEach(f => {
           const v = norm[f];
+          if (f === 'payments') {
+            job[f] = Array.isArray(v) ? v : [];
+            if (curIdx >= 0) jobs[curIdx][f] = job[f];
+            return;
+          }
           if (v !== undefined && v !== null && v !== '') {
             if (typeof v === 'number' || !isNaN(Number(v))) {
               if (Number(v) > 0) { job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v; }
@@ -11919,8 +11996,10 @@ async function sendDepositReceipt(jobOverride) {
   const jobAddr      = job.jobAddr      || '';
   const estId        = job.id           || '';
   const contractPrice= job.contractPrice|| job.calc_final || 0;
-  const depositPaid  = job.depositPaid  || 0;
-  const balanceDue   = Math.max(0, contractPrice - depositPaid);
+  // Use totalPaid from Payments sheet when available — reflects all payments
+  const depositPaid  = job.totalPaid > 0 ? job.totalPaid : (job.depositPaid || 0);
+  const balanceDue   = job.balanceDue_calc > 0 ? job.balanceDue_calc
+    : Math.max(0, contractPrice - depositPaid);
   // sanitize method — if it looks like a date/ISO string, clear it
   const rawMethod = job.depositMethod || '';
   const method    = /^\d{4}-\d{2}/.test(rawMethod) ? '' : rawMethod;
@@ -12033,15 +12112,25 @@ async function sendDepositReceipt(jobOverride) {
     <div class="slabel">Payment Summary</div>
     <div class="pblock">
       <div class="prow contract"><span class="pl">Contract Price</span><span class="pa">${fmt(contractPrice)}</span></div>
-      <div class="prow deposit"><span class="pl">✓ Deposit Received</span><span class="pa">${fmt(depositPaid)}</span></div>
+      ${(() => {
+        const pmts = Array.isArray(job.payments) && job.payments.length > 1 ? job.payments : null;
+        if (pmts) {
+          const rows = pmts.map(p => {
+            const d = p.date ? new Date(p.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+            return `<div class="prow deposit"><span class="pl">✓ ${p.type.charAt(0).toUpperCase()+p.type.slice(1)} — ${d}${p.method?' · '+escHtml(p.method):''}</span><span class="pa">${fmt(p.amount)}</span></div>`;
+          }).join('');
+          return rows + `<div class="prow" style="border-top:1px dashed #ddd;margin-top:4px;padding-top:6px"><span class="pl" style="font-weight:700">Total Paid</span><span class="pa" style="color:#16A34A;font-size:14px">${fmt(depositPaid)}</span></div>`;
+        }
+        return `<div class="prow deposit"><span class="pl">✓ Deposit Received</span><span class="pa">${fmt(depositPaid)}</span></div>`;
+      })()}
       <div class="prow balance total"><span class="pl">Balance Due on Completion</span><span class="pa">${fmt(balanceDue)}</span></div>
     </div>
     <div class="prog-wrap"><div class="prog-fill" style="width:${pctPaid}%"></div></div>
     <div class="prog-lbl">${pctPaid}% paid &nbsp;·&nbsp; ${fmtR(balanceDue)} remaining</div>
     <div class="cbox">
       <div class="ck">✅</div>
-      <div class="cm">Deposit Confirmed — Thank You!</div>
-      <div class="cs">Balance of ${fmt(balanceDue)} is due upon job completion</div>
+      <div class="cm">${depositPaid >= contractPrice ? 'Paid in Full — Thank You!' : 'Payment Confirmed — Thank You!'}</div>
+      <div class="cs">${balanceDue > 0 ? 'Balance of ' + fmt(balanceDue) + ' is due upon job completion' : 'Account paid in full'}</div>
     </div>
   </div>
   <div class="ftr">
@@ -12071,7 +12160,7 @@ async function sendDepositReceipt(jobOverride) {
     (custCityLine ? '         ' + custCityLine + '\n' : '') +
     '\nPAYMENT SUMMARY\n' +
     'Contract Price:    ' + fmt(contractPrice) + '\n' +
-    'Deposit Received:  ' + fmt(depositPaid)   + '\n' +
+    'Total Paid:        ' + fmt(depositPaid)   + '\n' +
     'Balance Due:       ' + fmt(balanceDue)    + '\n\n' +
     'Thank you for choosing ' + co + '!\n' +
     (coPhone ? 'Call us: ' + coPhone + '\n' : '');
@@ -13710,8 +13799,14 @@ async function printInvoice() {
         ['contractPrice','contractPriceType','depositType','depositRequired',
          'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
          'scheduledDate','scheduledCrew','scheduleNotes',
-         'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef'].forEach(f => {
+         'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef',
+         'payments','totalPaid','balanceDue_calc'].forEach(f => {
           const v = norm[f];
+          if (f === 'payments') {
+            job[f] = Array.isArray(v) ? v : [];
+            if (curIdx >= 0) jobs[curIdx][f] = job[f];
+            return;
+          }
           if (v !== undefined && v !== null && v !== '') {
             if (typeof v === 'number' || !isNaN(Number(v))) {
               if (Number(v) > 0) { job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v; }
@@ -13738,9 +13833,13 @@ async function printInvoice() {
   const contractPrice = _invContractPrice > 0 ? _invContractPrice : (job?.contractPrice || lastCalc.final || 0);
   const priceType     = _invPriceType     || job?.contractPriceType || 'CC';
   const depositType   = _invDepositType   || job?.depositType       || '50pct';
-  const depositPaid   = _invDepositPaid   > 0 ? _invDepositPaid   : (Number(job?.depositPaid) || 0);
+  // Use totalPaid from Payments sheet when available
+  const depositPaid   = job?.totalPaid > 0 ? job.totalPaid
+    : (_invDepositPaid > 0 ? _invDepositPaid : (Number(job?.depositPaid) || 0));
   const noDeposit     = depositType === 'none';
-  const balanceDue    = _invBalanceDue    > 0 ? _invBalanceDue    : contractPrice;
+  // Use balanceDue_calc from Payments sheet when available
+  const balanceDue    = job?.balanceDue_calc > 0 ? job.balanceDue_calc
+    : (_invBalanceDue > 0 ? _invBalanceDue : contractPrice);
 
   // Company name
   const co = activeCompany === 'TRF' ? 'Top Rail Fence Huntington' : 'Black Wolf Industries LLC';
