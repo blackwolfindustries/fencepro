@@ -13399,7 +13399,9 @@ function renderInvoiceFromRecord(inv) {
   const priceType       = inv.contractPriceType || inv['Contract Price Type']     || 'CC';
   const depositPaid     = inv.depositPaid       || Number(inv['Deposit Paid'])    || 0;
   const depositType     = inv.depositType       || '50pct';
-  const balanceDue      = inv.balanceDue        > 0 ? inv.balanceDue
+  // If status is Paid in Full, balance is always $0 regardless of stored amount
+  const balanceDue      = (status === 'Paid in Full') ? 0
+                        : inv.balanceDue        > 0 ? inv.balanceDue
                         : Number(inv['Amount Due']) > 0 ? Number(inv['Amount Due'])
                         : Math.max(0, contractPrice - depositPaid);
   const payNote         = inv.payNote || inv['Payment Instructions'] ||
@@ -13880,8 +13882,10 @@ async function printInvoice() {
     : (_invDepositPaid > 0 ? _invDepositPaid : (Number(job?.depositPaid) || 0));
   const noDeposit     = depositType === 'none';
   // Use balanceDue_calc from Payments sheet when available
-  const balanceDue    = job?.balanceDue_calc > 0 ? job.balanceDue_calc
+  // Always $0 if status is Paid in Full
+  const _rawBalanceDue = job?.balanceDue_calc > 0 ? job.balanceDue_calc
     : (_invBalanceDue > 0 ? _invBalanceDue : contractPrice);
+  const balanceDue    = (document.getElementById('invStatus')?.value === 'Paid in Full') ? 0 : _rawBalanceDue;
 
   // Company name
   const co = activeCompany === 'TRF' ? 'Top Rail Fence Huntington' : 'Black Wolf Industries LLC';
