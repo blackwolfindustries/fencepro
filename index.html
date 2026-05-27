@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.5.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.6.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -13447,15 +13447,31 @@ function renderInvoiceFromRecord(inv) {
   const dueDate     = inv['Due Date']       || inv.dueDate       || '';
   const status      = inv['Payment Status'] || inv.status        || 'Unpaid';
   const jobNum      = String(inv['Job ID']  || inv.jobId || '').split('-')[0];
-  const contractPrice   = inv.contractPrice     || Number(inv['Contract Price'])  || 0;
-  const priceType       = inv.contractPriceType || inv['Contract Price Type']     || 'CC';
-  const depositPaid     = inv.depositPaid       || Number(inv['Deposit Paid'])    || 0;
-  const depositType     = inv.depositType       || '50pct';
-  // If status is Paid in Full, balance is always $0 regardless of stored amount
+
+  // Contract price — sheet now stores Final Price CC / Cash Price separately
+  // Fall back to old 'Contract Price' field for backwards compat with older records
+  const priceType       = inv.contractPriceType || inv['Contract Price Type'] || inv['Price Type'] || 'CC';
+  const _ccPrice        = Number(inv['Final Price CC'])  || Number(inv['Contract Price']) || inv.contractPrice || 0;
+  const _cashPrice      = Number(inv['Cash Price'])      || Number(inv['Contract Price']) || inv.contractPrice || 0;
+  const contractPrice   = priceType === 'Cash' ? (_cashPrice || _ccPrice) : (_ccPrice || _cashPrice);
+
+  // Deposit — sheet stores it in Deposit Paid or fall back to totalPaid from job
+  const _invJobObj      = (typeof jobs !== 'undefined') ? jobs.find(j => (j.jobId || (j.id||'').split('-')[0]) === jobNum) : null;
+  const depositPaid     = inv.depositPaid > 0        ? inv.depositPaid
+                        : Number(inv['Deposit Paid']) > 0 ? Number(inv['Deposit Paid'])
+                        : _invJobObj?.depositPaid    || 0;
+  const depositType     = inv.depositType || _invJobObj?.depositType || '50pct';
+
+  // Balance due — $0 if Paid in Full, otherwise Amount Due from sheet or calculate
   const balanceDue      = (status === 'Paid in Full') ? 0
-                        : inv.balanceDue        > 0 ? inv.balanceDue
-                        : Number(inv['Amount Due']) > 0 ? Number(inv['Amount Due'])
+                        : Number(inv['Amount Due']) > 0  ? Number(inv['Amount Due'])
+                        : inv.balanceDue > 0             ? inv.balanceDue
                         : Math.max(0, contractPrice - depositPaid);
+
+  // Payment history — pull from matched job object if available
+  const _payments = Array.isArray(_invJobObj?.payments) && _invJobObj.payments.length > 0
+                  ? _invJobObj.payments
+                  : [];
   const payNote         = inv.payNote || inv['Payment Instructions'] ||
     (coPhone ? 'Check payable to Cash or ' + co + ' · Zelle: blackwolfindustries' : '');
   const customerNote    = inv.customerNote || inv.notes || '';
@@ -13513,6 +13529,39 @@ function renderInvoiceFromRecord(inv) {
   } else {
     if (depRow) depRow.style.display = '';
     document.getElementById('inv_depositAmt').textContent = '-' + fmt(depositPaid);
+  }
+
+  // Payment history rows — show each payment with date, method, amount
+  const _payHistEl = document.getElementById('inv_depositRow');
+  const _payBlock  = document.getElementById('inv_payHistoryRows');
+  // Build or rebuild payment history section
+  let _existingPayBlock = document.getElementById('inv_payHistoryRows');
+  if (!_existingPayBlock) {
+    _existingPayBlock = document.createElement('div');
+    _existingPayBlock.id = 'inv_payHistoryRows';
+    _payHistEl && _payHistEl.parentNode && _payHistEl.parentNode.insertBefore(_existingPayBlock, _payHistEl.nextSibling);
+  }
+  if (_payments.length > 0) {
+    const _fmtPDate = d => {
+      if (!d) return '';
+      const _s = String(d).split('T')[0].trim();
+      const _dt = new Date(_s + 'T12:00:00');
+      return isNaN(_dt.getTime()) ? '' : _dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    };
+    _existingPayBlock.innerHTML = _payments.map(p => {
+      const _lbl = p.type === 'deposit' ? 'Deposit' : p.type === 'final' ? 'Final Payment' : p.type === 'partial' ? 'Partial' : 'Payment';
+      const _dt  = _fmtPDate(p.date);
+      const _mth = p.method || '';
+      const _sub = [_dt, _mth].filter(Boolean).join(' · ');
+      return `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border2)">
+        <span style="color:var(--text2)">${_lbl}${_sub ? ' <span style="opacity:.6;font-size:11px">(' + _sub + ')</span>' : ''}</span>
+        <span style="color:var(--green);font-weight:700;font-family:var(--mono)">-$${Math.round(p.amount).toLocaleString()}</span>
+      </div>`;
+    }).join('');
+    _existingPayBlock.style.display = 'block';
+  } else if (_existingPayBlock) {
+    _existingPayBlock.innerHTML = '';
+    _existingPayBlock.style.display = 'none';
   }
 
   // Payment instructions & note
