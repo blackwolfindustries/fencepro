@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.6.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.7.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -13413,15 +13413,35 @@ function renderInvoicesTab() {
   }).join('');
 }
 
-function viewInvoiceFromTab(invId) {
-  // Find invoice by invoice ID
+async function viewInvoiceFromTab(invId) {
   const inv = invoices.find(i =>
     (i['Invoice ID'] || i.invoiceId || '') === invId ||
     (i['Job ID'] || i.jobId || '') === invId
   );
   if (!inv) { showToast('⚠ Invoice not found — try refreshing'); return; }
 
-  // Build invoice directly from saved invoice data — no estimate needed
+  // Fetch fresh job data so payments array is populated
+  const jobNum = String(inv['Job ID'] || inv.jobId || '').split('-')[0];
+  if (settings.scriptUrl && jobNum) {
+    try {
+      const fresh = await cloudCall({ action: 'getJob', data: { jobId: jobNum } });
+      if (fresh?.job) {
+        const norm = normalizeJob(fresh.job);
+        // Attach payments and financials from fresh job onto the invoice object
+        inv._payments    = Array.isArray(norm.payments) ? norm.payments : [];
+        inv._totalPaid   = norm.totalPaid   || 0;
+        inv._depositPaid = norm.depositPaid || 0;
+        inv._finalPaid   = norm.finalPaid   || 0;
+        // Also fill in contract price if invoice record is missing it
+        if (!(Number(inv['Final Price CC']) > 0) && norm.contractPrice > 0) {
+          inv['Final Price CC'] = norm.contractPrice;
+          inv['Cash Price']     = norm.contractPrice;
+        }
+      }
+    } catch(e) {
+      console.warn('viewInvoiceFromTab: could not fetch job payments', e);
+    }
+  }
   renderInvoiceFromRecord(inv);
 }
 
@@ -13457,7 +13477,8 @@ function renderInvoiceFromRecord(inv) {
 
   // Deposit — sheet stores it in Deposit Paid or fall back to totalPaid from job
   const _invJobObj      = (typeof jobs !== 'undefined') ? jobs.find(j => (j.jobId || (j.id||'').split('-')[0]) === jobNum) : null;
-  const depositPaid     = inv.depositPaid > 0        ? inv.depositPaid
+  const depositPaid     = inv._totalPaid   > 0        ? inv._totalPaid
+                        : inv.depositPaid > 0        ? inv.depositPaid
                         : Number(inv['Deposit Paid']) > 0 ? Number(inv['Deposit Paid'])
                         : _invJobObj?.depositPaid    || 0;
   const depositType     = inv.depositType || _invJobObj?.depositType || '50pct';
@@ -13468,10 +13489,12 @@ function renderInvoiceFromRecord(inv) {
                         : inv.balanceDue > 0             ? inv.balanceDue
                         : Math.max(0, contractPrice - depositPaid);
 
-  // Payment history — pull from matched job object if available
-  const _payments = Array.isArray(_invJobObj?.payments) && _invJobObj.payments.length > 0
-                  ? _invJobObj.payments
-                  : [];
+  // Payment history — prefer freshly fetched _payments attached by viewInvoiceFromTab,
+  // fall back to matching job in local array
+  const _payments = Array.isArray(inv._payments) && inv._payments.length > 0
+                  ? inv._payments
+                  : (Array.isArray(_invJobObj?.payments) && _invJobObj.payments.length > 0
+                      ? _invJobObj.payments : []);
   const payNote         = inv.payNote || inv['Payment Instructions'] ||
     (coPhone ? 'Check payable to Cash or ' + co + ' · Zelle: blackwolfindustries' : '');
   const customerNote    = inv.customerNote || inv.notes || '';
