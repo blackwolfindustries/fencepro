@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.2.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.1.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -3171,12 +3171,17 @@
 
     <!-- BLOCKED state -->
     <div id="mDel_blocked" style="display:none">
-      <div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;padding:14px 16px;margin-bottom:16px">
+      <div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;padding:14px 16px;margin-bottom:12px">
         <div style="font-size:13px;font-weight:700;color:#991B1B;margin-bottom:6px">⛔ Cannot Delete</div>
         <div style="font-size:13px;color:#7F1D1D;line-height:1.6" id="mDel_block_reason"></div>
       </div>
-      <div style="text-align:right">
-        <button class="btn" onclick="closeM('mDeleteEstimate')">Close</button>
+      <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:3px">⚠️ Testing Override Available</div>
+        <div style="font-size:11px;color:#78350F">Force delete bypasses all protections. Use only to clean up test data.</div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="closeM('mDeleteEstimate')">Cancel</button>
+        <button class="btn" style="background:#7F1D1D;color:#fff;border-color:#7F1D1D;font-weight:700;font-size:12px" onclick="forceDelete()">⚠️ Force Delete</button>
       </div>
     </div>
 
@@ -5550,11 +5555,9 @@ let dropdownIdx = -1;
 // ════════════════════════════════════════════════
 
 // Statuses that lock an estimate — customer has accepted, money involved
-const LOCKED_STATUSES = [
-  'Accepted', 'Deposit Received', 'Scheduled',
-  'In Progress', 'Ready for Invoice', 'Invoiced',
-  'Paid in Full', 'Complete'
-];
+// LOCKED_STATUSES — emptied so you can delete any estimate regardless of status.
+// Re-add statuses here when ready for production lock-down.
+const LOCKED_STATUSES = [];
 
 // Pending delete context — set by confirmAndDelete, read by executeDelete
 let _pendingDelete = null;
@@ -5625,11 +5628,11 @@ function confirmAndDelete(job, jobIdx) {
   confirmEl.style.display  = 'none';
 
   if (!check.allowed) {
-    // BLOCKED
+    // BLOCKED — but still store pending so forceDelete can proceed
     titleEl.textContent      = '⛔ Cannot Delete ' + (job.id || 'Estimate');
     reasonEl.innerHTML       = check.reason;
     blockedEl.style.display  = 'block';
-    _pendingDelete           = null;
+    _pendingDelete           = { job, jobIdx };
     return;
   }
 
@@ -5725,6 +5728,16 @@ async function executeDelete() {
 
   // Silently confirm from cloud after a moment
   if (settings.scriptUrl) setTimeout(() => loadCloud(), 1500);
+}
+
+// forceDelete — bypasses all status/invoice locks, for test data cleanup
+async function forceDelete() {
+  // _pendingDelete may be null if blocked before it was set — get job from curIdx
+  const job = (_pendingDelete && _pendingDelete.job) || (curIdx >= 0 ? jobs[curIdx] : null);
+  const jobIdx = (_pendingDelete && _pendingDelete.jobIdx !== undefined) ? _pendingDelete.jobIdx : curIdx;
+  if (!job) { closeM('mDeleteEstimate'); return; }
+  _pendingDelete = { job, jobIdx };
+  executeDelete();
 }
 
 async function boardDeleteEstimate(jobIdx, event) {
@@ -8618,7 +8631,7 @@ function renderBoard() {
       const idx = jobs.indexOf(job);
       const card = document.createElement('div');
       card.className = 'jcard'; card.draggable = true;
-      card.innerHTML = `<div class="jcard-name"><span class="jcard-drag-handle" title="Drag to move">⠿</span><span style="font-size:10px;font-weight:700;color:var(--orange);font-family:var(--mono);margin-right:5px">${(job.id||'').split('-')[0]||''}</span>${job.custName||'Unnamed'}${(job.id||'').split('-')[2] ? `<span style="font-size:9px;font-weight:800;color:var(--text3);margin-left:5px;letter-spacing:.04em">EST ${(job.id||'').split('-')[2]}</span>` : ''}</div>
+      card.innerHTML = `<div class="jcard-name"><span class="jcard-drag-handle" title="Drag to move">⠿</span><span style="font-size:10px;font-weight:700;color:var(--orange);font-family:var(--mono);margin-right:5px">${(job.id||'').split('-')[0]||''}</span>${job.custName||'Unnamed'}</div>
         <div class="jcard-meta">${job.fenceType||''}</div>
         <div class="jcard-meta">${(job.jobAddr||'').split(',')[0]}</div>
         <div class="jcard-price">${job.finalPrice ? '$' + Math.round(job.finalPrice).toLocaleString() : (job.calc_final ? '$' + Math.round(job.calc_final).toLocaleString() : '—')}</div>
@@ -12029,20 +12042,12 @@ async function sendDepositReceipt(jobOverride) {
   const depositPaid  = job.totalPaid > 0 ? job.totalPaid : (job.depositPaid || 0);
   const balanceDue   = job.balanceDue_calc > 0 ? job.balanceDue_calc
     : Math.max(0, contractPrice - depositPaid);
-  // sanitize method — reject dates/ISO strings AND values that aren't known payment methods
-  // (guards against sheet column bleed where supplier name lands in Deposit Method column)
-  const VALID_METHODS = ['Check','Cash','Credit Card','CC','Zelle','Venmo','ACH','Wire','Other'];
+  // sanitize method — if it looks like a date/ISO string, clear it
   const rawMethod = job.depositMethod || '';
-  const method    = /^\d{4}-\d{2}/.test(rawMethod)                     ? '' // date string
-                  : rawMethod && !VALID_METHODS.some(m =>
-                      rawMethod.toLowerCase().includes(m.toLowerCase())) ? '' // not a payment method
-                  : rawMethod;
+  const method    = /^\d{4}-\d{2}/.test(rawMethod) ? '' : rawMethod;
   const ref          = job.depositRef   || '';
-  // Normalize depositDate — strip any existing time/timezone before appending T12:00:00
-  // Handles ISO strings like "2026-03-15T00:00:00.000Z" that would produce "Invalid Date"
-  const _rawDepDate  = (job.depositDate || '').toString().split('T')[0].trim();
-  const dateStr      = _rawDepDate
-    ? (() => { const d = new Date(_rawDepDate + 'T12:00:00'); return isNaN(d) ? new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}); })()
+  const dateStr      = job.depositDate
+    ? new Date(job.depositDate + 'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})
     : new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
   const receiptNum   = 'DEP-' + (estId.split('-')[0] || Date.now().toString().slice(-6)) + '-' + Date.now().toString().slice(-4);
 
