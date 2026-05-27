@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.9.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.9.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -13492,11 +13492,12 @@ async function viewInvoiceFromTab(invId) {
       if (fresh?.job) {
         const norm = normalizeJob(fresh.job);
         // Attach payments and financials from fresh job onto the invoice object
+        inv._job         = norm;
         inv._payments    = Array.isArray(norm.payments) ? norm.payments : [];
         inv._totalPaid   = norm.totalPaid   || 0;
         inv._depositPaid = norm.depositPaid || 0;
         inv._finalPaid   = norm.finalPaid   || 0;
-        // Also fill in contract price if invoice record is missing it
+        // Fill in contract price if invoice record is missing it
         if (!(Number(inv['Final Price CC']) > 0) && norm.contractPrice > 0) {
           inv['Final Price CC'] = norm.contractPrice;
           inv['Cash Price']     = norm.contractPrice;
@@ -13516,8 +13517,10 @@ function renderInvoiceFromRecord(inv) {
   const coPhone     = inv.companyPhone || settings.companyPhone || '631-275-2020';
 
   // Resolve job number and matching job object first — needed for city/scope/deposit below
+  // Priority: freshly fetched job (inv._job) > local jobs array > null
   const jobNum      = String(inv['Job ID']  || inv.jobId || '').split('-')[0];
-  const _invJobObj  = (typeof jobs !== 'undefined') ? jobs.find(j => (j.jobId || (j.id||'').split('-')[0]) === jobNum) : null;
+  const _invJobObj  = inv._job
+                    || ((typeof jobs !== 'undefined') ? jobs.find(j => (j.jobId || (j.id||'').split('-')[0]) === jobNum) : null);
 
   const custName    = inv['Customer Name'] || inv.custName    || '-';
   const jobAddr     = inv['Job Address']   || inv.jobAddr     || '';
