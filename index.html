@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.10.7</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.10.8</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -15514,14 +15514,16 @@ function renderKPIs(csvRows, allCsvRows, range) {
   const closeRate      = totalProposals > 0 ? (csvClosed / totalProposals * 100).toFixed(1) : '0.0';
   const avgVal         = csvClosed > 0 ? (csvRevenue + csvBacklog) / csvClosed : 0;
 
-  // ── Conversion Rate: Leads → Estimates ────────────────────────────────────────────
-  // Leads     = rows whose Created date falls in the selected range
-  // Estimates = rows whose Sent date falls in the selected range
-  // Counted independently from allCsvRows — no cross-contamination from the
-  // date-filter fallback that built csvRows (which uses Created||Sent as one expression)
+  // // Conversion Rate: Leads → Estimates
+  // Leads     = contacts whose createdAt is in the selected range
+  // Estimates = proposals whose Date (col B) is in the selected range = csvRows.length
   const _inRange = d => d && (!range.start || d >= range.start) && (!range.end || d <= range.end);
-  const convLeads     = allCsvRows.filter(r => _inRange(parseAnalyticsDate(r['Created']))).length;
-  const convEstimates = allCsvRows.filter(r => _inRange(parseAnalyticsDate(r['Sent']))).length;
+  const _contacts = (() => {
+    if (typeof contacts !== 'undefined' && contacts && contacts.length) return contacts;
+    try { return JSON.parse(localStorage.getItem('fp_contacts') || '[]'); } catch(e) { return []; }
+  })();
+  const convLeads     = _contacts.filter(c => _inRange(parseAnalyticsDate(c.createdAt))).length;
+  const convEstimates = csvRows.length;
   const convRate      = convLeads > 0 ? (convEstimates / convLeads * 100).toFixed(1) : null;
 
   document.getElementById('kpi_total').textContent     = totalProposals.toLocaleString();
