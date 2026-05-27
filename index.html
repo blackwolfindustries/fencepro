@@ -3997,7 +3997,9 @@
         <select id="invStatus">
           <option>Unpaid</option>
           <option>Deposit Received</option>
+          <option>Partial</option>
           <option>Paid in Full</option>
+          <option>Overdue</option>
         </select>
       </div>
       <div class="f"><label>PAYMENT METHOD</label>
@@ -4015,7 +4017,8 @@
     </div>
     <div class="pblock" style="margin-bottom:12px">
       <div class="prow"><span>Contract Price (<span id="invPriceType">—</span>)</span><span id="invAmt" style="font-weight:700">$0</span></div>
-      <div class="prow" id="invDepositRow"><span>Deposit Received</span><span id="invDepositPaid" style="color:var(--green)">$0</span></div>
+      <div id="invPayHistoryBlock" style="display:none;border-top:1px solid var(--border2);margin-top:4px;padding-top:4px"></div>
+      <div class="prow" id="invDepositRow"><span>Deposit Paid</span><span id="invDepositPaid" style="color:var(--green)">$0</span></div>
       <div class="prow grand"><span>Balance Due</span><span id="invBalDue" style="color:var(--accent)">$0</span></div>
     </div>
     <div class="f"><label>PAYMENT INSTRUCTIONS</label>
@@ -5696,17 +5699,18 @@ async function executeDelete() {
   renderJobsList();
   showToast('🗑 ' + (job.id || 'Estimate') + ' deleted');
 
-  // Sync to cloud
+  // Sync to cloud — deleteJob on server now purges all related sheets
+  const _delJobId = job.jobId || job.id.split('-')[0];
   if (settings.scriptUrl && job.id) {
     try {
       await cloudCall({
         action: 'deleteJob',
         data: {
           estimateId: job.id,
-          jobId:      job.jobId || job.id.split('-')[0]
+          jobId:      _delJobId
         }
       });
-      // Also delete any job costs for this estimate
+      // Also delete any job costs for this estimate from local cache
       const jobCostData = JSON.parse(localStorage.getItem('fp_jobCosts') || '{}');
       const prefix = job.id.split('-')[0];
       if (jobCostData[prefix]) {
@@ -5714,7 +5718,6 @@ async function executeDelete() {
         costsToDelete.forEach(c => {
           cloudCall({ action: 'deleteJobCost', data: { costId: c.id } }).catch(() => {});
         });
-        // Remove from local too if this was the last estimate
         const remainingEstimates = jobs.filter(j => j.id && j.id.split('-')[0] === prefix);
         if (remainingEstimates.length === 0) {
           delete jobCostData[prefix];
@@ -5723,6 +5726,19 @@ async function executeDelete() {
       }
     } catch(e) {
       console.warn('Cloud delete failed:', e.message);
+    }
+  }
+
+  // Remove linked invoices from local array if this was the last estimate for the job
+  const _remainingForJob = jobs.filter(j => j.id && j.id.split('-')[0] === _delJobId);
+  if (_remainingForJob.length === 0 && typeof invoices !== 'undefined') {
+    const beforeCount = invoices.length;
+    invoices = invoices.filter(inv => {
+      const invJob = String(inv['Job ID'] || inv.jobId || '').split('-')[0];
+      return invJob !== _delJobId;
+    });
+    if (invoices.length < beforeCount) {
+      renderInvoicesTab && renderInvoicesTab();
     }
   }
 
@@ -9228,7 +9244,14 @@ async function openInvoice() {
   document.getElementById('invNum').textContent = existingInvId || 'Auto-assigned on save';
   document.getElementById('invDate').value      = today.toISOString().split('T')[0];
   document.getElementById('invDue').value       = due.toISOString().split('T')[0];
-  document.getElementById('invStatus').value    = 'Unpaid';
+  // Set invoice status based on job's current payment state
+  const _jobStatus = job?.propStatus || job?.['Status'] || '';
+  const _jobTotalPaid = job?.totalPaid || 0;
+  const _jobCP = contractPrice || 0;
+  let _defaultInvStatus = 'Unpaid';
+  if (_jobTotalPaid >= _jobCP && _jobCP > 0)          _defaultInvStatus = 'Paid in Full';
+  else if (_jobStatus === 'Deposit Received' || depositPaid > 0) _defaultInvStatus = 'Deposit Received';
+  document.getElementById('invStatus').value = _defaultInvStatus;
   document.getElementById('invPayMethod').value = '';
   document.getElementById('invPayDate').value   = '';
 
@@ -9240,6 +9263,35 @@ async function openInvoice() {
     : '-$' + Math.round(depositPaid).toLocaleString();
   document.getElementById('invBalDue').textContent     = '$' + Math.round(balanceDue).toLocaleString();
   document.getElementById('invDepositRow').style.display = depositType === 'none' ? 'none' : 'flex';
+
+  // Populate payment history block from Payments sheet data
+  const _payHistBlock = document.getElementById('invPayHistoryBlock');
+  if (_payHistBlock) {
+    const _payments = Array.isArray(job?.payments) ? job.payments : [];
+    if (_payments.length > 0) {
+      const _fmtDate = d => {
+        if (!d) return '';
+        const dt = String(d).includes('T') ? new Date(d) : new Date(d + 'T12:00:00');
+        return isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      };
+      const _rows = _payments.map(p => {
+        const label = p.type === 'deposit' ? 'Deposit'
+                    : p.type === 'final'   ? 'Final Payment'
+                    : p.type === 'partial' ? 'Partial Payment'
+                    : 'Payment';
+        const datePart  = _fmtDate(p.date) ? ` &nbsp;·&nbsp; ${_fmtDate(p.date)}` : '';
+        const methodPart = p.method ? ` &nbsp;·&nbsp; ${p.method}` : '';
+        return `<div class="prow" style="font-size:11px;color:var(--text2)">
+          <span>${label}${datePart}${methodPart}</span>
+          <span style="color:var(--green);font-weight:700">-$${Math.round(p.amount).toLocaleString()}</span>
+        </div>`;
+      }).join('');
+      _payHistBlock.innerHTML = _rows;
+      _payHistBlock.style.display = 'block';
+    } else {
+      _payHistBlock.style.display = 'none';
+    }
+  }
 
   // Clear customer note field
   const noteField = document.getElementById('invCustomerNote');
