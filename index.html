@@ -8754,7 +8754,8 @@ async function openReverseDeposit(jobIdx, event) {
   event.stopPropagation(); // don't open the estimate
   let job = jobs[jobIdx];
   if (!job) return;
-  const prevIdx = curIdx; curIdx = jobIdx;
+  // Resolve index once — don't rely on mutable curIdx across the await boundary.
+  const _rdJobIdx = jobIdx;
   if (settings.scriptUrl && job) {
     try {
       const fresh = await cloudCall({ action: 'getJob', data: { jobId: job.jobId || job.id.split('-')[0], estimateId: job.id } });
@@ -8767,9 +8768,9 @@ async function openReverseDeposit(jobIdx, event) {
           const v = norm[f];
           if (v !== undefined && v !== null && v !== '') {
             if (typeof v === 'number' || !isNaN(Number(v))) {
-              if (Number(v) > 0) { job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v; }
+              if (Number(v) > 0) { job[f] = v; if (_rdJobIdx >= 0) jobs[_rdJobIdx][f] = v; }
             } else {
-              job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v;
+              job[f] = v; if (_rdJobIdx >= 0) jobs[_rdJobIdx][f] = v;
             }
           }
         });
@@ -8779,13 +8780,12 @@ async function openReverseDeposit(jobIdx, event) {
           job.contractPrice = pt === 'Cash' ? (lastCalc.cash || 0)
                             : pt === 'CC'   ? (lastCalc.final || 0)
                             : (lastCalc.final || 0);
-          if (curIdx >= 0) jobs[curIdx].contractPrice = job.contractPrice;
+          if (_rdJobIdx >= 0) jobs[_rdJobIdx].contractPrice = job.contractPrice;
         }
         persistJobs();
       }
     } catch(e) { console.warn('fresh fetch failed, using local data', e); }
   }
-  curIdx = prevIdx;
   _reverseDepositIdx = jobIdx;
 
   // Reset form
@@ -12095,17 +12095,17 @@ function openDepositReceiptForJob(jobObj) {
   if (!job.depositPaid && !job.depositMethod && !job.depositDate) {
     showToast('⚠ No deposit recorded for this job yet'); return;
   }
-  // If called from job card, temporarily set curIdx so sendDepositReceipt reads the right job
-  const prevIdx = curIdx;
-  const jobIdx  = jobs.findIndex(j => j.id === job.id);
-  if (jobIdx >= 0) curIdx = jobIdx;
+  // Always pass the job object directly — sendDepositReceipt uses jobOverride throughout,
+  // so curIdx mutation is unnecessary and races with the internal async cloud fetch.
   sendDepositReceipt(job);
-  curIdx = prevIdx; // restore
 }
 
 async function sendDepositReceipt(jobOverride) {
   let job = jobOverride || (curIdx >= 0 ? jobs[curIdx] : null);
   if (!job) return;
+  // Resolve the jobs-array index once — use this for all jobs[] writes so we're
+  // never dependent on the mutable curIdx which may change during the await below.
+  const _jobIdx = jobs.findIndex(j => j.id === job.id);
   // Fresh fetch from server so workflow fields are never stale
   if (settings.scriptUrl && job) {
     try {
@@ -12120,14 +12120,14 @@ async function sendDepositReceipt(jobOverride) {
           const v = norm[f];
           if (f === 'payments') {
             job[f] = Array.isArray(v) ? v : [];
-            if (curIdx >= 0) jobs[curIdx][f] = job[f];
+            if (_jobIdx >= 0) jobs[_jobIdx][f] = job[f];
             return;
           }
           if (v !== undefined && v !== null && v !== '') {
             if (typeof v === 'number' || !isNaN(Number(v))) {
-              if (Number(v) > 0) { job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v; }
+              if (Number(v) > 0) { job[f] = v; if (_jobIdx >= 0) jobs[_jobIdx][f] = v; }
             } else {
-              job[f] = v; if (curIdx >= 0) jobs[curIdx][f] = v;
+              job[f] = v; if (_jobIdx >= 0) jobs[_jobIdx][f] = v;
             }
           }
         });
@@ -12137,7 +12137,7 @@ async function sendDepositReceipt(jobOverride) {
           job.contractPrice = pt === 'Cash' ? (lastCalc.cash || 0)
                             : pt === 'CC'   ? (lastCalc.final || 0)
                             : (lastCalc.final || 0);
-          if (curIdx >= 0) jobs[curIdx].contractPrice = job.contractPrice;
+          if (_jobIdx >= 0) jobs[_jobIdx].contractPrice = job.contractPrice;
         }
         persistJobs();
       }
