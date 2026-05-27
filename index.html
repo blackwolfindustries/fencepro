@@ -2556,6 +2556,10 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Day of Week
     </button>
+    <button id="atab_pricing" class="atab" onclick="showAnalyticsTab('pricing')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Pricing Intel
+    </button>
   </div>
 
   <!-- TAB PANELS — only one visible at a time, controlled by showAnalyticsTab() -->
@@ -2839,6 +2843,100 @@
       </div>
 
     </div><!-- end atab-dow -->
+
+    <!-- ══ PRICING INTEL ══ -->
+    <div id="atab-pricing" style="display:none;flex-direction:column;gap:16px;padding:16px">
+
+      <!-- Header row with filters -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Status</div>
+        <select id="pi_filterStatus" onchange="renderPricingIntel()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600">
+          <option value="won">Won only (Accepted+)</option>
+          <option value="committed">Committed+</option>
+          <option value="all">All statuses</option>
+        </select>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-left:8px">Payment</div>
+        <select id="pi_filterPay" onchange="renderPricingIntel()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600">
+          <option value="all">CC &amp; Cash</option>
+          <option value="CC">CC only</option>
+          <option value="Cash">Cash only</option>
+        </select>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-left:8px">Bucket</div>
+        <select id="pi_bucketSize" onchange="renderPricingIntel()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600">
+          <option value="25">25 LF</option>
+          <option value="50" selected>50 LF</option>
+          <option value="100">100 LF</option>
+        </select>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-left:8px">Type filter</div>
+        <select id="pi_bucketType" onchange="renderPricingIntel()" style="font-size:12px;padding:5px 10px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans);font-weight:600">
+          <option value="all">All types</option>
+        </select>
+        <div id="pi_jobCount" style="margin-left:auto;font-size:11px;color:var(--text3)"></div>
+      </div>
+
+      <!-- KPI row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px" id="pi_kpis"></div>
+
+      <!-- By Fence Type table -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:12px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.06em">Avg $/LF by fence type</div>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:var(--surface2)">
+                <th style="text-align:left;padding:8px 14px;font-weight:700;color:var(--text2);font-size:11px;border-bottom:1px solid var(--border)">Fence Type</th>
+                <th style="text-align:right;padding:8px 14px;font-weight:700;color:var(--text2);font-size:11px;border-bottom:1px solid var(--border)">Jobs</th>
+                <th style="text-align:right;padding:8px 14px;font-weight:700;color:var(--text2);font-size:11px;border-bottom:1px solid var(--border)">Avg LF</th>
+                <th style="text-align:right;padding:8px 14px;font-weight:700;color:var(--navy);font-size:11px;border-bottom:1px solid var(--border)">CC $/LF</th>
+                <th style="text-align:right;padding:8px 14px;font-weight:700;color:var(--green);font-size:11px;border-bottom:1px solid var(--border)">Cash $/LF</th>
+                <th style="text-align:right;padding:8px 14px;font-weight:700;color:var(--text2);font-size:11px;border-bottom:1px solid var(--border)">CC range</th>
+                <th style="padding:8px 14px;font-weight:700;color:var(--text2);font-size:11px;border-bottom:1px solid var(--border)">Relative</th>
+              </tr>
+            </thead>
+            <tbody id="pi_typeBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- LF Bucket table -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.06em">Avg $/LF by LF bucket</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Use this to fill in MySalesman pricing tiers</div>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:var(--surface2)">
+                <th style="text-align:left;padding:8px 14px;font-weight:700;color:var(--text2);font-size:11px;border-bottom:1px solid var(--border)">LF Range</th>
+                <th style="text-align:right;padding:8px 14px;font-weight:700;color:var(--text2);font-size:11px;border-bottom:1px solid var(--border)">Jobs</th>
+                <th style="text-align:right;padding:8px 14px;font-weight:700;color:var(--text2);font-size:11px;border-bottom:1px solid var(--border)">Avg LF</th>
+                <th style="text-align:right;padding:8px 14px;font-weight:700;color:var(--navy);font-size:11px;border-bottom:1px solid var(--border)">CC $/LF</th>
+                <th style="text-align:right;padding:8px 14px;font-weight:700;color:var(--green);font-size:11px;border-bottom:1px solid var(--border)">Cash $/LF</th>
+                <th style="text-align:right;padding:8px 14px;font-weight:700;color:var(--text2);font-size:11px;border-bottom:1px solid var(--border)">Avg CC job $</th>
+                <th style="padding:8px 14px;font-weight:700;color:var(--text2);font-size:11px;border-bottom:1px solid var(--border)">Volume</th>
+              </tr>
+            </thead>
+            <tbody id="pi_bucketBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- MySalesman copy block -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div>
+            <div style="font-size:12px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.06em">MySalesman quick-copy</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Copy-paste ready pricing tiers for each fence type</div>
+          </div>
+          <button class="btn btn-sm btn-navy" onclick="piCopy()">📋 Copy to clipboard</button>
+        </div>
+        <pre id="pi_copyBlock" style="font-family:var(--mono);font-size:11px;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;white-space:pre;overflow-x:auto;line-height:1.8;margin:0"></pre>
+      </div>
+
+    </div><!-- end atab-pricing -->
 
   </div><!-- end scroll area -->
 </div>
@@ -14464,7 +14562,7 @@ function isClosed(status) {
 
 // ── MAIN RENDER ──────────────────────────────────
 function showAnalyticsTab(tab) {
-  const tabs = ['overview','pipeline','performance','breakdown','booking','dow'];
+  const tabs = ['overview','pipeline','performance','breakdown','booking','dow','pricing'];
   tabs.forEach(t => {
     const btn   = document.getElementById('atab_' + t);
     const panel = document.getElementById('atab-' + t);
@@ -14478,6 +14576,8 @@ function showAnalyticsTab(tab) {
     const rangeVal = document.getElementById('analyticsRange')?.value || 'all';
     renderDayOfWeek(analyticsData, getDateRange(rangeVal));
   }
+  // Pricing Intel reads live jobs — render on demand
+  if (tab === 'pricing') renderPricingIntel();
 }
 
 function renderAnalytics() {
@@ -14576,6 +14676,178 @@ function renderAnalytics() {
   renderBookingTime(analyticsData, range); // filters internally on Accepted Date
   // DOW renders on tab switch — only pre-render if tab is active
   if (document.getElementById('atab-dow')?.style.display !== 'none') renderDayOfWeek(analyticsData, range);
+}
+
+// ══════════════════════════════════════════════════════════
+// PRICING INTEL — reads live jobs[], not analyticsData
+// ══════════════════════════════════════════════════════════
+function renderPricingIntel() {
+  const statusF = document.getElementById('pi_filterStatus')?.value || 'won';
+  const payF    = document.getElementById('pi_filterPay')?.value    || 'all';
+  const bSize   = parseInt(document.getElementById('pi_bucketSize')?.value) || 50;
+  const typeF   = document.getElementById('pi_bucketType')?.value   || 'all';
+
+  const WON_S  = new Set(['Accepted','Deposit Received','Scheduled','In Progress','Ready for Invoice','Invoiced','Paid in Full']);
+  const COMM_S = new Set(['Committed','Sent','Accepted','Deposit Received','Scheduled','In Progress','Ready for Invoice','Invoiced','Paid in Full']);
+
+  // Pull from live jobs array — always fresh
+  const filtered = (jobs || []).filter(j => {
+    const lf = Number(j.totalLF) || 0;
+    const cc = Number(j.calc_final || j.finalPrice) || 0;
+    if (lf < 1 || cc < 1) return false;
+
+    const s = (j.propStatus || j.proposalStatus || 'Draft').trim();
+    if (statusF === 'won'       && !WON_S.has(s))  return false;
+    if (statusF === 'committed' && !COMM_S.has(s)) return false;
+
+    const pm = (j.payMethod || 'CC').trim();
+    if (payF === 'CC'   && !/cc|finance/i.test(pm) && pm !== 'CC')   return false;
+    if (payF === 'Cash' && !/cash|check/i.test(pm) && pm !== 'Cash') return false;
+
+    return true;
+  });
+
+  const countEl = document.getElementById('pi_jobCount');
+  if (countEl) countEl.textContent = filtered.length + ' jobs matched';
+
+  if (!filtered.length) {
+    document.getElementById('pi_typeBody').innerHTML   = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--text3)">No jobs match current filters</td></tr>';
+    document.getElementById('pi_bucketBody').innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--text3)">No jobs match current filters</td></tr>';
+    document.getElementById('pi_copyBlock').textContent = '';
+    document.getElementById('pi_kpis').innerHTML = '';
+    return;
+  }
+
+  // ── helpers ──
+  const lfOf  = j => Number(j.totalLF) || 0;
+  const ccOf  = j => Number(j.calc_final || j.finalPrice) || 0;
+  const caOf  = j => Number(j.calc_cash  || j.cashPrice)  || 0;
+  const ftOf  = j => (j.fenceType || 'Unknown').trim();
+  const avg   = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+
+  function statsFor(jbs) {
+    const lfs    = jbs.map(lfOf).filter(v=>v>0);
+    const ccPlf  = jbs.map(j=>{const l=lfOf(j),c=ccOf(j);return l>0&&c>0?c/l:null}).filter(v=>v!==null);
+    const caPlf  = jbs.map(j=>{const l=lfOf(j),c=caOf(j);return l>0&&c>0?c/l:null}).filter(v=>v!==null);
+    return {
+      count:    jbs.length,
+      avgLF:    avg(lfs),
+      avgCCPlf: avg(ccPlf),
+      avgCaPlf: avg(caPlf),
+      minCC:    ccPlf.length ? Math.min(...ccPlf) : 0,
+      maxCC:    ccPlf.length ? Math.max(...ccPlf) : 0,
+    };
+  }
+
+  // ── KPI row ──
+  const overall = statsFor(filtered);
+  const kpiEl   = document.getElementById('pi_kpis');
+  if (kpiEl) kpiEl.innerHTML = `
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Jobs analyzed</div>
+      <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)">${filtered.length}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg job LF</div>
+      <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)">${Math.round(overall.avgLF)}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg CC $/LF</div>
+      <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)">$${overall.avgCCPlf.toFixed(2)}</div>
+    </div>
+    <div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg Cash $/LF</div>
+      <div style="font-size:28px;font-weight:900;color:var(--green);font-family:var(--mono)">$${overall.avgCaPlf.toFixed(2)}</div>
+    </div>`;
+
+  // ── By fence type ──
+  const typeMap = {};
+  filtered.forEach(j => { const t=ftOf(j); if(!typeMap[t]) typeMap[t]=[]; typeMap[t].push(j); });
+  const typeRows = Object.entries(typeMap).map(([ft,jbs])=>({ft,...statsFor(jbs)})).sort((a,b)=>b.count-a.count);
+  const maxCC = Math.max(...typeRows.map(r=>r.avgCCPlf), 1);
+
+  // Populate type filter dropdown
+  const btEl = document.getElementById('pi_bucketType');
+  if (btEl) {
+    const cur = btEl.value;
+    const types = typeRows.map(r=>r.ft);
+    btEl.innerHTML = '<option value="all">All types</option>' + types.map(t=>`<option value="${t}"${t===cur?' selected':''}>${t}</option>`).join('');
+  }
+
+  document.getElementById('pi_typeBody').innerHTML = typeRows.map(r => `
+    <tr>
+      <td style="padding:8px 14px;font-weight:700">${r.ft}</td>
+      <td style="padding:8px 14px;text-align:right;font-family:var(--mono)">${r.count}</td>
+      <td style="padding:8px 14px;text-align:right;font-family:var(--mono)">${Math.round(r.avgLF)}</td>
+      <td style="padding:8px 14px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">$${r.avgCCPlf.toFixed(2)}</td>
+      <td style="padding:8px 14px;text-align:right;font-family:var(--mono);color:var(--green)">$${r.avgCaPlf.toFixed(2)}</td>
+      <td style="padding:8px 14px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">$${r.minCC.toFixed(0)}–$${r.maxCC.toFixed(0)}</td>
+      <td style="padding:8px 14px;min-width:80px">
+        <div style="background:var(--surface2);border-radius:4px;height:6px">
+          <div style="background:var(--navy);height:6px;border-radius:4px;width:${Math.round((r.avgCCPlf/maxCC)*100)}%"></div>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  // ── By LF bucket ──
+  const bucketSrc = typeF === 'all' ? filtered : filtered.filter(j => ftOf(j) === typeF);
+  const buckets   = {};
+  bucketSrc.forEach(j => {
+    const lf = lfOf(j); if (lf < 1) return;
+    const b  = Math.floor(lf / bSize) * bSize;
+    if (!buckets[b]) buckets[b] = [];
+    buckets[b].push(j);
+  });
+  const bKeys   = Object.keys(buckets).map(Number).sort((a,b)=>a-b);
+  const maxBCnt = Math.max(...bKeys.map(k=>buckets[k].length), 1);
+
+  document.getElementById('pi_bucketBody').innerHTML = bKeys.map(k => {
+    const jbs = buckets[k];
+    const st  = statsFor(jbs);
+    const avgJobCC = jbs.reduce((s,j)=>s+ccOf(j),0)/jbs.length;
+    const barW = Math.round((jbs.length/maxBCnt)*100);
+    return `<tr>
+      <td style="padding:8px 14px;font-weight:700">${k}–${k+bSize-1} LF</td>
+      <td style="padding:8px 14px;text-align:right;font-family:var(--mono)">${jbs.length}</td>
+      <td style="padding:8px 14px;text-align:right;font-family:var(--mono)">${Math.round(st.avgLF)}</td>
+      <td style="padding:8px 14px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">$${st.avgCCPlf.toFixed(2)}</td>
+      <td style="padding:8px 14px;text-align:right;font-family:var(--mono);color:var(--green)">$${st.avgCaPlf.toFixed(2)}</td>
+      <td style="padding:8px 14px;text-align:right;font-family:var(--mono)">$${Math.round(avgJobCC).toLocaleString()}</td>
+      <td style="padding:8px 14px;min-width:80px">
+        <div style="background:var(--surface2);border-radius:4px;height:6px">
+          <div style="background:var(--orange);height:6px;border-radius:4px;width:${barW}%"></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // ── MySalesman copy block ──
+  let out = '';
+  typeRows.forEach(({ft}) => {
+    const jbs = typeMap[ft];
+    const typeBuckets = {};
+    jbs.forEach(j => {
+      const lf = lfOf(j); if (lf < 1) return;
+      const b  = Math.floor(lf / bSize) * bSize;
+      if (!typeBuckets[b]) typeBuckets[b] = [];
+      typeBuckets[b].push(j);
+    });
+    const tKeys = Object.keys(typeBuckets).map(Number).sort((a,b)=>a-b);
+    out += ft.toUpperCase() + '\n';
+    tKeys.forEach(k => {
+      const g  = typeBuckets[k];
+      const st = statsFor(g);
+      if (st.avgCCPlf < 0.01) return;
+      out += `  ${k}–${k+bSize-1} LF  |  CC: $${st.avgCCPlf.toFixed(2)}/LF  |  Cash: $${st.avgCaPlf.toFixed(2)}/LF  |  ${g.length} jobs  |  avg job: $${Math.round(st.avgCCPlf * st.avgLF).toLocaleString()}\n`;
+    });
+    out += '\n';
+  });
+  document.getElementById('pi_copyBlock').textContent = out || 'No data with current filters.';
+}
+
+function piCopy() {
+  const txt = document.getElementById('pi_copyBlock')?.textContent || '';
+  navigator.clipboard.writeText(txt).then(() => showToast('✓ Copied to clipboard'));
 }
 
 // ── PIPELINE KPIs ─────────────────────────────────────────
