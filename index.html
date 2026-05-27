@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.10.6</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.10.7</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -5608,7 +5608,11 @@ function show(id) {
   }
   if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList(); initSetupCollapse(); }
   if (id === 'analytics') {
-    // Try to get latest analytics from cloud first
+    // Hydrate from localStorage first so cloud is only needed when truly empty
+    if (!analyticsData.length) {
+      const stored = localStorage.getItem('fp_analytics');
+      if (stored) { try { analyticsData = JSON.parse(stored); } catch(e) {} }
+    }
     if (settings.scriptUrl && !analyticsData.length) {
       cloudCall({ action: 'getAnalytics', data: {} }).then(res => {
         if (res?.records?.length) {
