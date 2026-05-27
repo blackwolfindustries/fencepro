@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.7.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.9.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -5264,46 +5264,110 @@ document.addEventListener('DOMContentLoaded', () => {
   onFranchChange();
 
   // ── CLOUD-FIRST STARTUP ──
-  // Always try to load everything from cloud first.
-  // localStorage is only a fallback for when cloud is unreachable.
+  // Single getAll call replaces 5 sequential round trips — much faster startup.
+  // Falls back to individual calls if getAll isn't available (old deployment).
   if (settings.scriptUrl) {
     setCloud('saving', 'Loading from cloud...');
-    // Load in sequence: settings+setup → jobs → contacts
-    loadCloudSettings()
-      .then(() => {
-        // Setup data (fence types, suppliers, crews, parts) restored inside loadCloudSettings
+    (async () => {
+      try {
+        const url = settings.scriptUrl;
+        const res = await fetch(url + '?action=getAll&key=' + encodeURIComponent(settings.apiKey || ''));
+        const data = await res.json();
+
+        if (data.error || !data.jobs) throw new Error(data.error || 'getAll returned no jobs');
+
+        // ── Process jobs ──
+        const openId = curIdx >= 0 ? (jobs[curIdx]?.id || '') : '';
+        const liveInternalNotes = openId ? (document.getElementById('internalNotes')?.value || '') : '';
+        const liveScopeNotes    = openId ? (document.getElementById('scopeNotes')?.value    || '') : '';
+        const cloudIds = new Set(data.jobs.map(j => String(j['Estimate ID'] || j['Job ID'] || '').trim()).filter(Boolean));
+        const localOnlyJobs = jobs.filter(j => { const id = String(j.id||'').trim(); return id && !cloudIds.has(id); });
+        const localNotesMap = {};
+        jobs.forEach(j => {
+          if (!j.id) return;
+          if (j.internalNotes?.trim()) { if (!localNotesMap[j.id]) localNotesMap[j.id] = {}; localNotesMap[j.id].internalNotes = j.internalNotes; }
+          if (j.scopeNotes?.trim())    { if (!localNotesMap[j.id]) localNotesMap[j.id] = {}; localNotesMap[j.id].scopeNotes = j.scopeNotes; }
+        });
+        if (openId) {
+          if (liveInternalNotes.trim()) { if (!localNotesMap[openId]) localNotesMap[openId] = {}; localNotesMap[openId].internalNotes = liveInternalNotes; }
+          if (liveScopeNotes.trim())    { if (!localNotesMap[openId]) localNotesMap[openId] = {}; localNotesMap[openId].scopeNotes = liveScopeNotes; }
+        }
+        jobs = [...data.jobs.map(j => {
+          const norm = normalizeJob(j);
+          const saved = localNotesMap[norm.id];
+          if (saved?.internalNotes) norm.internalNotes = saved.internalNotes;
+          if (saved?.scopeNotes)    norm.scopeNotes    = saved.scopeNotes;
+          return norm;
+        }), ...localOnlyJobs];
+        persistJobs();
+        if (openId) { const idx = jobs.findIndex(j => j.id === openId); if (idx >= 0) curIdx = idx; }
+
+        // ── Process invoices ──
+        if (Array.isArray(data.invoices)) invoices = data.invoices;
+
+        // ── Process job costs ──
+        if (Array.isArray(data.jobCosts)) {
+          const costMap = {};
+          data.jobCosts.forEach(c => {
+            const prefix = String(c.jobId || '').split('-')[0];
+            if (!prefix) return;
+            if (!costMap[prefix]) costMap[prefix] = { costs: [] };
+            costMap[prefix].costs.push(c);
+          });
+          localStorage.setItem('fp_jobCosts', JSON.stringify(costMap));
+        }
+
+        // ── Process settings ──
+        if (data.settings) {
+          const s = data.settings;
+          if (s.companyName)  settings.companyName  = s.companyName;
+          if (s.companyPhone) settings.companyPhone = s.companyPhone;
+          if (s.companyEmail) settings.companyEmail = s.companyEmail;
+          if (s.companyAddr)  settings.companyAddr  = s.companyAddr;
+          if (s.apiKey)       settings.apiKey       = s.apiKey;
+          if (s.templates)    { try { localStorage.setItem('fp_templates',       JSON.stringify(typeof s.templates === 'string' ? JSON.parse(s.templates) : s.templates)); } catch(e) {} }
+          if (s.emailTemplates) { try { localStorage.setItem('fp_email_templates', JSON.stringify(typeof s.emailTemplates === 'string' ? JSON.parse(s.emailTemplates) : s.emailTemplates)); } catch(e) {} }
+          localStorage.setItem('fp_settings', JSON.stringify(settings));
+          loadSettings();
+        }
+
+        // ── Process setup data ──
+        if (data.setupData) {
+          const sd = data.setupData;
+          const restore = (key, localKey) => { if (sd[key] && Array.isArray(sd[key]) && sd[key].length > 0) localStorage.setItem(localKey, JSON.stringify(sd[key])); };
+          restore('fenceTypes', 'fp_fenceTypes');
+          restore('suppliers',  'fp_suppliers');
+          restore('crews',      'fp_crews');
+          restore('parts',      'fp_parts');
+          ['railingCategories','railingStyles','railingHeights'].forEach(k => { if (sd[k] && Array.isArray(sd[k])) localStorage.setItem('fp_' + k, JSON.stringify(sd[k])); });
+        }
+
+        // ── Re-render everything ──
         populateFenceTypes();
         populateSuppliers && populateSuppliers();
-        initParts();
         populateCrewDropdown && populateCrewDropdown();
-        return loadCloud(); // loads jobs from Sheets
-      })
-      .then(() => {
-        return loadCloudContacts(); // loads contacts from Sheets
-      })
-      .then(() => {
-        updateContactsStatus();
-        renderBoard();
-        renderEstList();
-        renderJobsList();
-        renderParts();
-        assembleId();
-        recalc();
-        loadContacts();
-      })
-      .catch((e) => {
-        console.warn('Cloud startup failed — falling back to local cache:', e);
-        // Fall back gracefully to whatever is in localStorage
-        populateFenceTypes();
         initParts();
         renderBoard();
         renderEstList();
         renderJobsList();
+        renderInvoicesTab && renderInvoicesTab();
         renderParts();
         assembleId();
         recalc();
         loadContacts();
-      });
+        updateContactsStatus();
+        setCloud('saved', 'Loaded ✓');
+
+      } catch(e) {
+        console.warn('getAll startup failed — falling back to sequential load:', e);
+        // Fall back to old sequential method if getAll not available
+        loadCloudSettings()
+          .then(() => { populateFenceTypes(); populateSuppliers && populateSuppliers(); initParts(); populateCrewDropdown && populateCrewDropdown(); return loadCloud(); })
+          .then(() => loadCloudContacts())
+          .then(() => { updateContactsStatus(); renderBoard(); renderEstList(); renderJobsList(); renderParts(); assembleId(); recalc(); loadContacts(); })
+          .catch(() => { populateFenceTypes(); initParts(); renderBoard(); renderEstList(); renderJobsList(); renderParts(); assembleId(); recalc(); loadContacts(); });
+      }
+    })();
   } else {
     // No cloud configured — use localStorage
     populateFenceTypes();
@@ -13450,23 +13514,27 @@ function renderInvoiceFromRecord(inv) {
   const co          = inv.companyName  || settings.companyName || (activeCompany === 'TRF' ? 'Top Rail Fence Huntington' : 'Black Wolf Industries LLC');
   const coAddr      = inv.companyAddr  || settings.companyAddr  || '169 Commack Rd #1009, Commack, NY 11725';
   const coPhone     = inv.companyPhone || settings.companyPhone || '631-275-2020';
+
+  // Resolve job number and matching job object first — needed for city/scope/deposit below
+  const jobNum      = String(inv['Job ID']  || inv.jobId || '').split('-')[0];
+  const _invJobObj  = (typeof jobs !== 'undefined') ? jobs.find(j => (j.jobId || (j.id||'').split('-')[0]) === jobNum) : null;
+
   const custName    = inv['Customer Name'] || inv.custName    || '-';
   const jobAddr     = inv['Job Address']   || inv.jobAddr     || '';
   const jobAddr2    = inv.jobAddr2    || '';
-  const jobCity     = inv.jobCity     || '';
-  const jobState    = inv.jobState    || '';
-  const jobZip      = inv.jobZip      || '';
+  const jobCity     = inv.jobCity     || inv['Job City']  || _invJobObj?.jobCity  || _invJobObj?.['Job City']  || '';
+  const jobState    = inv.jobState    || inv['Job State'] || _invJobObj?.jobState || _invJobObj?.['Job State'] || '';
+  const jobZip      = inv.jobZip      || inv['Zip']       || _invJobObj?.custZip  || _invJobObj?.['Zip']       || '';
   const cityLine    = [jobCity, jobState, jobZip].filter(Boolean).join(', ');
   const custPhone   = inv.custPhone   || '';
   const custEmail   = inv['Email'] || inv.custEmail || '';
   const fenceType   = inv['Fence Type'] || inv.fenceType  || 'Fence Installation';
-  const projDesc    = inv.projDesc    || '';
-  const scopeNotes  = inv.scopeNotes  || '';
+  const projDesc    = inv.projDesc    || inv['Project Description'] || _invJobObj?.projDesc    || '';
+  const scopeNotes  = inv.scopeNotes  || inv['Scope Notes']         || _invJobObj?.scopeNotes  || '';
   const invNum      = inv['Invoice Number'] || inv.invoiceNumber || inv['Invoice ID'] || inv.invoiceId || 'Pending';
   const invDate     = inv['Invoice Date']   || inv.invoiceDate   || '';
   const dueDate     = inv['Due Date']       || inv.dueDate       || '';
   const status      = inv['Payment Status'] || inv.status        || 'Unpaid';
-  const jobNum      = String(inv['Job ID']  || inv.jobId || '').split('-')[0];
 
   // Contract price — sheet now stores Final Price CC / Cash Price separately
   // Fall back to old 'Contract Price' field for backwards compat with older records
@@ -13476,11 +13544,11 @@ function renderInvoiceFromRecord(inv) {
   const contractPrice   = priceType === 'Cash' ? (_cashPrice || _ccPrice) : (_ccPrice || _cashPrice);
 
   // Deposit — sheet stores it in Deposit Paid or fall back to totalPaid from job
-  const _invJobObj      = (typeof jobs !== 'undefined') ? jobs.find(j => (j.jobId || (j.id||'').split('-')[0]) === jobNum) : null;
-  const depositPaid     = inv._totalPaid   > 0        ? inv._totalPaid
-                        : inv.depositPaid > 0        ? inv.depositPaid
+  // depositPaid for the summary row = actual deposit only (not total paid)
+  const depositPaid     = inv._depositPaid > 0           ? inv._depositPaid
+                        : inv.depositPaid  > 0           ? inv.depositPaid
                         : Number(inv['Deposit Paid']) > 0 ? Number(inv['Deposit Paid'])
-                        : _invJobObj?.depositPaid    || 0;
+                        : _invJobObj?.depositPaid         || 0;
   const depositType     = inv.depositType || _invJobObj?.depositType || '50pct';
 
   // Balance due — $0 if Paid in Full, otherwise Amount Due from sheet or calculate
