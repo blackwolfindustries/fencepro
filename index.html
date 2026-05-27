@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.10.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.10.3</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1262,7 +1262,7 @@
       <!-- ROW 3: Total LF · Gates · Markup % · Material Cost · Labor Cost · Demo LF · Demo Rate -->
       <div class="f">
         <label>TOTAL LF ★</label>
-        <input type="number" id="totalLF" value="0" min="0" oninput="recalcDebounced()">
+        <input type="number" id="totalLF" value="0" min="0" oninput="onTotalLFChange()">
       </div>
       <div class="f">
         <label>MARKUP % ★</label>
@@ -1281,8 +1281,8 @@
         <input type="number" id="laborCost" value="0.00" min="0" step="0.01" oninput="recalcDebounced()" onblur="fmtCurrency(this)" onfocus="stripCurrency(this)">
       </div>
       <div class="f">
-        <label>DEMO LF ★</label>
-        <input type="number" id="demoLF" value="0" min="0" oninput="recalcDebounced()">
+        <label id="demoLF_label">DEMO LF ★</label>
+        <input type="number" id="demoLF" value="0" min="0" oninput="onDemoLFChange()">
       </div>
       <div class="f">
         <label>DEMO RATE ★</label>
@@ -5028,6 +5028,64 @@ function recalcDebounced() {
   _recalcTimer = setTimeout(recalc, 120);
 }
 
+// ── Total LF → Demo LF auto-sync ─────────────────────────
+// When Total LF changes:
+//   • If Demo LF is still 0 or was previously equal to Total LF → mirror it automatically
+//   • If user has intentionally set Demo LF to something different → leave it alone
+//   • Always update the warning indicator
+let _demoLFManuallySet = false; // tracks if user has deliberately overridden demo LF
+
+function onTotalLFChange() {
+  const totalEl = document.getElementById('totalLF');
+  const demoEl  = document.getElementById('demoLF');
+  if (!totalEl || !demoEl) { recalcDebounced(); return; }
+  const totalVal = Number(totalEl.value) || 0;
+  // Always sync unless user has intentionally set demo to a different non-zero value
+  if (!_demoLFManuallySet) {
+    demoEl.value = totalVal;
+  }
+  _updateDemoLFWarning();
+  recalcDebounced();
+}
+
+function onDemoLFChange() {
+  const totalEl = document.getElementById('totalLF');
+  const demoEl  = document.getElementById('demoLF');
+  const totalVal = Number(totalEl?.value) || 0;
+  const demoVal  = Number(demoEl?.value)  || 0;
+  // Mark as manually set only if user typed something DIFFERENT from total (partial demo)
+  _demoLFManuallySet = (demoVal !== totalVal);
+  _updateDemoLFWarning();
+  recalcDebounced();
+}
+
+function _updateDemoLFWarning() {
+  const totalEl  = document.getElementById('totalLF');
+  const demoEl   = document.getElementById('demoLF');
+  const labelEl  = document.getElementById('demoLF_label');
+  if (!totalEl || !demoEl || !labelEl) return;
+  const totalVal = Number(totalEl.value) || 0;
+  const demoVal  = Number(demoEl.value)  || 0;
+  const missing  = totalVal > 0 && demoVal === 0;
+  const mismatch = totalVal > 0 && demoVal > 0 && demoVal !== totalVal;
+  if (missing) {
+    labelEl.innerHTML = 'DEMO LF ★ <span style="color:var(--red);font-size:10px;font-weight:800">⚠ MISSING</span>';
+    demoEl.style.borderColor = 'var(--red)';
+    demoEl.style.background  = 'var(--red-bg)';
+    demoEl.style.outline     = '2px solid var(--red)';
+  } else if (mismatch) {
+    labelEl.innerHTML = 'DEMO LF ★ <span style="color:var(--red);font-size:10px;font-weight:800">⚠ ' + demoVal + ' \u2260 ' + totalVal + ' LF</span>';
+    demoEl.style.borderColor = 'var(--red)';
+    demoEl.style.background  = 'var(--red-bg)';
+    demoEl.style.outline     = '2px solid var(--red)';
+  } else {
+    labelEl.textContent      = 'DEMO LF \u2605';
+    demoEl.style.borderColor = '';
+    demoEl.style.background  = '';
+    demoEl.style.outline     = '';
+  }
+}
+
 // ════════════════════════════════════════════════
 // INIT
 /* ════════════════════════════════════════════════
@@ -7199,6 +7257,33 @@ async function saveJob() {
     return;
   }
 
+  // ── Demo LF confirm — warn on 0 or mismatch vs totalLF, always allow override ──
+  if (data.totalLF > 0 && data.demoLF === 0) {
+    const proceed = confirm(
+      '⚠ DEMO LF IS 0\n\n' +
+      'Total LF is ' + data.totalLF + ' but Demo LF is 0.\n\n' +
+      'OK = No demo on this job — save anyway\n' +
+      'Cancel = Go back and fix Demo LF'
+    );
+    if (!proceed) {
+      document.getElementById('demoLF')?.focus();
+      return;
+    }
+  } else if (data.totalLF > 0 && data.demoLF !== data.totalLF) {
+    const proceed = confirm(
+      '⚠ DEMO LF MISMATCH\n\n' +
+      'Total LF:  ' + data.totalLF + '\n' +
+      'Demo LF:   ' + data.demoLF + '\n\n' +
+      'Is this intentional (partial demo)?\n\n' +
+      'OK = Yes, intentional — save anyway\n' +
+      'Cancel = Go back and fix Demo LF'
+    );
+    if (!proceed) {
+      document.getElementById('demoLF')?.focus();
+      return;
+    }
+  }
+
   // Auto-set status to Committed only for Draft estimates
   // For all other statuses (Accepted, Deposit Received, Scheduled etc) keep as-is
   const currentStatus = val('propStatus');
@@ -7570,6 +7655,12 @@ function loadJobLocal(idx) {
   setVal('laborCost',   g('laborCost',  'Labor Cost'));
   setVal('demoLF',      g('demoLF',     'Demo LF'));
   setVal('demoRate',    g('demoRate',   'Demo Rate'));
+  // After loading, mark demo LF as intentional if it differs from total LF
+  // (it was saved that way on purpose), then update the warning indicator.
+  { const tLF = Number(document.getElementById('totalLF')?.value) || 0;
+    const dLF = Number(document.getElementById('demoLF')?.value)  || 0;
+    _demoLFManuallySet = (dLF > 0 && dLF !== tLF);
+    _updateDemoLFWarning(); }
   setVal('concBags',    g('concBags',   'Concrete Bags'));
   setVal('cartFee',     g('cartFee',    'Carting Fee'));
   setVal('addOns',      g('addOns',     'AddOn Costs'));
