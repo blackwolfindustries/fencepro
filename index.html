@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.1.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.2.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -8618,7 +8618,7 @@ function renderBoard() {
       const idx = jobs.indexOf(job);
       const card = document.createElement('div');
       card.className = 'jcard'; card.draggable = true;
-      card.innerHTML = `<div class="jcard-name"><span class="jcard-drag-handle" title="Drag to move">⠿</span><span style="font-size:10px;font-weight:700;color:var(--orange);font-family:var(--mono);margin-right:5px">${(job.id||'').split('-')[0]||''}</span>${job.custName||'Unnamed'}</div>
+      card.innerHTML = `<div class="jcard-name"><span class="jcard-drag-handle" title="Drag to move">⠿</span><span style="font-size:10px;font-weight:700;color:var(--orange);font-family:var(--mono);margin-right:5px">${(job.id||'').split('-')[0]||''}</span>${job.custName||'Unnamed'}${(job.id||'').split('-')[2] ? `<span style="font-size:9px;font-weight:800;color:var(--text3);margin-left:5px;letter-spacing:.04em">EST ${(job.id||'').split('-')[2]}</span>` : ''}</div>
         <div class="jcard-meta">${job.fenceType||''}</div>
         <div class="jcard-meta">${(job.jobAddr||'').split(',')[0]}</div>
         <div class="jcard-price">${job.finalPrice ? '$' + Math.round(job.finalPrice).toLocaleString() : (job.calc_final ? '$' + Math.round(job.calc_final).toLocaleString() : '—')}</div>
@@ -12029,12 +12029,20 @@ async function sendDepositReceipt(jobOverride) {
   const depositPaid  = job.totalPaid > 0 ? job.totalPaid : (job.depositPaid || 0);
   const balanceDue   = job.balanceDue_calc > 0 ? job.balanceDue_calc
     : Math.max(0, contractPrice - depositPaid);
-  // sanitize method — if it looks like a date/ISO string, clear it
+  // sanitize method — reject dates/ISO strings AND values that aren't known payment methods
+  // (guards against sheet column bleed where supplier name lands in Deposit Method column)
+  const VALID_METHODS = ['Check','Cash','Credit Card','CC','Zelle','Venmo','ACH','Wire','Other'];
   const rawMethod = job.depositMethod || '';
-  const method    = /^\d{4}-\d{2}/.test(rawMethod) ? '' : rawMethod;
+  const method    = /^\d{4}-\d{2}/.test(rawMethod)                     ? '' // date string
+                  : rawMethod && !VALID_METHODS.some(m =>
+                      rawMethod.toLowerCase().includes(m.toLowerCase())) ? '' // not a payment method
+                  : rawMethod;
   const ref          = job.depositRef   || '';
-  const dateStr      = job.depositDate
-    ? new Date(job.depositDate + 'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})
+  // Normalize depositDate — strip any existing time/timezone before appending T12:00:00
+  // Handles ISO strings like "2026-03-15T00:00:00.000Z" that would produce "Invalid Date"
+  const _rawDepDate  = (job.depositDate || '').toString().split('T')[0].trim();
+  const dateStr      = _rawDepDate
+    ? (() => { const d = new Date(_rawDepDate + 'T12:00:00'); return isNaN(d) ? new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}); })()
     : new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
   const receiptNum   = 'DEP-' + (estId.split('-')[0] || Date.now().toString().slice(-6)) + '-' + Date.now().toString().slice(-4);
 
