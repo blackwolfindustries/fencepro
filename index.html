@@ -6375,7 +6375,9 @@ function importContactsCSV(text, isIncremental) {
     };
 
     if (uid && existingMap[uid]) {
-      // Update existing contact
+      // Update existing contact — preserve createdAt if CSV column AN is blank
+      const prev = existingMap[uid];
+      if (!contact.createdAt && prev.createdAt) contact.createdAt = prev.createdAt;
       existingMap[uid] = contact;
       updated++;
     } else {
@@ -10631,7 +10633,9 @@ function saveContactForm() {
   if (idx >= 0) {
     // Preserve inactive status and createdAt on edit
     updated.inactive  = contacts[idx].inactive  || false;
-    updated.createdAt = contacts[idx].createdAt || updated.createdAt;
+    // Preserve existing createdAt only if it's a real non-empty value
+    const prevCreated = contacts[idx].createdAt;
+    updated.createdAt = (prevCreated && prevCreated.trim()) ? prevCreated : updated.createdAt;
     contacts[idx] = updated;
   } else {
     contacts.push(updated);
@@ -15514,15 +15518,14 @@ function renderKPIs(csvRows, allCsvRows, range) {
   const closeRate      = totalProposals > 0 ? (csvClosed / totalProposals * 100).toFixed(1) : '0.0';
   const avgVal         = csvClosed > 0 ? (csvRevenue + csvBacklog) / csvClosed : 0;
 
-  // // Conversion Rate: Leads → Estimates
-  // Leads     = contacts whose createdAt is in the selected range
-  // Estimates = proposals whose Date (col B) is in the selected range = csvRows.length
+  // Conversion Rate: Leads → Estimates
+  // Leads     = contacts from the uploaded Contacts CSV whose createdAt is in range
+  // Estimates = proposals in the selected date range (csvRows.length)
+  // RULE: Only use the CSV-uploaded contacts array. Never touch fp_contacts (localStorage)
+  //       or anything entered directly in FencePro — that is a completely separate universe.
   const _inRange = d => d && (!range.start || d >= range.start) && (!range.end || d <= range.end);
-  const _contacts = (() => {
-    if (typeof contacts !== 'undefined' && contacts && contacts.length) return contacts;
-    try { return JSON.parse(localStorage.getItem('fp_contacts') || '[]'); } catch(e) { return []; }
-  })();
-  const convLeads     = _contacts.filter(c => _inRange(parseAnalyticsDate(c.createdAt))).length;
+  const _csvContacts = (typeof contacts !== 'undefined' && Array.isArray(contacts)) ? contacts.filter(c => c.source !== 'FencePro') : [];
+  const convLeads     = _csvContacts.filter(c => _inRange(parseAnalyticsDate(c.createdAt))).length;
   const convEstimates = csvRows.length;
   const convRate      = convLeads > 0 ? (convEstimates / convLeads * 100).toFixed(1) : null;
 
@@ -15851,10 +15854,11 @@ function renderPerformance(filteredProposals, range) {
   if (!proposals.length) return;
 
   // ── LEADS from contacts (true lead date = createdAt) ──────
-  const contactsArr = (() => {
-    if (contacts && contacts.length) return contacts;
-    try { return JSON.parse(localStorage.getItem('fp_contacts') || '[]'); } catch(e) { return []; }
-  })();
+  // RULE: Only use the CSV-uploaded contacts array. Never fall back to fp_contacts (localStorage)
+  //       which contains FencePro-entered contacts — a completely separate universe.
+  const contactsArr = (typeof contacts !== 'undefined' && Array.isArray(contacts))
+    ? contacts.filter(c => c.source !== 'FencePro')
+    : [];
 
   const hasContacts = contactsArr.length > 0;
   document.getElementById('perfDataNote').textContent = hasContacts
