@@ -13395,14 +13395,15 @@ function markProposalSent() {
   if (['Draft','Committed'].includes(current)) {
     if (statusEl) statusEl.value = 'Sent';
     jobs[curIdx].propStatus        = 'Sent';
+    jobs[curIdx].statusChangedAt   = new Date().toISOString();
     jobs[curIdx].proposalLinkSent  = true;
     updateBadge();
-    saveJob();
   } else {
-    // Still mark proposalLinkSent even if status not changed
     jobs[curIdx].proposalLinkSent = true;
-    saveJob();
   }
+  persistJobs();
+  renderBoard();
+  renderEstList();
 }
 
 async function sendViaGmail() {
@@ -13431,8 +13432,7 @@ async function sendViaGmail() {
     if (res.success) {
       showToast('✅ Email sent to ' + email);
       if (btn) { btn.textContent = '✅ Sent!'; btn.style.background = 'var(--green)'; }
-      // Status change removed — user controls status manually
-      if (curIdx >= 0) { jobs[curIdx].proposalLinkSent = true; persistJobs(); }
+      markProposalSent();
     } else {
       throw new Error(res.error || 'Send failed');
     }
@@ -13445,8 +13445,7 @@ async function sendViaGmail() {
 function copyProposalLink() {
   navigator.clipboard.writeText(_proposalLinkUrl).then(() => {
     showToast('✓ Link copied');
-    // Status change removed — user controls status manually
-    if (curIdx >= 0) { jobs[curIdx].proposalLinkSent = true; persistJobs(); }
+    markProposalSent();
   });
 }
 
@@ -13490,8 +13489,8 @@ function openMailto() {
   const body    = encodeURIComponent(_proposalLinkDraft);
   const mailto  = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
 
-  // Status change removed — user controls status manually
-  if (curIdx >= 0) { jobs[curIdx].proposalLinkSent = true; persistJobs(); }
+  // Mark proposal sent and update status
+  markProposalSent();
 
   if (mailto.length < 2000) {
     window.location.href = mailto;
