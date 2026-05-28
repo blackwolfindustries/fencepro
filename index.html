@@ -2567,7 +2567,7 @@
 
     <!-- ══ OVERVIEW ══ -->
     <div id="atab-overview" style="display:flex;flex-direction:column;gap:16px;padding:16px">
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:12px">
         <div class="card" id="kpicard_total" onclick="kpiDrillDown('total')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--navy)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Proposals</div>
           <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_total">—</div>
@@ -2598,6 +2598,16 @@
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg Job Value</div>
           <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_avg">—</div>
           <div style="font-size:9px;color:var(--text3);margin-top:4px">click to view ↓</div>
+        </div>
+        <div class="card" id="kpicard_median" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Median Job Value</div>
+          <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_median">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px" id="kpi_median_sub">closed jobs</div>
+        </div>
+        <div class="card" id="kpicard_gm" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg GM%</div>
+          <div style="font-size:22px;font-weight:900;color:var(--green);font-family:var(--mono)" id="kpi_gm">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px" id="kpi_gm_sub">avg across closed jobs</div>
         </div>
         <div class="card" id="kpicard_pipeline" onclick="kpiDrillDown('pipeline')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--blue)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Open Pipeline</div>
@@ -15518,6 +15528,29 @@ function renderKPIs(csvRows, allCsvRows, range) {
   const closeRate      = totalProposals > 0 ? (csvClosed / totalProposals * 100).toFixed(1) : '0.0';
   const avgVal         = csvClosed > 0 ? (csvRevenue + csvBacklog) / csvClosed : 0;
 
+  // Median Job Value — Accepted + Scheduled + Complete
+  const closedVals = [...csvAccepted, ...csvComplete]
+    .map(r => parseFloat(r['Value']) || 0)
+    .filter(v => v > 0)
+    .sort((a, b) => a - b);
+  let medianVal = 0;
+  if (closedVals.length) {
+    const mid = Math.floor(closedVals.length / 2);
+    medianVal = closedVals.length % 2 !== 0
+      ? closedVals[mid]
+      : (closedVals[mid - 1] + closedVals[mid]) / 2;
+  }
+
+  // Avg GM% — (Value - Expenses) / Value × 100, Accepted + Scheduled + Complete only
+  const gmRows = [...csvAccepted, ...csvComplete].filter(r => {
+    const v = parseFloat(r['Value']);
+    const e = parseFloat(r['Expenses']);
+    return v > 0 && !isNaN(e);
+  });
+  const avgGM = gmRows.length
+    ? gmRows.reduce((sum, r) => sum + ((parseFloat(r['Value']) - parseFloat(r['Expenses'])) / parseFloat(r['Value']) * 100), 0) / gmRows.length
+    : null;
+
   // Conversion Rate: Leads → Estimates
   // Leads     = contacts from the uploaded Contacts CSV whose createdAt is in range
   // Estimates = proposals in the selected date range (csvRows.length)
@@ -15536,6 +15569,10 @@ function renderKPIs(csvRows, allCsvRows, range) {
   document.getElementById('kpi_revenue').textContent   = '$' + Math.round(csvRevenue).toLocaleString();
   document.getElementById('kpi_backlog').textContent   = '$' + Math.round(csvBacklog).toLocaleString();
   document.getElementById('kpi_avg').textContent       = '$' + Math.round(avgVal).toLocaleString();
+  document.getElementById('kpi_median').textContent    = medianVal ? '$' + Math.round(medianVal).toLocaleString() : '—';
+  document.getElementById('kpi_median_sub').textContent = closedVals.length + ' closed jobs';
+  document.getElementById('kpi_gm').textContent        = avgGM !== null ? avgGM.toFixed(1) + '%' : '—';
+  document.getElementById('kpi_gm_sub').textContent    = avgGM !== null ? gmRows.length + ' jobs w/ expenses' : 'No expense data';
   document.getElementById('kpi_pipeline').textContent  = '$' + Math.round(csvPipeline).toLocaleString();
 }
 
