@@ -15541,11 +15541,12 @@ function renderKPIs(csvRows, allCsvRows, range) {
       : (closedVals[mid - 1] + closedVals[mid]) / 2;
   }
 
-  // Avg GM% — (Value - Expenses) / Value × 100, Accepted + Scheduled + Complete only
-  const gmRows = [...csvAccepted, ...csvComplete].filter(r => {
+  // Avg GM% — (Value - Expenses) / Value × 100, Complete only
+  // Expenses are only populated once a job is done; skip any row with blank/missing Expenses
+  const gmRows = csvComplete.filter(r => {
     const v = parseFloat(r['Value']);
     const e = parseFloat(r['Expenses']);
-    return v > 0 && !isNaN(e);
+    return v > 0 && !isNaN(e) && r['Expenses'] !== '';
   });
   const avgGM = gmRows.length
     ? gmRows.reduce((sum, r) => sum + ((parseFloat(r['Value']) - parseFloat(r['Expenses'])) / parseFloat(r['Value']) * 100), 0) / gmRows.length
@@ -15572,7 +15573,7 @@ function renderKPIs(csvRows, allCsvRows, range) {
   document.getElementById('kpi_median').textContent    = medianVal ? '$' + Math.round(medianVal).toLocaleString() : '—';
   document.getElementById('kpi_median_sub').textContent = closedVals.length + ' closed jobs';
   document.getElementById('kpi_gm').textContent        = avgGM !== null ? avgGM.toFixed(1) + '%' : '—';
-  document.getElementById('kpi_gm_sub').textContent    = avgGM !== null ? gmRows.length + ' jobs w/ expenses' : 'No expense data';
+  document.getElementById('kpi_gm_sub').textContent    = avgGM !== null ? gmRows.length + ' complete jobs' : 'No complete jobs yet';
   document.getElementById('kpi_pipeline').textContent  = '$' + Math.round(csvPipeline).toLocaleString();
 }
 
