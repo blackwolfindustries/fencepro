@@ -3327,11 +3327,21 @@
         <label>SCHEDULED INSTALL DATE</label>
         <input type="date" id="sched_date" onchange="checkCrewConflict()">
       </div>
-      <div class="f">
-        <label>ASSIGN CREW</label>
-        <select id="sched_crew" onchange="checkCrewConflict()">
-          <option value="">— Select Crew —</option>
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="f">
+          <label>ASSIGN CREW</label>
+          <select id="sched_crew" onchange="checkCrewConflict()">
+            <option value="">— Select Crew —</option>
+          </select>
+        </div>
+        <div class="f">
+          <label>TIME SLOT</label>
+          <select id="sched_time">
+            <option value="Morning">Morning (8am – 12pm)</option>
+            <option value="Afternoon">Afternoon (1pm – 5pm)</option>
+            <option value="Full Day">Full Day (8am – 5pm)</option>
+          </select>
+        </div>
       </div>
       <div class="f">
         <label>NOTES (optional)</label>
@@ -4908,6 +4918,7 @@ function normalizeJob(j) {
     balanceDue:         n(j.balanceDue,         j['Balance Due'],         0),
     scheduledDate:      s(j.scheduledDate,      j['Scheduled Date'],      ''),
     scheduledCrew:      s(j.scheduledCrew,      j['Scheduled Crew'],      ''),
+    scheduledTime:      s(j.scheduledTime,      j['Scheduled Time'],      ''),
     scheduleNotes:      s(j.scheduleNotes,      j['Schedule Notes'],      ''),
     finalPaymentAmount: n(j.finalPaymentAmount, j['Final Payment Amount'],0),
     finalPaymentMethod: s(j.finalPaymentMethod, j['Final Payment Method'],''),
@@ -11318,7 +11329,7 @@ async function openScheduleJob() {
         const norm = normalizeJob(fresh.job);
         ['contractPrice','contractPriceType','depositType','depositRequired',
          'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
-         'scheduledDate','scheduledCrew','scheduleNotes',
+         'scheduledDate','scheduledCrew','scheduledTime','scheduleNotes',
          'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef'].forEach(f => {
           const v = norm[f];
           if (v !== undefined && v !== null && v !== '') {
@@ -11344,6 +11355,9 @@ async function openScheduleJob() {
 
   document.getElementById('sched_date').value  = job?.scheduledDate || '';
   document.getElementById('sched_notes').value = job?.scheduleNotes || '';
+  // Pre-select saved time slot (default Full Day for new schedules)
+  const timeEl = document.getElementById('sched_time');
+  if (timeEl) timeEl.value = job?.scheduledTime || 'Full Day';
   populateCrewDropdown();
   // Pre-select saved crew
   if (job?.scheduledCrew) {
@@ -11405,11 +11419,13 @@ function confirmScheduleJob() {
   const date  = document.getElementById('sched_date').value;
   const crew  = document.getElementById('sched_crew').value;
   const notes = document.getElementById('sched_notes').value.trim();
+  const time  = document.getElementById('sched_time')?.value || 'Full Day';
   if (!date) { alert('Please select an install date'); return; }
 
   if (curIdx >= 0) {
     jobs[curIdx].scheduledDate  = date;
     jobs[curIdx].scheduledCrew  = crew;
+    jobs[curIdx].scheduledTime  = time;
     jobs[curIdx].scheduleNotes  = notes;
     persistJobs();
   }
@@ -11439,18 +11455,43 @@ function confirmScheduleJob() {
       depositRef:        j.depositRef        || '',
       scheduledDate:     date,
       scheduledCrew:     crew,
+      scheduledTime:     time,
       scheduleNotes:     notes,
       balanceDue:        j.balanceDue        || 0,
       notes:             j.notes             || '',
       lostReason:        j.lostReason        || '',
-    }}).catch(e => console.warn('Schedule sync failed:', e));
+    }}).then(() => {
+      // After the job is saved, create the Google Calendar event
+      if (settings.scriptUrl) {
+        return cloudCall({ action: 'createCalendarEvent', data: {
+          jobId:         j.jobId || j.id.split('-')[0],
+          estimateId:    j.id        || '',
+          custName:      j.custName  || '',
+          fenceType:     j.fenceType || '',
+          jobAddr:       j.jobAddr   || '',
+          jobCity:       j.jobCity   || '',
+          jobState:      j.jobState  || '',
+          scheduledDate: date,
+          scheduledTime: time,
+          scheduledCrew: crew,
+          scheduleNotes: notes,
+        }});
+      }
+    }).then(calResult => {
+      if (calResult?.success) {
+        const slotLabel = time === 'Morning' ? '8am–12pm' : time === 'Afternoon' ? '1pm–5pm' : '8am–5pm';
+        const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+        showToast('✓ Scheduled & added to Google Calendar — ' + (crew ? crew + ' · ' : '') + dateStr + ' · ' + slotLabel);
+      }
+    }).catch(e => console.warn('Schedule sync or calendar event failed:', e));
   } else if (j) {
     // No cloud — just persist locally
     persistJobs();
   }
 
   const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-  showToast('✓ Scheduled' + (crew ? ' — ' + crew : '') + ' · ' + dateStr);
+  const slotLabel = time === 'Morning' ? '8am–12pm' : time === 'Afternoon' ? '1pm–5pm' : '8am–5pm';
+  showToast('✓ Scheduled' + (crew ? ' — ' + crew : '') + ' · ' + dateStr + ' · ' + slotLabel);
   renderBoard();
 }
 
