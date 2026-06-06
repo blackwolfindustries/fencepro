@@ -9667,12 +9667,16 @@ async function saveInvoice() {
           'Job ID':         data.jobId,
           'Customer Name':  data.custName,
           'Job Address':    data.jobAddr,
+          'Job City':       data.jobCity       || '',
+          'Job State':      data.jobState      || '',
+          'Job Zip':        data.jobZip        || '',
           'Invoice Date':   data.invoiceDate,
           'Due Date':       data.dueDate,
           'Amount Due':     data.amountDue,
           'Contract Price': data.finalPrice,
           'Payment Status': data.status || 'Unpaid',
-          'Contract Price Type': data.contractPriceType || ''
+          'Contract Price Type': data.contractPriceType || '',
+          'Customer Note':  data.customerNote  || ''
         };
         invoices = invoices.filter(i => (i['Invoice ID']||i.invoiceId) !== res.invoiceId);
         invoices.unshift(invRecord);
