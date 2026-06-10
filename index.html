@@ -574,8 +574,8 @@
     .pbc div:first-child{font-size:8px!important}
     .pbc div:last-child{font-size:13px!important}
     /* Keep CC and Cash prices slightly larger since they're most important */
-    #s_final{font-size:16px!important;font-weight:800!important}
-    #s_cash{font-size:15px!important}
+    #s_cash{font-size:16px!important;font-weight:800!important}
+    #s_final{font-size:14px!important}
 
     /* Main estimator form: strict 1 column */
     .est-form-grid{
@@ -654,8 +654,8 @@
     }
     .pbc div:first-child{font-size:8px!important}
     .pbc div:last-child{font-size:14px!important}
-    #s_final{font-size:18px!important}
-    #s_cash{font-size:16px!important}
+    #s_cash{font-size:18px!important;font-weight:800!important}
+    #s_final{font-size:15px!important}
 
     /* Main form: 2 columns */
     .est-form-grid{
@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.10.8</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.11.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1156,12 +1156,12 @@
         </div>
       </div>
       <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">CC / Finance Price</div>
-        <div style="font-size:20px;font-weight:800;color:#F26522;font-family:var(--mono)" id="s_final">$0</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Cash / Check Price</div>
+        <div style="font-size:20px;font-weight:800;color:#4ADE80;font-family:var(--mono)" id="s_cash">$0</div>
       </div>
       <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Cash / Check Price</div>
-        <div style="font-size:18px;font-weight:700;color:#4ADE80;font-family:var(--mono)" id="s_cash">$0</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">CC / Finance Price</div>
+        <div style="font-size:16px;font-weight:600;color:#F26522;font-family:var(--mono);opacity:.8" id="s_final">$0</div>
       </div>
       <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Price per LF</div>
@@ -3047,12 +3047,12 @@
               </tr>
               <tr><td colspan="2" style="padding:8px 0 0 0;border-top:1px solid #E2E5EA"></td></tr>
               <tr>
-                <td style="font-size:11px;font-weight:700;color:#1B2B4B;padding:4px 12px 0 0;text-align:right">CC / Finance</td>
-                <td style="font-size:14px;font-weight:800;color:#F26522;padding:4px 0 0 0" id="prop_ccprice"></td>
+                <td style="font-size:11px;font-weight:700;color:#1B2B4B;padding:4px 12px 0 0;text-align:right">Cash / Check</td>
+                <td style="font-size:16px;font-weight:800;color:#16A34A;padding:4px 0 0 0" id="prop_cashprice"></td>
               </tr>
               <tr>
-                <td style="font-size:11px;font-weight:700;color:#1B2B4B;padding:4px 12px 0 0;text-align:right">Cash / Check</td>
-                <td style="font-size:14px;font-weight:700;color:#16A34A;padding:4px 0 0 0" id="prop_cashprice"></td>
+                <td style="font-size:10px;font-weight:600;color:#999;padding:2px 12px 0 0;text-align:right">CC / Finance</td>
+                <td style="font-size:12px;font-weight:600;color:#F26522;padding:2px 0 0 0;opacity:.85" id="prop_ccprice"></td>
               </tr>
             </table>
           </div>
@@ -4000,8 +4000,8 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;margin-bottom:10px">
           <div><span style="color:rgba(255,255,255,.5)">Customer:</span> <span id="pv_name" style="color:#fff;font-weight:700"></span></div>
           <div><span style="color:rgba(255,255,255,.5)">Estimate #:</span> <span id="pv_id" style="color:#fff;font-weight:700;font-family:var(--mono)"></span></div>
-          <div><span style="color:rgba(255,255,255,.5)">CC Price:</span> <span id="pv_cc" style="color:#F26522;font-weight:700;font-family:var(--mono)"></span></div>
           <div><span style="color:rgba(255,255,255,.5)">Cash Price:</span> <span id="pv_cash" style="color:#4ADE80;font-weight:700;font-family:var(--mono)"></span></div>
+          <div><span style="color:rgba(255,255,255,.5)">CC Price:</span> <span id="pv_cc" style="color:#F26522;font-weight:700;font-family:var(--mono)"></span></div>
           <div><span style="color:rgba(255,255,255,.5)">Mode:</span> <span id="pv_mode" style="color:#fff;font-weight:700"></span></div>
           <div><span style="color:rgba(255,255,255,.5)">Photos:</span> <span id="pv_photos" style="color:#fff;font-weight:700"></span></div>
         </div>
@@ -7835,9 +7835,10 @@ function openProposal() {
   const finalPrice = lastCalc.final  || 0;
   const cashPrice  = lastCalc.cash   || 0;
   const custTax    = lastCalc.custTax || 0;
-  const totalWithTax = isRepair ? finalPrice + custTax : finalPrice;
-  const deposit    = getDepositAmount(totalWithTax);
-  const balance    = Math.max(0, totalWithTax - deposit);
+  const totalWithTax  = isRepair ? finalPrice + custTax : finalPrice; // CC total (kept for reference)
+  const cashWithTax   = isRepair ? cashPrice  + custTax : cashPrice;  // Cash total — used for proposal
+  const deposit       = getDepositAmount(cashWithTax);
+  const balance       = Math.max(0, cashWithTax - deposit);
 
   // Dates
   const today    = new Date();
@@ -7848,13 +7849,13 @@ function openProposal() {
   const addrParts = [addr1, addr2, [city, state, zip].filter(Boolean).join(', ')].filter(Boolean);
   const addrHTML  = addrParts.join('<br>');
 
-  // Description line — CC price as main, note cash if different
+  // Description line — Cash price as main, note CC if different
   const ccFmt   = '$' + Math.round(finalPrice).toLocaleString();
   const cashFmt = '$' + Math.round(cashPrice).toLocaleString();
   const descLines = [
     projDesc || fenceType,
     gates > 0 ? `${gates} gate${gates > 1 ? 's' : ''}` : '',
-    payMethod !== 'CASH' && cashPrice !== finalPrice ? `Cash/Check Price: ${cashFmt}` : ''
+    payMethod !== 'CASH' && cashPrice !== finalPrice ? `CC/Finance Price: ${ccFmt}` : ''
   ].filter(Boolean).join(' · ');
 
   // Populate modal fields
@@ -7905,9 +7906,9 @@ function openProposal() {
     const isDefault = !savedDesc || savedDesc === DEFAULT_DESC || isContaminated;
     descEl.textContent = isDefault ? DEFAULT_DESC : savedDesc;
   }
-  s('prop_amount').textContent     = ccFmt;
-  s('prop_subtotal').textContent   = ccFmt;
-  s('prop_total').textContent      = '$' + Math.round(totalWithTax).toLocaleString();
+  s('prop_amount').textContent     = cashFmt;
+  s('prop_subtotal').textContent   = cashFmt;
+  s('prop_total').textContent      = '$' + Math.round(cashPrice + (isRepair ? custTax : 0)).toLocaleString();
   s('prop_deposit').textContent    = '$' + Math.round(deposit).toLocaleString();
   s('prop_balance').textContent    = '$' + Math.round(balance).toLocaleString();
 
@@ -8174,7 +8175,7 @@ Customer Obligations:
   invoice_notes:     `Check payable to Cash or Black Wolf Industries LLC · Zelle: blackwolfindustries`,
   invoice_footer:    `Thank you for your business.`,
   email_subject:     `Your Fence Estimate — {{company}}`,
-  email_body: `Hi {{firstName}},\n\nThank you for the opportunity to earn your business. Please find your estimate details below.\n\nCC / Finance Price: {{ccPrice}}\nCash / Check Price: {{cashPrice}}\n\n{{proposalLink}}\n\nThis link is secure and will expire in 30 days. Once you accept, we will be in touch to collect the deposit and get you scheduled.\n\nPlease don't hesitate to call or text with any questions.\n\nThank you,\n{{company}}\n{{phone}}`
+  email_body: `Hi {{firstName}},\n\nThank you for the opportunity to earn your business. Please find your estimate details below.\n\nCash / Check Price: {{cashPrice}}\nCC / Finance Price: {{ccPrice}}\n\n{{proposalLink}}\n\nThis link is secure and will expire in 30 days. Once you accept, we will be in touch to collect the deposit and get you scheduled.\n\nPlease don't hesitate to call or text with any questions.\n\nThank you,\n{{company}}\n{{phone}}`
 };
 
 // ── Company logos (base64 embedded, tagged by company key) ──
@@ -13799,12 +13800,13 @@ function renderInvoiceFromRecord(inv) {
   const dueDate     = inv['Due Date']       || inv.dueDate       || '';
   const status      = inv['Payment Status'] || inv.status        || 'Unpaid';
 
-  // Contract price — sheet now stores Final Price CC / Cash Price separately
-  // Fall back to old 'Contract Price' field for backwards compat with older records
+  // Contract price — Cash/Check is now the primary customer-facing price.
+  // Fall back to CC price if cash isn't available, then old 'Contract Price' for legacy records.
   const priceType       = inv.contractPriceType || inv['Contract Price Type'] || inv['Price Type'] || 'CC';
   const _ccPrice        = Number(inv['Final Price CC'])  || Number(inv['Contract Price']) || inv.contractPrice || 0;
   const _cashPrice      = Number(inv['Cash Price'])      || Number(inv['Contract Price']) || inv.contractPrice || 0;
-  const contractPrice   = priceType === 'Cash' ? (_cashPrice || _ccPrice) : (_ccPrice || _cashPrice);
+  // Always prefer cash as primary display price; fall back to CC if cash not stored
+  const contractPrice   = (_cashPrice || _ccPrice);
 
   // Deposit — sheet stores it in Deposit Paid or fall back to totalPaid from job
   // depositPaid for the summary row = actual deposit only (not total paid)
@@ -13873,7 +13875,7 @@ function renderInvoiceFromRecord(inv) {
   document.getElementById('inv_lineamt').textContent = fmt(contractPrice);
 
   // Totals
-  document.getElementById('inv_priceType').textContent   = priceType === 'Cash' ? 'Cash / Check' : 'CC / Finance';
+  document.getElementById('inv_priceType').textContent   = 'Cash / Check';
   document.getElementById('inv_contractAmt').textContent = fmt(contractPrice);
   document.getElementById('inv_balDue').textContent      = fmt(balanceDue);
 
@@ -14389,7 +14391,7 @@ async function printInvoice() {
   document.getElementById('inv_lineamt').textContent = '$' + Math.round(contractPrice).toLocaleString();
 
   // Totals
-  document.getElementById('inv_priceType').textContent   = priceType === 'Cash' ? 'Cash / Check' : 'CC / Finance';
+  document.getElementById('inv_priceType').textContent   = 'Cash / Check';
   document.getElementById('inv_contractAmt').textContent = '$' + Math.round(contractPrice).toLocaleString();
   document.getElementById('inv_balDue').textContent      = '$' + Math.round(balanceDue).toLocaleString();
 
