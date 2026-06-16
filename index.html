@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.11.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.11.2</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -6661,11 +6661,15 @@ function assembleId() {
     const preview = `${prefix}-${updatedName}-?-${yr}`;
     document.getElementById('estId').textContent       = preview;
     document.getElementById('idAssembled').textContent = preview;
-    document.getElementById('jobNo').value             = '';
+    // Only clear jobNo for a brand-new estimate. If we're editing an existing
+    // one (curIdx >= 0), jobNo holds the full saved ID and must be preserved —
+    // wiping it here caused Save to create a new lettered estimate instead
+    // of updating the one being edited.
+    if (curIdx < 0) document.getElementById('jobNo').value = '';
   } else {
     document.getElementById('estId').textContent       = 'Enter job # to begin';
     document.getElementById('idAssembled').textContent = '';
-    document.getElementById('jobNo').value             = '';
+    if (curIdx < 0) document.getElementById('jobNo').value = '';
   }
 }
 function genId() { assembleId(); }  // kept for compatibility
@@ -7737,7 +7741,19 @@ function loadJobLocal(idx) {
 
 function setVal(id, val) {
   const el = document.getElementById(id);
-  if (el && val !== undefined && val !== null) el.value = String(val).trim();
+  if (!el || val === undefined || val === null) return;
+  const str = String(val).trim();
+  el.value = str;
+  // SELECT fallback — if the value didn't take (option not present yet,
+  // renamed, or stray whitespace mismatch), inject a matching option so
+  // the saved value is never silently dropped (e.g. Fence Type on reload).
+  if (el.tagName === 'SELECT' && el.value !== str && str !== '') {
+    const opt = document.createElement('option');
+    opt.value = str;
+    opt.textContent = str;
+    el.appendChild(opt);
+    el.value = str;
+  }
 }
 
 function newEst() {
