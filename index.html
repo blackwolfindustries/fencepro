@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.11.2</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.12.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1166,6 +1166,10 @@
       <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Price per LF</div>
         <div style="font-size:16px;font-weight:700;color:rgba(255,255,255,.9);font-family:var(--mono)" id="s_plf">—</div>
+      </div>
+      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
+        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Fence-Only $/LF</div>
+        <div style="font-size:16px;font-weight:700;color:#60A5FA;font-family:var(--mono)" id="s_plf_fence" title="Price per LF with demo's cost and markup backed out">—</div>
       </div>
       <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Gross Margin $</div>
@@ -6901,6 +6905,20 @@ function recalc() {
   const grossGmDol       = gmDol + franFeeDol;
   const grossGmPct       = finalRnd > 0 ? (grossGmDol / finalRnd) * 100 : 0;
 
+  // ── FENCE-ONLY PRICE PER LF (display/reporting only) ──────────────
+  // Does NOT alter base, finalRaw, finalRnd, markup, margin, royalty, or
+  // the customer-facing total in any way. This backs demo's fully
+  // marked-up dollar share OUT of the final price purely to compute a
+  // clean "what would this job cost per foot with no demo" rate, so
+  // Price/LF isn't muddied by demo-heavy or demo-light job mix.
+  const demoLoadedDol  = demoDol * (1 + effMu/100);   // demo's marked-up share within finalRnd
+  const fenceOnlyPrice = finalRnd - demoLoadedDol;
+  const plfFenceOnly   = totalLF > 0 ? fenceOnlyPrice / totalLF : 0;
+  // Cash-side equivalent, using cashPrc instead of finalRnd
+  const demoLoadedDolCash  = demoDol * (1 + markupPct/100);
+  const fenceOnlyPriceCash = cashPrc - demoLoadedDolCash;
+  const plfFenceOnlyCash   = totalLF > 0 ? fenceOnlyPriceCash / totalLF : 0;
+
   lastCalc = {
     suppCCRate:supp.cc, delivery:effectiveDelivery, deliveryOverridden,
     matDel, matTax, suppFee, concTotal,
@@ -6910,6 +6928,7 @@ function recalc() {
     franFeeDol, franFee,
     cashGmPct, cashGmDol, cashFranFeeDol,
     cashGrossGmDol, cashGrossGmPct,                  // Cash: net and gross
+    plfFenceOnly, plfFenceOnlyCash,                  // NEW — fence-only $/LF (CC and Cash)
     crmMaterial:matTotal, crmLabor:laborCost,
     crmDemo:demoDol, crmDiscount:discount,
     crmAddOns:addOns, crmMarkupPct:markupPct,
@@ -6960,6 +6979,10 @@ function recalc() {
   setText('s_gm_net',     gmPct.toFixed(1) + '%');
   setText('s_ff_banner',  '$'+Math.round(franFeeDol).toLocaleString());
   setText('s_plf',  totalLF > 0 ? '$'+(finalRnd/totalLF).toFixed(2)+'/LF' : '—');
+  // NEW — fence-only price/LF (demo backed out). Mirrors active payment method.
+  setText('s_plf_fence', totalLF > 0
+    ? '$' + (payMethod === 'CASH' ? plfFenceOnlyCash : plfFenceOnly).toFixed(2) + '/LF'
+    : '—');
   setText('s_sn',   suppName);
   setText('s_del',  supp.del > 0 ? '$'+supp.del : 'FREE');
   setText('s_scr',  supp.cc > 0 ? (supp.cc*100).toFixed(1)+'%' : 'No fee');
@@ -7050,6 +7073,10 @@ function setKpiMode(mode) {
   setText('s_gm_net',     netGmPct.toFixed(1) + '%');
   setText('s_ff_banner',  ffDol > 0 ? '$' + Math.round(ffDol).toLocaleString() : '—');
   setText('s_plf',        c.totalLF > 0 ? '$' + (price / c.totalLF).toFixed(2) + '/LF' : '—');
+  // NEW — fence-only price/LF, mirrors whichever view (Cash/CC) is active
+  setText('s_plf_fence',  c.totalLF > 0
+    ? '$' + (isCash ? c.plfFenceOnlyCash : c.plfFenceOnly).toFixed(2) + '/LF'
+    : '—');
   setText('s_mat_pct',    price > 0 ? matPct.toFixed(1) + '%' : '—');
   setText('s_lab_pct',    price > 0 ? labPct.toFixed(1) + '%' : '—');
 
@@ -7245,6 +7272,8 @@ function collectData() {
     calc_gmDol:     lastCalc.gmDol      || 0,
     calc_matTotal:  lastCalc.crmMaterial || 0,
     calc_demoDol:   lastCalc.crmDemo    || 0,
+    // NEW — fence-only price/LF (demo backed out), payment-method aware
+    calc_plfFenceOnly: val('payMethod') === 'CASH' ? (lastCalc.plfFenceOnlyCash || 0) : (lastCalc.plfFenceOnly || 0),
     finalPrice:     Math.round(lastCalc.final||0),
     cashPrice:      Math.round(lastCalc.cash||0),
     // Workflow fields — preserved from job record
