@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.13.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.14.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1252,7 +1252,9 @@
       <!-- ROW 2: Fence Type (span 2) · Project Description (span 3) · Supplier -->
       <div class="f" style="grid-column:span 2">
         <label>FENCE TYPE ★</label>
-        <select id="fenceType"></select>
+        <input type="text" id="fenceType" list="fenceTypeOptions" autocomplete="off"
+               placeholder="Type or select…" onchange="onFenceTypeChange()">
+        <datalist id="fenceTypeOptions"></datalist>
       </div>
       <div class="f" style="grid-column:span 3">
         <label>PROJECT DESCRIPTION ★</label>
@@ -4414,14 +4416,32 @@ function buildSuppliersMap() {
   return map;
 }
 
-// Populate the fenceType dropdown from stored list
+// Populate the fenceType datalist from stored list (input keeps its own value — no re-selection needed)
 function populateFenceTypes() {
-  const sel = document.getElementById('fenceType');
-  if (!sel) return;
-  const current = sel.value;
+  const dl = document.getElementById('fenceTypeOptions');
+  if (!dl) return;
   const { fenceTypes } = loadLists();
-  sel.innerHTML = '<option value="" disabled selected>Select Fence Type</option>' +
-    fenceTypes.map(f => `<option${f === current ? ' selected' : ''}>${f}</option>`).join('');
+  dl.innerHTML = fenceTypes.map(f => `<option value="${f.replace(/"/g,'&quot;')}">`).join('');
+}
+
+// NEW — fires when the Fence Type field loses focus / changes. If the typed
+// value doesn't match an existing fence type (case-insensitive), confirms
+// with the user, then saves it via the same lmSave() primitive the Lists
+// Manager uses — so it's instantly available everywhere, no extra tab needed.
+function onFenceTypeChange() {
+  const inp = document.getElementById('fenceType');
+  if (!inp) return;
+  const typed = inp.value.trim();
+  if (!typed) return;
+  const existing = lmLoad('fenceTypes');
+  const alreadyExists = existing.some(f => f.toLowerCase() === typed.toLowerCase());
+  if (alreadyExists) { recalc(); return; }
+  if (confirm(`Add "${typed}" as a new fence type?`)) {
+    existing.push(typed);
+    lmSave('fenceTypes', existing);   // saves locally + cloud sync + auto-refreshes this datalist
+    showToast('✓ Added "' + typed + '" to Fence Types');
+  }
+  recalc();
 }
 
 // Populate the supplier dropdown from stored list
