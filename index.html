@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.15.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -3094,7 +3094,7 @@
         </div>
 
         <!-- ── TERMS & OBLIGATIONS ── -->
-        <div style="margin-bottom:24px;background:#F7F8FA;border-radius:4px;padding:16px 18px;border-left:3px solid #1B2B4B">
+        <div id="prop_terms_box" style="margin-bottom:24px;background:#F7F8FA;border-radius:4px;padding:16px 18px;border-left:3px solid #1B2B4B">
           <div style="font-size:9px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px">Terms &amp; Obligations</div>
           <div id="prop_terms" contenteditable="true"
             style="width:100%;border:none;background:transparent;font-family:inherit;font-size:12px;color:#444;line-height:1.8;padding:0;outline:none;box-sizing:border-box;white-space:pre-wrap;word-break:break-word;min-height:40px"></div>
@@ -8054,6 +8054,96 @@ function openProposal() {
   buildProposalTabs();
 }
 
+// ════════════════════════════════════════════════
+// SMART PDF PAGINATION
+// Used by saveProposalPDF() and saveMultiProposalPDF().
+// Slices a full-page html2canvas screenshot into PDF pages,
+// but instead of cutting at the raw pixel-height boundary
+// (which can slice straight through a line of text or a
+// colored box), each cut line is nudged up to the nearest
+// row of solid white pixels — a natural gap between sections.
+// If a forced break point is supplied (e.g. the top of the
+// "Terms & Obligations" box), that point is treated as a
+// hard page boundary regardless of how much room is left.
+// ════════════════════════════════════════════════
+
+// Scans a horizontal band of the canvas just above `idealY` and
+// returns the y-coordinate of the nearest fully-white row, so a
+// page cut never lands mid-line. Falls back to idealY untouched
+// if no clean white row is found within the search window.
+function findNearestWhiteRow(ctx, canvasWidth, idealY, searchUpPx) {
+  const minY = Math.max(0, Math.floor(idealY - searchUpPx));
+  for (let y = Math.floor(idealY); y >= minY; y--) {
+    const row = ctx.getImageData(0, y, canvasWidth, 1).data;
+    let isWhite = true;
+    // Sample every 4th pixel for speed — a genuine blank gap is
+    // uniformly white across its full width, so sparse sampling
+    // is reliable and much faster than checking every pixel.
+    for (let x = 0; x < row.length; x += 16) {
+      if (row[x] < 250 || row[x+1] < 250 || row[x+2] < 250) { isWhite = false; break; }
+    }
+    if (isWhite) return y;
+  }
+  return idealY; // no clean gap found — fall back to the raw boundary
+}
+
+// Returns the canvas-space Y offset (matching html2canvas's `scale`)
+// of an element's top edge, relative to captureEl. Used to force a
+// hard page break immediately before that element.
+function getCanvasOffsetY(captureEl, targetEl, scale) {
+  if (!targetEl || !captureEl) return null;
+  let y = 0, node = targetEl;
+  while (node && node !== captureEl) {
+    y += node.offsetTop;
+    node = node.offsetParent;
+    if (!node || !captureEl.contains(node)) break;
+  }
+  return y * scale;
+}
+
+function paginateCanvasToPdf(pdf, canvas, forcedBreakCanvasY) {
+  const pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
+  const margin = 36, imgW = pageW - margin*2, imgH = (canvas.height * imgW) / canvas.width;
+  const availH = pageH - margin*2;
+  // availSrcPx — how many canvas-source pixels fit in one page at current scale
+  const availSrcPx = (availH / imgH) * canvas.height;
+  const ctx = canvas.getContext('2d');
+  // Search up to ~80 canvas px (≈40 logical px at the standard scale:2
+  // capture) above the ideal cut for a clean white gap — enough to skip
+  // past a typical line of text or box padding, without risking a search
+  // so wide it drags an entire section onto the wrong page.
+  const searchBandPx = 80;
+
+  let yPos = margin, srcY = 0;
+
+  while (srcY < canvas.height - 1) {
+    let idealSrcEnd = Math.min(srcY + availSrcPx, canvas.height);
+
+    // If a forced break point falls within this page's range, cut there
+    // instead — guarantees that section always starts a fresh page.
+    if (forcedBreakCanvasY && forcedBreakCanvasY > srcY + 1 && forcedBreakCanvasY < idealSrcEnd) {
+      idealSrcEnd = forcedBreakCanvasY;
+    } else if (idealSrcEnd < canvas.height) {
+      // Not the last page — nudge to the nearest clean white row so
+      // we never slice through a line of text or a colored box.
+      idealSrcEnd = findNearestWhiteRow(ctx, canvas.width, idealSrcEnd, searchBandPx);
+      if (idealSrcEnd <= srcY) idealSrcEnd = Math.min(srcY + availSrcPx, canvas.height); // safety: never go backwards
+    }
+
+    const srcH = idealSrcEnd - srcY;
+    if (srcH <= 0) break;
+    const sliceH = (srcH / canvas.height) * imgH;
+
+    const sc = document.createElement('canvas');
+    sc.width = canvas.width; sc.height = Math.ceil(srcH);
+    sc.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+    pdf.addImage(sc.toDataURL('image/jpeg', 0.92), 'JPEG', margin, yPos, imgW, sliceH);
+
+    srcY = idealSrcEnd;
+    if (srcY < canvas.height - 1) { pdf.addPage(); yPos = margin; }
+  }
+}
+
 async function saveProposalPDF() {
   saveProposalEdits();
   const btn = document.querySelector('[onclick="saveProposalPDF()"]');
@@ -8202,22 +8292,24 @@ async function saveProposalPDF() {
         }
       }
     });
+
+    // Compute the Terms & Obligations box's offset BEFORE restoring the
+    // original (collapsed) style — captureEl is still in its expanded,
+    // full-height capture state here, matching the canvas we just got.
+    const termsBoxEl = isCombined
+      ? document.getElementById('prop_combined_terms_box')
+      : document.getElementById('prop_terms_box');
+    let termsForcedBreakY = getCanvasOffsetY(captureEl, termsBoxEl, 2); // scale:2 matches html2canvas call above
+    // Small safety margin — the live DOM measured here and the cloned DOM
+    // html2canvas actually rendered can differ by a pixel or two; breaking
+    // slightly early guarantees the Terms box header is never clipped.
+    if (termsForcedBreakY) termsForcedBreakY = Math.max(0, termsForcedBreakY - 4);
+
     captureEl.setAttribute('style', origStyle);
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit:'pt', format:'letter', orientation:'portrait' });
-    const pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
-    const margin = 36, imgW = pageW-margin*2, imgH = (canvas.height*imgW)/canvas.width;
-    let yPos=margin, remainingH=imgH, srcY=0;
-    const availH = pageH-margin*2;
-    while (remainingH > 0) {
-      const sliceH=Math.min(remainingH,availH), srcH=(sliceH/imgH)*canvas.height;
-      const sc=document.createElement('canvas'); sc.width=canvas.width; sc.height=Math.ceil(srcH);
-      sc.getContext('2d').drawImage(canvas,0,srcY,canvas.width,srcH,0,0,canvas.width,srcH);
-      pdf.addImage(sc.toDataURL('image/jpeg',0.92),'JPEG',margin,yPos,imgW,sliceH);
-      remainingH-=sliceH; srcY+=srcH;
-      if (remainingH>0) { pdf.addPage(); yPos=margin; }
-    }
+    paginateCanvasToPdf(pdf, canvas, termsForcedBreakY);
 
     pdf.save(fileName);
     showToast('✓ PDF saved — ' + fileName);
@@ -13038,7 +13130,7 @@ function showPropCombinedView() {
         </tr>
       </table>
     </div>
-    <div style="background:#F7F8FA;border-left:3px solid #1B2B4B;border-radius:4px;padding:14px 18px;margin-bottom:20px">
+    <div id="prop_combined_terms_box" style="background:#F7F8FA;border-left:3px solid #1B2B4B;border-radius:4px;padding:14px 18px;margin-bottom:20px">
       <div style="font-size:9px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px">Terms &amp; Obligations</div>
       <div style="font-size:12px;color:#444;line-height:1.8;white-space:pre-wrap">${escHtml(tmplVal('terms'))}</div>
     </div>
@@ -14370,19 +14462,10 @@ async function saveMultiProposalPDF() {
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit:'pt', format:'letter', orientation:'portrait' });
-    const pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
-    const margin = 36, imgW = pageW - margin*2, imgH = (canvas.height * imgW) / canvas.width;
-    let yPos = margin, remainingH = imgH, srcY = 0;
-    const availH = pageH - margin*2;
-    while (remainingH > 0) {
-      const sliceH = Math.min(remainingH, availH), srcH = (sliceH / imgH) * canvas.height;
-      const sc = document.createElement('canvas');
-      sc.width = canvas.width; sc.height = Math.ceil(srcH);
-      sc.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
-      pdf.addImage(sc.toDataURL('image/jpeg', 0.92), 'JPEG', margin, yPos, imgW, sliceH);
-      remainingH -= sliceH; srcY += srcH;
-      if (remainingH > 0) { pdf.addPage(); yPos = margin; }
-    }
+    // No forced break — this document (multiProposalDoc) has no Terms &
+    // Obligations box, just "How to Proceed" + a T&C link. Smart-nudge
+    // still applies so no line/box is ever sliced mid-content.
+    paginateCanvasToPdf(pdf, canvas, null);
 
     pdf.save(fileName);
     showToast('✓ PDF saved — ' + fileName);
