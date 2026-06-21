@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.14.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.15.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1239,6 +1239,19 @@
       <div class="f">
         <label>COUNTY <span style="font-size:9px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">auto</span></label>
         <input id="custCounty" readonly style="background:var(--surface2);color:var(--text3)" placeholder="—">
+      </div>
+      <div id="cust_zip_unknown" style="display:none;grid-column:1/-1;background:#FEF3C7;border:1px solid #F59E0B;border-radius:var(--r);padding:10px 12px;margin:2px 0 4px">
+        <div style="font-size:12px;color:#92400E;font-weight:600;margin-bottom:8px">⚠️ Zip not recognized — enter city &amp; county so we remember it next time</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="f" style="margin:0">
+            <label>CITY</label>
+            <input id="custCityManual" placeholder="e.g. Huntington" oninput="onManualZipEntry()">
+          </div>
+          <div class="f" style="margin:0">
+            <label>COUNTY</label>
+            <input id="custCountyManual" placeholder="e.g. Suffolk" oninput="onManualZipEntry()">
+          </div>
+        </div>
       </div>
       <div class="f">
         <label>PAYMENT ★</label>
@@ -1753,6 +1766,10 @@
       <div class="f s2"><label>ADDRESS 2</label><input id="con_addr2" placeholder="Unit 2B (optional)"></div>
       <div class="f"><label>CITY <span style="font-size:9px;color:var(--text3);font-weight:400;text-transform:none">auto from zip</span></label><input id="con_city" placeholder="Huntington"></div>
       <div class="f"><label>ZIP</label><input id="con_zip" placeholder="11743" maxlength="5" oninput="onContactZip(this.value)"></div>
+      <div class="f"><label>COUNTY <span style="font-size:9px;color:var(--text3);font-weight:400;text-transform:none">auto from zip</span></label><input id="con_county" placeholder="Suffolk"></div>
+      <div id="con_zip_unknown" style="display:none;grid-column:1/-1;background:#FEF3C7;border:1px solid #F59E0B;border-radius:var(--r);padding:10px 12px;margin:2px 0 4px">
+        <div style="font-size:12px;color:#92400E;font-weight:600">⚠️ Zip not recognized — type the city &amp; county above and we'll remember it next time</div>
+      </div>
       <div class="f"><label>CATEGORY</label>
         <select id="con_category" style="padding:7px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);color:var(--text1);width:100%">
           <option value="Prospect">Prospect</option>
@@ -5556,6 +5573,12 @@ document.addEventListener('DOMContentLoaded', () => {
           ['railingCategories','railingStyles','railingHeights'].forEach(k => { if (sd[k] && Array.isArray(sd[k])) localStorage.setItem('fp_' + k, JSON.stringify(sd[k])); });
         }
 
+        // ── Process zip lookup table ──
+        if (data.zipLookup && typeof data.zipLookup === 'object') {
+          zipLookupTable = data.zipLookup;
+          localStorage.setItem('fp_zipLookup', JSON.stringify(zipLookupTable));
+        }
+
         // ── Re-render everything ──
         populateFenceTypes();
         populateSuppliers && populateSuppliers();
@@ -6704,76 +6727,45 @@ function genId() { assembleId(); }  // kept for compatibility
 function updateId() { assembleId(); }
 // ════════════════════════════════════════════════
 // ZIP → CITY + COUNTY LOOKUP
-// Source: TaxRates sheet, city_name column (col J)
-// Extracted directly from Pricing_Estimator_V10.xlsm
+// Backed by the Zip_Lookup Google Sheet (self-growing).
+// zipLookupTable is populated from getAll() on app load.
+// Unknown zips show an inline banner prompting City/County,
+// which gets saved to Zip_Lookup when the parent form saves.
 // ════════════════════════════════════════════════
-const NASSAU_ZIPS = {
-  11001:'Floral Park',11002:'Floral Park',11003:'Elmont',11004:'Glen Oaks',
-  11005:'Floral Park',11010:'Franklin Square',11020:'Great Neck',11021:'Great Neck',
-  11022:'Great Neck',11023:'Great Neck',11024:'Great Neck',11030:'Manhasset',
-  11040:'New Hyde Park',11042:'New Hyde Park',11050:'Port Washington',11096:'Inwood',
-  11101:'Long Island City',11102:'Astoria',11103:'Astoria',11104:'Sunnyside',
-  11105:'Astoria',11106:'Astoria',11109:'Long Island City'
-};
-const SUFFOLK_ZIPS = {
-  11701:'Amityville',11702:'Babylon',11703:'North Babylon',11704:'West Babylon',
-  11705:'Bayport',11706:'Bay Shore',11707:'West Babylon',11709:'Bayville',
-  11710:'Bellmore',11713:'Bellport',11714:'Bethpage',11715:'Blue Point',
-  11716:'Bohemia',11717:'Brentwood',11718:'Brightwaters',11719:'Brookhaven',
-  11720:'Centereach',11721:'Centerport',11722:'Central Islip',11724:'Cold Spring Harbor',
-  11725:'Commack',11726:'Copiague',11727:'Coram',11729:'Deer Park',
-  11730:'East Islip',11731:'East Northport',11732:'East Norwich',11733:'East Setauket',
-  11735:'Farmingdale',11737:'Farmingdale',11738:'Farmingville',11739:'Great River',
-  11740:'Greenlawn',11741:'Holbrook',11742:'Holtsville',11743:'Huntington',
-  11746:'Huntington Station',11747:'Melville',11749:'Islandia',11751:'Islip',
-  11752:'Islip Terrace',11753:'Jericho',11754:'Kings Park',11755:'Lake Grove',
-  11756:'Levittown',11757:'Lindenhurst',11758:'Massapequa',11760:'Melville',
-  11762:'Massapequa Park',11763:'Medford',11764:'Miller Place',11765:'Mill Neck',
-  11766:'Mount Sinai',11767:'Nesconset',11768:'Northport',11769:'Oakdale',
-  11770:'Ocean Beach',11771:'Oyster Bay',11772:'Patchogue',11773:'Syosset',
-  11775:'Melville',11776:'Port Jefferson Station',11777:'Port Jefferson',
-  11778:'Rocky Point',11779:'Ronkonkoma',11780:'Saint James',11782:'Sayville',
-  11783:'Seaford',11784:'Selden',11786:'Shoreham',11787:'Smithtown',
-  11788:'Hauppauge',11789:'Sound Beach',11790:'Stony Brook',11791:'Syosset',
-  11792:'Wading River',11793:'Wantagh',11794:'Stony Brook',11795:'West Islip',
-  11796:'West Sayville',11797:'Woodbury',11798:'Wyandanch',11801:'Hicksville',
-  11802:'Hicksville',11803:'Plainview',11804:'Old Bethpage',11815:'Hicksville',
-  11853:'Jericho',11901:'Riverhead',11930:'Amagansett',11931:'Aquebogue',
-  11932:'Bridgehampton',11933:'Calverton',11934:'Center Moriches',11935:'Cutchogue',
-  11937:'East Hampton',11939:'East Marion',11940:'East Moriches',11941:'Eastport',
-  11942:'East Quogue',11944:'Greenport',11946:'Hampton Bays',11947:'Jamesport',
-  11948:'Laurel',11949:'Manorville',11950:'Mastic',11951:'Mastic Beach',
-  11952:'Mattituck',11953:'Middle Island',11954:'Montauk',11955:'Moriches',
-  11956:'New Suffolk',11957:'Orient',11958:'Peconic',11959:'Quogue',
-  11960:'Remsenburg',11961:'Ridge',11962:'Sagaponack',11963:'Sag Harbor',
-  11964:'Shelter Island',11965:'Shelter Island Heights',11967:'Shirley',
-  11968:'Southampton',11969:'Southampton',11970:'South Jamesport',11971:'Southold',
-  11972:'Speonk',11973:'Upton',11975:'Wainscott',11976:'Water Mill',
-  11977:'Westhampton',11978:'Westhampton Beach',11980:'Yaphank'
-};
+let zipLookupTable = {};
+try { zipLookupTable = JSON.parse(localStorage.getItem('fp_zipLookup') || '{}'); } catch(e) { zipLookupTable = {}; }
 
 function lookupZip(zip) {
-  const z = parseInt(zip);
-  if (NASSAU_ZIPS[z])  return { county: 'Nassau',  city: NASSAU_ZIPS[z] };
-  if (SUFFOLK_ZIPS[z]) return { county: 'Suffolk', city: SUFFOLK_ZIPS[z] };
+  const z = String(zip).trim();
+  const entry = zipLookupTable[z];
+  if (entry && (entry.city || entry.county)) {
+    return { city: entry.city || '', county: entry.county || '' };
+  }
   return null;
 }
 
 // Zip → city/county for Add Contact modal
 function onContactZip(zip) {
-  const cityEl = document.getElementById('con_city');
+  const cityEl   = document.getElementById('con_city');
+  const countyEl = document.getElementById('con_county');
+  const banner   = document.getElementById('con_zip_unknown');
   if (!cityEl) return;
+
   if (zip.length === 5) {
     const result = lookupZip(zip);
     if (result) {
       cityEl.value = result.city || '';
-      const countyEl = document.getElementById('con_county');
       if (countyEl) countyEl.value = result.county || '';
+      if (banner) banner.style.display = 'none';
     } else {
       cityEl.value = '';
+      if (countyEl) countyEl.value = '';
+      if (banner) banner.style.display = '';
     }
   } else {
     cityEl.value = '';
+    if (countyEl) countyEl.value = '';
+    if (banner) banner.style.display = 'none';
   }
 }
 
@@ -6782,6 +6774,9 @@ function onZip() {
   const cityEl   = document.getElementById('custCity');   // read-only display
   const jobCityEl= document.getElementById('jobCity');    // editable city field
   const countyEl = document.getElementById('custCounty');
+  const banner   = document.getElementById('cust_zip_unknown');
+  const manCity  = document.getElementById('custCityManual');
+  const manCounty= document.getElementById('custCountyManual');
 
   if (zip.length === 5) {
     const result = lookupZip(zip);
@@ -6789,14 +6784,42 @@ function onZip() {
       countyEl.value = result.county;
       if (cityEl)    cityEl.value    = result.city;
       if (jobCityEl) jobCityEl.value = result.city; // always update from zip
+      if (banner) banner.style.display = 'none';
+      if (manCity)   manCity.value   = '';
+      if (manCounty) manCounty.value = '';
     } else {
-      countyEl.value = '';
-      if (cityEl)    cityEl.value    = '';
+      // Zip not in table — only clear City/County if they aren't already
+      // populated from elsewhere (e.g. an existing Contact record), so we
+      // don't stomp on good data just because the zip itself is unknown.
+      if (!countyEl.value) countyEl.value = '';
+      if (cityEl && !cityEl.value) cityEl.value = '';
+      if (banner) banner.style.display = (countyEl.value && cityEl?.value) ? 'none' : '';
     }
   } else {
     countyEl.value = '';
     if (cityEl)    cityEl.value    = '';
+    if (banner) banner.style.display = 'none';
+    if (manCity)   manCity.value   = '';
+    if (manCounty) manCounty.value = '';
   }
+  recalc();
+}
+
+// Mirrors manually-typed City/County (for unknown zips) into the
+// real custCity/custCounty/jobCity fields so the rest of the app
+// (recalc, save, proposal, etc.) works exactly as if it came from
+// the lookup table. Persisted to Zip_Lookup on save (see saveJob/
+// saveContact payload wiring below).
+function onManualZipEntry() {
+  const cityEl    = document.getElementById('custCity');
+  const jobCityEl = document.getElementById('jobCity');
+  const countyEl  = document.getElementById('custCounty');
+  const manCity   = val('custCityManual');
+  const manCounty = val('custCountyManual');
+
+  if (cityEl)    cityEl.value    = manCity;
+  if (jobCityEl) jobCityEl.value = manCity;
+  if (countyEl)  countyEl.value  = manCounty;
   recalc();
 }
 
@@ -7725,6 +7748,11 @@ function loadJobLocal(idx) {
   setVal('custZip',     g('custZip',    'Zip'));
   setVal('custCity',    g('jobCity',    'Job City'));  // mirrors jobCity
   setVal('custCounty',  g('custCounty', 'County'));
+  {
+    const loadedZip = g('custZip', 'Zip');
+    const banner = document.getElementById('cust_zip_unknown');
+    if (banner) banner.style.display = (loadedZip && loadedZip.length === 5 && !lookupZip(loadedZip)) ? '' : 'none';
+  }
   setVal('jobType',     g('jobType',    'Job Type'));
   setVal('fenceType',   g('fenceType',  'Fence Type'));
   setVal('payMethod',   g('payMethod',  'Payment Method'));
@@ -10677,9 +10705,12 @@ function openAddContact() {
   document.getElementById('con_addr2').value    = '';
   document.getElementById('con_city').value     = '';
   document.getElementById('con_zip').value      = '';
+  document.getElementById('con_county').value   = '';
   document.getElementById('con_category').value = 'Prospect';
   document.getElementById('con_channel').value   = '';
   document.getElementById('con_campaign').value  = '';
+  const banner = document.getElementById('con_zip_unknown');
+  if (banner) banner.style.display = 'none';
   document.getElementById('mContact').classList.remove('hidden');
 }
 
@@ -10695,9 +10726,12 @@ function openEditContact(uid) {
   document.getElementById('con_addr2').value    = c.addr2    || '';
   document.getElementById('con_city').value     = c.city     || '';
   document.getElementById('con_zip').value      = c.zip      || '';
+  document.getElementById('con_county').value   = c.county   || '';
   document.getElementById('con_category').value = c.category || 'Prospect';
   document.getElementById('con_channel').value   = c.channel  || '';
   document.getElementById('con_campaign').value  = c.campaign || '';
+  const banner = document.getElementById('con_zip_unknown');
+  if (banner) banner.style.display = (c.zip && c.zip.length === 5 && !lookupZip(c.zip)) ? '' : 'none';
   document.getElementById('mContact').classList.remove('hidden');
 }
 
@@ -10717,6 +10751,7 @@ function saveContactForm() {
     addr2:    document.getElementById('con_addr2').value.trim(),
     city:     document.getElementById('con_city').value.trim(),
     zip:      document.getElementById('con_zip').value.trim(),
+    county:   document.getElementById('con_county')?.value.trim() || '',
     category: document.getElementById('con_category')?.value || 'Prospect',
     channel:  document.getElementById('con_channel').value.trim(),
     campaign: document.getElementById('con_campaign').value.trim(),
