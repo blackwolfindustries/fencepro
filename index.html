@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.2</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.3</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2590,7 +2590,7 @@
 
     <!-- ══ OVERVIEW ══ -->
     <div id="atab-overview" style="display:flex;flex-direction:column;gap:16px;padding:16px">
-      <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:12px">
         <div class="card" id="kpicard_total" onclick="kpiDrillDown('total')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--navy)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Proposals</div>
           <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_total">—</div>
@@ -2617,16 +2617,6 @@
           <div style="font-size:9px;color:var(--text3);margin-top:2px">Won — not yet complete</div>
           <div style="font-size:9px;color:var(--text3);margin-top:2px">click to view ↓</div>
         </div>
-        <div class="card" id="kpicard_avg" onclick="kpiDrillDown('avg')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--navy)'" onmouseout="this.style.boxShadow=''">
-          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg Job Value</div>
-          <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_avg">—</div>
-          <div style="font-size:9px;color:var(--text3);margin-top:4px">click to view ↓</div>
-        </div>
-        <div class="card" id="kpicard_median" style="padding:14px;text-align:center">
-          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Median Job Value</div>
-          <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_median">—</div>
-          <div style="font-size:9px;color:var(--text3);margin-top:4px" id="kpi_median_sub">closed jobs</div>
-        </div>
         <div class="card" id="kpicard_gm" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg GM%</div>
           <div style="font-size:22px;font-weight:900;color:var(--green);font-family:var(--mono)" id="kpi_gm">—</div>
@@ -2636,6 +2626,29 @@
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Open Pipeline</div>
           <div style="font-size:22px;font-weight:900;color:var(--blue);font-family:var(--mono)" id="kpi_pipeline">—</div>
           <div style="font-size:9px;color:var(--text3);margin-top:4px">click to view ↓</div>
+        </div>
+      </div>
+      <!-- Row 2: Job Sizing KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:0">
+        <div class="card" id="kpicard_avg" onclick="kpiDrillDown('avg')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--navy)'" onmouseout="this.style.boxShadow=''">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg Closed Job</div>
+          <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_avg">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px">accepted + complete · click to view ↓</div>
+        </div>
+        <div class="card" id="kpicard_median" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Median Closed Job</div>
+          <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_median">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px" id="kpi_median_sub">accepted + complete</div>
+        </div>
+        <div class="card" id="kpicard_avg_all" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg Proposal Size</div>
+          <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_avg_all">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px">all proposals</div>
+        </div>
+        <div class="card" id="kpicard_median_all" style="padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Median Proposal Size</div>
+          <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_median_all">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px">all proposals</div>
         </div>
       </div>
       <!-- KPI Drill-down panel — shared, populated on click -->
@@ -15841,6 +15854,20 @@ function renderKPIs(csvRows, allCsvRows, range) {
   const convEstimates = csvRows.length;
   const convRate      = convLeads > 0 ? (convEstimates / convLeads * 100).toFixed(1) : null;
 
+  // Avg + Median across ALL proposals (all statuses, value > 0)
+  const allVals = csvRows
+    .map(r => parseFloat(r['Value']) || 0)
+    .filter(v => v > 0)
+    .sort((a, b) => a - b);
+  const avgAllVal = allVals.length ? allVals.reduce((s, v) => s + v, 0) / allVals.length : 0;
+  let medianAllVal = 0;
+  if (allVals.length) {
+    const mid = Math.floor(allVals.length / 2);
+    medianAllVal = allVals.length % 2 !== 0
+      ? allVals[mid]
+      : (allVals[mid - 1] + allVals[mid]) / 2;
+  }
+
   document.getElementById('kpi_total').textContent     = totalProposals.toLocaleString();
   document.getElementById('kpi_convrate').textContent  = convRate !== null ? convRate + '%' : '—';
   document.getElementById('kpi_convrate_sub').textContent = convLeads + ' leads → ' + convEstimates + ' estimates';
@@ -15849,10 +15876,12 @@ function renderKPIs(csvRows, allCsvRows, range) {
   document.getElementById('kpi_backlog').textContent   = '$' + Math.round(csvBacklog).toLocaleString();
   document.getElementById('kpi_avg').textContent       = '$' + Math.round(avgVal).toLocaleString();
   document.getElementById('kpi_median').textContent    = medianVal ? '$' + Math.round(medianVal).toLocaleString() : '—';
-  document.getElementById('kpi_median_sub').textContent = closedVals.length + ' closed jobs';
+  document.getElementById('kpi_median_sub').textContent = closedVals.length + ' accepted + complete';
   document.getElementById('kpi_gm').textContent        = avgGM !== null ? avgGM.toFixed(1) + '%' : '—';
   document.getElementById('kpi_gm_sub').textContent    = avgGM !== null ? gmRows.length + ' complete jobs' : 'No complete jobs yet';
   document.getElementById('kpi_pipeline').textContent  = '$' + Math.round(csvPipeline).toLocaleString();
+  document.getElementById('kpi_avg_all').textContent   = avgAllVal ? '$' + Math.round(avgAllVal).toLocaleString() : '—';
+  document.getElementById('kpi_median_all').textContent = medianAllVal ? '$' + Math.round(medianAllVal).toLocaleString() : '—';
 }
 
 // ── MONTHLY CHART ─────────────────────────────────
