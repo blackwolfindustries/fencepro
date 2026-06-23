@@ -4101,6 +4101,9 @@
           <strong>Copy HTML</strong> → paste into Gmail/Outlook compose window to preserve formatting &amp; button<br>
           <strong>Send via Gmail</strong> → fires directly from your connected Google account
         </div>
+        <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+          <button class="btn btn-sm" style="width:100%;justify-content:center;background:#1B2B4B;color:#fff;border-color:#1B2B4B;font-weight:800" onclick="openProposalPdf()">⬇ Download PDF</button>
+        </div>
       </div>
 
       <!-- SMS panel -->
@@ -13512,6 +13515,12 @@ async function generateProposalLink(mode, estimateIds) {
 // PROPOSAL PREVIEW — shows exactly what the customer sees
 // Opens the real proposal URL in a full-screen iframe
 // ════════════════════════════════════════════════
+function openProposalPdf() {
+  if (!_proposalLinkUrl) { showToast('⚠️ Generate a link first'); return; }
+  const pdfUrl = _proposalLinkUrl + '&action=pdf';
+  window.open(pdfUrl, '_blank');
+}
+
 function openProposalPreview() {
   if (!_proposalLinkUrl) { showToast('⚠️ Generate a link first'); return; }
 
