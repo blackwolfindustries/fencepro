@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.3</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.4</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1269,7 +1269,11 @@
                placeholder="Type or select…" onchange="onFenceTypeChange()">
         <datalist id="fenceTypeOptions"></datalist>
       </div>
-      <div class="f" style="grid-column:span 3">
+      <div class="f" style="grid-column:span 1">
+        <label>MATERIAL</label>
+        <select id="material"><option value="">— Select —</option></select>
+      </div>
+      <div class="f" style="grid-column:span 2">
         <label>PROJECT DESCRIPTION ★</label>
         <input id="projDesc" placeholder="e.g. 6' Black Chainlink fence, 1 gate, replace existing">
       </div>
@@ -2360,6 +2364,7 @@
           <button class="lm-tab" onclick="switchListTab('railingCategories')">Railing Categories</button>
           <button class="lm-tab" onclick="switchListTab('railingStyles')">Railing Styles</button>
           <button class="lm-tab" onclick="switchListTab('railingHeights')">Railing Heights</button>
+          <button class="lm-tab" onclick="switchListTab('materialCategories')">Material Categories</button>
         </div>
       </div>
 
@@ -4381,6 +4386,8 @@ const DEFAULT_RAILING_CATEGORIES = [
 
 const DEFAULT_RAILING_STYLES = ['Aluminum','PVC'];
 
+const DEFAULT_MATERIAL_CATEGORIES = ['Vinyl','Wood','Chain Link','Aluminum','Railing'];
+
 const DEFAULT_RAILING_HEIGHTS = ['36"','42"','48"'];
 
 const DEFAULT_FENCE_TYPES = [
@@ -4456,6 +4463,16 @@ function populateFenceTypes() {
   if (!dl) return;
   const { fenceTypes } = loadLists();
   dl.innerHTML = fenceTypes.map(f => `<option value="${f.replace(/"/g,'&quot;')}">`).join('');
+}
+
+function populateMaterialDropdown() {
+  const sel = document.getElementById('material');
+  if (!sel) return;
+  const items = lmLoad('materialCategories');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Select —</option>' +
+    items.map(m => `<option value="${m.replace(/"/g,'&quot;')}">${escHtml(m)}</option>`).join('');
+  if (cur) sel.value = cur;
 }
 
 // NEW — fires when the Fence Type field loses focus / changes. If the typed
@@ -4535,6 +4552,7 @@ const LM_CONFIG = {
   railingCategories: { key: 'fp_railingCategories',  label: 'Railing Category',   default: () => DEFAULT_RAILING_CATEGORIES,  placeholder: "e.g. Posts" },
   railingStyles:     { key: 'fp_railingStyles',      label: 'Railing Style',      default: () => DEFAULT_RAILING_STYLES,      placeholder: "e.g. Aluminum" },
   railingHeights:    { key: 'fp_railingHeights',     label: 'Railing Height',     default: () => DEFAULT_RAILING_HEIGHTS,     placeholder: 'e.g. 42"' },
+  materialCategories:{ key: 'fp_materialCategories', label: 'Material Category',  default: () => DEFAULT_MATERIAL_CATEGORIES,  placeholder: 'e.g. Vinyl' },
 };
 
 function lmLoad(tab) {
@@ -4550,15 +4568,16 @@ function lmSave(tab, items) {
   // Sync to cloud so lists survive device switches and browser clears
   if (settings.scriptUrl) cloudCall({ action: 'saveSetupData', data: { type: tab, payload: items } }).catch(()=>{});
   // After save — refresh any dropdowns that depend on this list
-  if (tab === 'fenceTypes') { populateFenceTypes(); }
-  if (tab === 'crews')      { populateCrewDropdown(); }
+  if (tab === 'fenceTypes')        { populateFenceTypes(); }
+  if (tab === 'crews')             { populateCrewDropdown(); }
+  if (tab === 'materialCategories'){ populateMaterialDropdown(); }
 }
 
 function switchListTab(tab) {
   _lmCurrentTab = tab;
   // Update tab button styles
   document.querySelectorAll('.lm-tab').forEach((btn, i) => {
-    const tabs = ['fenceTypes','crews','railingCategories','railingStyles','railingHeights'];
+    const tabs = ['fenceTypes','crews','railingCategories','railingStyles','railingHeights','materialCategories'];
     btn.classList.toggle('lm-active', tabs[i] === tab);
   });
   // Update placeholder
@@ -4875,6 +4894,7 @@ function normalizeJob(j) {
     // ── Job details ─────────────────────────────
     jobType:     s(j.jobType,    j['Job Type'],      ''),
     fenceType:   s(j.fenceType,  j['Fence Type'],    ''),
+    material:    s(j.material,   j['Material'],      ''),
     payMethod:   s(j.payMethod,  j['Payment Method'],'CC'),
     supplier:    s(j.supplier,   j['Supplier'],      ''),
     projDesc:    s(j.projDesc,   j['Project Description'], ''),
@@ -5616,10 +5636,10 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('getAll startup failed — falling back to sequential load:', e);
         // Fall back to old sequential method if getAll not available
         loadCloudSettings()
-          .then(() => { populateFenceTypes(); populateSuppliers && populateSuppliers(); initParts(); populateCrewDropdown && populateCrewDropdown(); return loadCloud(); })
+          .then(() => { populateFenceTypes(); populateMaterialDropdown(); populateSuppliers && populateSuppliers(); initParts(); populateCrewDropdown && populateCrewDropdown(); return loadCloud(); })
           .then(() => loadCloudContacts())
           .then(() => { updateContactsStatus(); renderBoard(); renderEstList(); renderJobsList(); renderParts(); assembleId(); recalc(); loadContacts(); })
-          .catch(() => { populateFenceTypes(); initParts(); renderBoard(); renderEstList(); renderJobsList(); renderParts(); assembleId(); recalc(); loadContacts(); });
+          .catch(() => { populateFenceTypes(); populateMaterialDropdown(); initParts(); renderBoard(); renderEstList(); renderJobsList(); renderParts(); assembleId(); recalc(); loadContacts(); });
       }
     })();
   } else {
@@ -7294,6 +7314,7 @@ function collectData() {
     custCounty:  val('custCounty'),
     jobType:     val('jobType'),
     fenceType:   val('fenceType'),
+    material:    val('material'),
     payMethod:   val('payMethod'),
     supplier:    val('supplier'),
     totalLF:     num('totalLF'),
@@ -7772,6 +7793,7 @@ function loadJobLocal(idx) {
   }
   setVal('jobType',     g('jobType',    'Job Type'));
   setVal('fenceType',   g('fenceType',  'Fence Type'));
+  setVal('material',    g('material',   'Material'));
   setVal('payMethod',   g('payMethod',  'Payment Method'));
   setVal('supplier',    g('supplier',   'Supplier'));
   setVal('totalLF',     g('totalLF',    'Total LF'));
@@ -7873,6 +7895,7 @@ function newEst() {
   onSupplierChange();
   document.getElementById('markupPct').value = '40';
   document.getElementById('fenceType').value = '';  // reset to prompt
+  document.getElementById('material').value = '';   // reset material
   populateFenceTypes();                              // re-render so prompt shows
   document.getElementById('jobType').value = 'New';
   document.getElementById('payMethod').value = 'CC';
