@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.4</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.5</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2787,6 +2787,16 @@
             <tbody id="analyticsSupplierTable"></tbody>
           </table>
         </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="card">
+          <div class="card-title">By Material</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead id="analyticsMaterialHead"></thead>
+            <tbody id="analyticsMaterialTable"></tbody>
+          </table>
+        </div>
+        <div class="card" style="visibility:hidden"></div>
       </div>
     </div>
 
@@ -15084,6 +15094,7 @@ function renderAnalytics() {
   renderBreakdownTable('analyticsCampaignTable', filtered, 'Campaign');
   renderBreakdownFromJobs('analyticsFenceTable',    'analyticsFenceHead',    'fenceType',   'Fence Type');
   renderBreakdownFromJobs('analyticsSupplierTable', 'analyticsSupplierHead', 'supplier',    'Supplier');
+  renderBreakdownFromJobs('analyticsMaterialTable', 'analyticsMaterialHead', 'material',    'Material');
   renderPerformance(analyticsData, range);
   renderBookingTime(analyticsData, range); // filters internally on Accepted Date
   // DOW renders on tab switch — only pre-render if tab is active
