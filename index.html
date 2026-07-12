@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.5</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.6</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -11741,8 +11741,10 @@ function confirmScheduleJob() {
         const slotLabel = time === 'Morning' ? '8am–12pm' : time === 'Afternoon' ? '1pm–5pm' : '8am–5pm';
         const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
         showToast('✓ Scheduled & added to Google Calendar — ' + (crew ? crew + ' · ' : '') + dateStr + ' · ' + slotLabel);
+      } else if (calResult?.error) {
+        showToast('⚠️ Scheduled but Calendar failed: ' + calResult.error, 'warn');
       }
-    }).catch(e => console.warn('Schedule sync or calendar event failed:', e));
+    }).catch(e => { showToast('⚠️ Scheduled but Calendar sync failed — check console', 'warn'); console.warn('Calendar event failed:', e); });
   } else if (j) {
     // No cloud — just persist locally
     persistJobs();
