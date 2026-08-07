@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.7</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.8</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -10420,22 +10420,26 @@ function getCIFormData() {
   const addr1     = val('jobAddr');
   const addr2     = val('jobAddr2');
   const city      = val('jobCity');
-  const state     = val('jobState') || 'NY';
+  // .trim() first — a whitespace-only saved value is truthy and would
+  // otherwise slip past the '|| NY' fallback and render as a blank State.
+  const state     = (val('jobState') || '').trim() || 'NY';
   const zip       = val('custZip');
-  const fenceType = val('fenceType');
-  const scope     = val('scopeNotes') || val('projDesc');
+  const jobType   = val('jobType');
   const jobId     = document.getElementById('estId').textContent || val('jobPrefix');
-  const lf        = num('totalLF');
-  const gates     = num('numGates');
   const custName  = val('custName');
   const today     = new Date().toLocaleDateString('en-US', {month:'2-digit', day:'2-digit', year:'numeric'});
 
-  const descParts = [
-    'Installation of ' + fenceType + ' fence',
-    lf > 0 ? lf + ' linear feet' : '',
-    gates > 0 ? gates + ' gate' + (gates > 1 ? 's' : '') : '',
-    scope ? '— ' + scope : ''
-  ].filter(Boolean);
+  // Generic, job-type-driven description — deliberately NOT composed from
+  // fenceType/Scope Notes/Project Description. Those fields often already
+  // restate the fence spec (e.g. a supplier SKU note), which made the old
+  // auto-built sentence read as duplicated/repeating text on the form.
+  const CI_DESC_BY_TYPE = {
+    'New':              'New Fence Installation',
+    'Replace':          'Fence Replacement',
+    'Repair':           'Fence Repair',
+    'Material Resale':  'Material Sale'
+  };
+  const description = CI_DESC_BY_TYPE[jobType] || 'New Fence Installation';
 
   return {
     companyName: company.name,
@@ -10449,7 +10453,7 @@ function getCIFormData() {
     workCity:    city,
     workState:   state,
     workZip:     zip,
-    description: descParts.join(', '),
+    description,
     projectName: custName,
     date:        today,
     jobId,
@@ -10484,7 +10488,7 @@ async function fillST124PDF(data) {
   fill('zip 1',                         '11725');
   fill('name of contractor',            data.custName);
   fill('street address 2',              data.custAddr);
-  fill('city 2',                        data.jobCity);
+  fill('city 2',                        data.custCity);
   fill('state 2',                       data.custState);
   fill('zip 2',                         data.custZip);
   fill('certificate of authority 2',    data.coaNum);
