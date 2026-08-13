@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.10</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.11</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -5043,9 +5043,6 @@ let jobs = (() => {
 })();
 let parts    = JSON.parse(localStorage.getItem('fp_parts')    || '[]');
 let settings = { apiKey: 'fp_bwi_2026_xK9mQpLvNzRtWjYd', ...JSON.parse(localStorage.getItem('fp_settings') || '{}') };
-// Populate COMPANIES/CI_COMPANIES/COMPANY_LOGOS from local cache immediately
-// (same pattern as SUPPLIERS below) — refreshed again once cloud data loads.
-buildCompanyMaps();
 let curIdx = -1;
 let photos = [];  // [{dataUrl, name, uploaded}]
 let docs   = [];  // [{name, driveUrl, docType, uploadedAt, uploading}]
