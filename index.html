@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.12</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.13</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -5727,6 +5727,28 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   updateCloudStatus();
   onFranchChange();
+
+  // ── INSTANT PAINT FROM LOCAL CACHE ──
+  // `jobs` (and invoices/parts) were already loaded from localStorage
+  // synchronously above, before this handler even ran — but nothing had
+  // rendered them yet, so the screen stayed blank/loading until the cloud
+  // fetch below finished a full round trip to Apps Script. That round trip
+  // is unavoidably slow (Apps Script cold starts plus reading every sheet),
+  // and out in the field on cellular it's the "long time before I can use
+  // it" delay. Render from cache right now so the app is usable immediately;
+  // the cloud fetch below still runs and silently refreshes everything once
+  // it lands, same as it already did.
+  try {
+    renderBoard();
+    renderEstList();
+    renderJobsList();
+    renderInvoicesTab && renderInvoicesTab();
+    renderParts();
+    assembleId();
+    recalc();
+    loadContacts();
+    updateContactsStatus();
+  } catch(e) { console.warn('Instant cache paint skipped a step (non-fatal):', e); }
 
   // ── CLOUD-FIRST STARTUP ──
   // Single getAll call replaces 5 sequential round trips — much faster startup.
