@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.11</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.12</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -8128,12 +8128,18 @@ function convertJob() {
 // the Companies list instead of a fixed 2-company set.
 // ════════════════════════════════════════════════
 function getDefaultCompanies() {
+  // Deliberately self-contained — no reference to the global `settings`
+  // object. This function is reachable very early in boot (via the
+  // pre-existing SUPPLIERS = buildSuppliersMap() top-level call, which
+  // runs before `settings` itself is initialized), so it must never
+  // depend on anything that isn't ready yet — same rule as the other
+  // DEFAULT_* constants in this file.
   return [
     {
       code: 'BWI', name: 'Black Wolf Industries LLC',
       addr1: '169 Commack Rd #1009', addr2: '', city: 'Commack', state: 'NY', zip: '11725',
-      phone: settings.companyPhone || '631-275-2020',
-      email: settings.companyEmail || 'anthonyd@blackwolfindustriesli.com',
+      phone: '631-275-2020',
+      email: 'anthonyd@blackwolfindustriesli.com',
       coaNum: '33-1885771',
       logo: 'https://raw.githubusercontent.com/blackwolfindustries/fencepro-assets/main/BWI%20logo.png',
       active: true
@@ -8141,8 +8147,8 @@ function getDefaultCompanies() {
     {
       code: 'TRF', name: 'Top Rail Fence Huntington',
       addr1: '169 Commack Rd #1009', addr2: '', city: 'Commack', state: 'NY', zip: '11725',
-      phone: settings.companyPhone || '631-275-2020',
-      email: settings.companyEmail || 'anthonyd@blackwolfindustriesli.com',
+      phone: '631-275-2020',
+      email: 'anthonyd@blackwolfindustriesli.com',
       coaNum: '33-1885771',
       logo: '',
       active: true
