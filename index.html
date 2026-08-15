@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1770,6 +1770,76 @@
   </div>
 </div>
 
+<!-- ══ ADD / EDIT JOB COST MODAL ══════════════════════════════
+     Top-level (sibling of the screens), NOT nested inside a specific
+     .screen — screens are display:none unless .active, and a display:none
+     ancestor hides its whole subtree regardless of the child's own
+     display/position. This modal used to live inside #s-summary, which
+     silently broke it once the trigger button moved to the Estimator tab
+     (openM() removed .hidden fine, but the modal never rendered because
+     its parent screen was hidden). -->
+<div id="mAddCost" class="moverlay hidden">
+  <div class="modal" style="width:440px">
+    <div class="mtitle" id="addCostTitle">💰 Add Expense</div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <!-- Category buttons -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Category</div>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="cost-cat-btn" data-cat="Material" onclick="setCostCat('Material')"
+            style="flex:1;padding:9px 4px;font-size:12px;font-weight:700;border-radius:var(--r);border:2px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s">🧱 Material</button>
+          <button type="button" class="cost-cat-btn" data-cat="Labor" onclick="setCostCat('Labor')"
+            style="flex:1;padding:9px 4px;font-size:12px;font-weight:700;border-radius:var(--r);border:2px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s">👷 Labor</button>
+          <button type="button" class="cost-cat-btn" data-cat="Other" onclick="setCostCat('Other')"
+            style="flex:1;padding:9px 4px;font-size:12px;font-weight:700;border-radius:var(--r);border:2px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s">📦 Other</button>
+        </div>
+        <input type="hidden" id="costType">
+        <div id="costCatErr" style="font-size:11px;color:var(--red);margin-top:4px;min-height:14px"></div>
+      </div>
+
+      <!-- Vendor -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Vendor <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
+        <input id="costVendor" type="text" placeholder="e.g. Home Depot, ABC Crew, Sunbelt Rentals..."
+          style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
+      </div>
+
+      <!-- Description -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Description <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
+        <input id="costDesc" type="text" placeholder="e.g. Cedar pickets, Crew Day 1, Equipment rental..."
+          style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
+      </div>
+
+      <!-- Date + Amount row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Date</div>
+          <input id="costDate" type="date"
+            style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Amount</div>
+          <div style="position:relative">
+            <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:600;color:var(--text3)">$</span>
+            <input id="costAmount" type="text" inputmode="decimal" placeholder="0.00"
+              onblur="fmtCostAmount(this)"
+              style="width:100%;padding:8px 10px 8px 22px;font-size:14px;font-weight:700;font-family:var(--mono);border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text)">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="addCostErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:16px"></div>
+
+    <div class="mactions">
+      <button class="btn" onclick="closeM('mAddCost')">Cancel</button>
+      <button class="btn btn-a" onclick="saveJobCostEntry()">Save Expense</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add/Edit Contact Modal -->
 <div class="moverlay hidden" id="mContact">
   <div class="mbox" style="max-width:560px">
@@ -2052,69 +2122,6 @@
             style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)">
           Show Combined
         </label>
-      </div>
-    </div>
-
-    <!-- ══ ADD / EDIT COST MODAL ══════════════════════════════ -->
-    <div id="mAddCost" class="moverlay hidden">
-      <div class="modal" style="width:440px">
-        <div class="mtitle" id="addCostTitle">💰 Add Expense</div>
-
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <!-- Category buttons -->
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Category</div>
-            <div style="display:flex;gap:8px">
-              <button type="button" class="cost-cat-btn" data-cat="Material" onclick="setCostCat('Material')"
-                style="flex:1;padding:9px 4px;font-size:12px;font-weight:700;border-radius:var(--r);border:2px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s">🧱 Material</button>
-              <button type="button" class="cost-cat-btn" data-cat="Labor" onclick="setCostCat('Labor')"
-                style="flex:1;padding:9px 4px;font-size:12px;font-weight:700;border-radius:var(--r);border:2px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s">👷 Labor</button>
-              <button type="button" class="cost-cat-btn" data-cat="Other" onclick="setCostCat('Other')"
-                style="flex:1;padding:9px 4px;font-size:12px;font-weight:700;border-radius:var(--r);border:2px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s">📦 Other</button>
-            </div>
-            <input type="hidden" id="costType">
-            <div id="costCatErr" style="font-size:11px;color:var(--red);margin-top:4px;min-height:14px"></div>
-          </div>
-
-          <!-- Vendor -->
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Vendor <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
-            <input id="costVendor" type="text" placeholder="e.g. Home Depot, ABC Crew, Sunbelt Rentals..."
-              style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
-          </div>
-
-          <!-- Description -->
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Description <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
-            <input id="costDesc" type="text" placeholder="e.g. Cedar pickets, Crew Day 1, Equipment rental..."
-              style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
-          </div>
-
-          <!-- Date + Amount row -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div>
-              <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Date</div>
-              <input id="costDate" type="date"
-                style="width:100%;padding:8px 10px;font-size:13px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text);font-family:var(--sans)">
-            </div>
-            <div>
-              <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Amount</div>
-              <div style="position:relative">
-                <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:600;color:var(--text3)">$</span>
-                <input id="costAmount" type="text" inputmode="decimal" placeholder="0.00"
-                  onblur="fmtCostAmount(this)"
-                  style="width:100%;padding:8px 10px 8px 22px;font-size:14px;font-weight:700;font-family:var(--mono);border:1.5px solid var(--border2);border-radius:var(--r);background:var(--surface);color:var(--text)">
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div id="addCostErr" style="font-size:12px;color:var(--red);margin-top:8px;min-height:16px"></div>
-
-        <div class="mactions">
-          <button class="btn" onclick="closeM('mAddCost')">Cancel</button>
-          <button class="btn btn-a" onclick="saveJobCostEntry()">Save Expense</button>
-        </div>
       </div>
     </div>
 
@@ -8975,23 +8982,19 @@ function updateBadge() {
   updateJobCostsPanel(s);
 }
 
-// Job Costs sidebar section (Estimator tab) — only visible once this
-// estimate/letter has been Accepted or later, so you can't log expenses
-// against a job that hasn't been won yet. Mirrors the same STAGES
-// pipeline updateWorkflowButtons() uses, so it stays lit through every
-// later stage (Deposit Received ... Paid in Full), not just 'Accepted'.
+// Job Costs sidebar section (Estimator tab) — hidden only for the
+// pre-commitment stages (Draft/Committed/Sent), where there's no signed
+// job to attach real expenses to yet. Every other status — Accepted
+// through Paid in Full, and also Lost/On Hold (a job can rack up sunk
+// costs before falling through) — allows cost entry.
+const JOB_COSTS_EXCLUDED_STATUSES = ['Draft', 'Committed', 'Sent'];
 function updateJobCostsPanel(status) {
   const wrap = document.getElementById('jobCostsWrap');
   const sep  = document.getElementById('jobCostsSep');
   if (!wrap) return;
 
   const job = curIdx >= 0 ? jobs[curIdx] : null;
-  const STAGES = [
-    'Draft','Committed','Sent','Accepted','Deposit Received',
-    'Scheduled','In Progress','Ready for Invoice','Invoiced','Paid in Full'
-  ];
-  const stageIdx = STAGES.indexOf(status || 'Draft');
-  const eligible = !!job && stageIdx >= STAGES.indexOf('Accepted');
+  const eligible = !!job && !JOB_COSTS_EXCLUDED_STATUSES.includes(status || 'Draft');
 
   wrap.style.display = eligible ? '' : 'none';
   if (sep) sep.style.display = eligible ? '' : 'none';
