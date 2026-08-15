@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.16.13</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1581,6 +1581,18 @@
     <button id="wf_complete" class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="markJobComplete()">✅ Complete Job</button>
     <button id="wf_invoice"  class="btn btn-sm" style="justify-content:center;width:100%" onclick="openInvoice()">🧾 Generate Invoice</button>
     <button id="wf_payment"  class="btn btn-sm" style="justify-content:center;width:100%;background:#1B2B4B;color:#fff;border-color:#1B2B4B" onclick="openRecordFinalPayment()">💵 Record Final Payment</button>
+  </div>
+
+  <!-- Job Costs — only shown once this estimate has been Accepted or later -->
+  <div class="sep" id="jobCostsSep" style="display:none"></div>
+  <div id="jobCostsWrap" style="display:none;flex-shrink:0">
+    <div class="side-title" style="margin-top:4px;display:flex;align-items:center;gap:6px">
+      💰 Job Costs
+      <span id="jobCostsCount" style="display:none;background:var(--orange-bg);color:var(--orange);font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px"></span>
+      <button class="btn btn-sm" style="margin-left:auto;font-size:11px;padding:3px 10px"
+        onclick="curIdx>=0 && openAddCostModal(jobs[curIdx].id)">+ Add Expense</button>
+    </div>
+    <div id="est-costs-panel" style="margin-top:8px"></div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;flex-shrink:0">
@@ -6558,7 +6570,7 @@ async function loadCloudJobCosts() {
       cloudByEst[eId].push({
         id:         c.costId,
         type:       c.type,
-        vendor:     '',           // vendor not yet in cloud schema — blank on import
+        vendor:     c.vendor || '',
         desc:       c.desc,
         date:       c.date,
         amount:     c.amount,
@@ -8960,6 +8972,39 @@ function updateBadge() {
     Lost:'b-r', 'On Hold':'b-y'
   }[s]||'b-y');
   updateWorkflowButtons(s);
+  updateJobCostsPanel(s);
+}
+
+// Job Costs sidebar section (Estimator tab) — only visible once this
+// estimate/letter has been Accepted or later, so you can't log expenses
+// against a job that hasn't been won yet. Mirrors the same STAGES
+// pipeline updateWorkflowButtons() uses, so it stays lit through every
+// later stage (Deposit Received ... Paid in Full), not just 'Accepted'.
+function updateJobCostsPanel(status) {
+  const wrap = document.getElementById('jobCostsWrap');
+  const sep  = document.getElementById('jobCostsSep');
+  if (!wrap) return;
+
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  const STAGES = [
+    'Draft','Committed','Sent','Accepted','Deposit Received',
+    'Scheduled','In Progress','Ready for Invoice','Invoiced','Paid in Full'
+  ];
+  const stageIdx = STAGES.indexOf(status || 'Draft');
+  const eligible = !!job && stageIdx >= STAGES.indexOf('Accepted');
+
+  wrap.style.display = eligible ? '' : 'none';
+  if (sep) sep.style.display = eligible ? '' : 'none';
+  if (!eligible) return;
+
+  renderEstimateCosts(job.id, 'est-costs-panel');
+
+  const countEl = document.getElementById('jobCostsCount');
+  if (countEl) {
+    const cnt = (getEstCostData(job.id).costs || []).length;
+    countEl.style.display = cnt > 0 ? '' : 'none';
+    countEl.textContent   = cnt;
+  }
 }
 
 function updateWorkflowButtons(status) {
@@ -10501,27 +10546,6 @@ function lookupJobSummary(prefixArg) {
         <span>Mat SM: $${Math.round(matRetail).toLocaleString()} · Lab: $${Math.round(labRetail).toLocaleString()}</span>
         <span>${supplier}</span>
       </div>
-
-      ${VALID_COST_STATUSES.includes(status) ? `
-      <!-- Job Costs toggle — only for accepted+ estimates -->
-      <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <button onclick="event.stopPropagation();toggleEstCosts('${j.id}')"
-            style="display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;padding:0;font-family:var(--sans)">
-            <svg id="est-costs-arrow-${j.id.replace(/[^a-zA-Z0-9]/g,'_')}" width="12" height="12" viewBox="0 0 12 12" fill="none"
-              style="transform:rotate(-90deg);transition:transform .2s;flex-shrink:0">
-              <path d="M2 4l4 4 4-4" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <span style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.06em">💰 Job Costs</span>
-            ${(()=>{const ec=JSON.parse(localStorage.getItem('fp_jobCosts2')||'{}')[j.id];const cnt=(ec&&ec.costs)?ec.costs.length:0;return cnt>0?`<span style="background:var(--orange-bg);color:var(--orange);font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px">${cnt}</span>`:'';})()}
-          </button>
-          <button onclick="event.stopPropagation();openAddCostModal('${j.id}')"
-            class="btn btn-sm btn-a" style="font-size:11px;padding:3px 10px">+ Add Expense</button>
-        </div>
-        <div id="est-costs-panel-${j.id.replace(/[^a-zA-Z0-9]/g,'_')}" style="display:none;margin-top:10px">
-          <div id="est-costs-${j.id.replace(/[^a-zA-Z0-9]/g,'_')}"></div>
-        </div>
-      </div>` : ''}
     </div>`;
   }).join('');
 
@@ -12558,13 +12582,10 @@ function hideSummarySearch() {
 // JOB COSTS — per-estimate cost tracking
 // Storage: fp_jobCosts2 → { [estimateId]: { costs: [...] } }
 // Each estimate has fully independent costs keyed by its ID
+// Entry point lives in the Estimator sidebar (updateJobCostsPanel(),
+// near updateWorkflowButtons) — gated to Accepted-or-later via the same
+// STAGES pipeline the workflow buttons use.
 // ════════════════════════════════════════════════
-
-// Statuses that allow cost entry
-const VALID_COST_STATUSES = [
-  'Accepted','Deposit Received','Scheduled',
-  'In Progress','Ready for Invoice','Invoiced','Complete'
-];
 
 // ── Storage helpers ─────────────────────────────
 function getEstCostData(estimateId) {
@@ -12595,12 +12616,16 @@ function saveEstCostData(estimateId, data) {
             jobId:      prefix,
             estimateId: estimateId,
             type:       c.type   || '',
-            desc:       (c.vendor ? c.vendor + (c.desc ? ' — ' + c.desc : '') : c.desc) || '',
+            vendor:     c.vendor || '',
+            desc:       c.desc   || '',
             date:       c.date   || '',
             amount:     c.amount || 0,
             createdAt:  c.createdAt || new Date().toISOString()
           }
-        }).catch(e => console.warn('Cost sync failed:', c.id, e));
+        }).catch(e => {
+          console.warn('Cost sync failed:', c.id, e);
+          showToast('⚠ Expense saved locally but did not sync to the cloud — check connection', 4500);
+        });
       }
     });
   }
@@ -12699,7 +12724,7 @@ function saveJobCostEntry() {
   }
   saveEstCostData(_costEstimateId, data);
   closeM('mAddCost');
-  renderEstimateCosts(_costEstimateId);
+  updateJobCostsPanel(val('propStatus'));
   showToast(_costEditId ? '✓ Expense updated' : '✓ Expense added');
 }
 
@@ -12719,9 +12744,12 @@ function confirmDeleteEstCost(estimateId, costId) {
   saveEstCostData(estimateId, data);
   if (settings.scriptUrl) {
     cloudCall({ action: 'deleteJobCost', data: { costId } })
-      .catch(e => console.warn('Cost delete sync failed:', costId, e));
+      .catch(e => {
+        console.warn('Cost delete sync failed:', costId, e);
+        showToast('⚠ Deleted locally but did not sync to the cloud — check connection', 4500);
+      });
   }
-  renderEstimateCosts(estimateId);
+  updateJobCostsPanel(val('propStatus'));
   showToast('🗑 Expense deleted');
 }
 
@@ -12731,8 +12759,10 @@ function cancelDeleteEstCost(costId) {
 }
 
 // ── Render costs section for one estimate ───────
-function renderEstimateCosts(estimateId) {
-  const container = document.getElementById('est-costs-' + estimateId.replace(/[^a-zA-Z0-9]/g,'_'));
+// containerId defaults to the Estimator sidebar's fixed panel; pass an
+// explicit id if you ever need to render a second, independent instance.
+function renderEstimateCosts(estimateId, containerId) {
+  const container = document.getElementById(containerId || 'est-costs-panel');
   if (!container) return;
 
   const data  = getEstCostData(estimateId);
@@ -12858,18 +12888,6 @@ function renderEstimateCosts(estimateId) {
       No expenses recorded yet — click <strong style="color:var(--orange)">+ Add Expense</strong> to track costs for this estimate.
     </div>`}
   `;
-}
-
-// ── Toggle costs panel visibility ───────────────
-function toggleEstCosts(estimateId) {
-  const safeId = estimateId.replace(/[^a-zA-Z0-9]/g,'_');
-  const panel  = document.getElementById('est-costs-panel-' + safeId);
-  const arrow  = document.getElementById('est-costs-arrow-' + safeId);
-  if (!panel) return;
-  const open = panel.style.display !== 'none';
-  panel.style.display = open ? 'none' : 'block';
-  if (arrow) arrow.style.transform = open ? 'rotate(-90deg)' : 'rotate(0deg)';
-  if (!open) renderEstimateCosts(estimateId); // render on first open
 }
 
 // ── Migrate legacy fp_jobCosts data → fp_jobCosts2 ──
