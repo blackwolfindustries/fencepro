@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.2</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.3</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -4722,13 +4722,17 @@ function populateSuppliers() {
 
 // Render fence type list in Setup tab
 function renderFenceTypeList() {
-  // Legacy shim — sync Lists Manager if on fenceTypes tab
+  // Legacy shim div only — NOT a call back into lmRender(). lmRender() is the
+  // driver: it already calls this function when its own tab is 'fenceTypes'
+  // (see lmRender below). Calling lmRender() from here too used to create an
+  // infinite renderFenceTypeList()<->lmRender() recursion (stack overflow —
+  // this was the root cause of the ~15-20s freeze when opening Setup, since
+  // _lmCurrentTab defaults to 'fenceTypes' and this runs on every Setup open).
   const el = document.getElementById('fenceTypeList');
   if (el) {
     const { fenceTypes } = loadLists();
     el.innerHTML = fenceTypes.map((f,i) => `<span>${escHtml(f)}</span>`).join('');
   }
-  if (typeof _lmCurrentTab !== 'undefined' && _lmCurrentTab === 'fenceTypes') lmRender();
 }
 function renameFenceType() {/* replaced by Lists Manager */}
 
@@ -11883,13 +11887,14 @@ function saveCrews(crews) {
 }
 
 function renderCrewList() {
-  // Legacy shim — sync Lists Manager if on crews tab
+  // Legacy shim div only — see the matching note on renderFenceTypeList()
+  // above. Same infinite-recursion bug existed here for the 'crews' tab;
+  // lmRender() already drives this function, so no call back into lmRender().
   const el = document.getElementById('crewList');
   if (el) {
     const crews = loadCrews();
     el.innerHTML = crews.map(c => `<span>${escHtml(c)}</span>`).join('');
   }
-  if (typeof _lmCurrentTab !== 'undefined' && _lmCurrentTab === 'crews') lmRender();
 }
 function addCrew() {
   switchListTab('crews');
