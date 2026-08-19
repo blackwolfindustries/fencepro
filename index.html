@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.4</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.5</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -7656,30 +7656,38 @@ async function saveJob() {
     return;
   }
 
-  // ── Demo LF confirm — warn on 0 or mismatch vs totalLF, always allow override ──
-  if (data.totalLF > 0 && data.demoLF === 0) {
-    const proceed = confirm(
-      '⚠ DEMO LF IS 0\n\n' +
-      'Total LF is ' + data.totalLF + ' but Demo LF is 0.\n\n' +
-      'OK = No demo on this job — save anyway\n' +
-      'Cancel = Go back and fix Demo LF'
-    );
-    if (!proceed) {
-      document.getElementById('demoLF')?.focus();
-      return;
-    }
-  } else if (data.totalLF > 0 && data.demoLF !== data.totalLF) {
-    const proceed = confirm(
-      '⚠ DEMO LF MISMATCH\n\n' +
-      'Total LF:  ' + data.totalLF + '\n' +
-      'Demo LF:   ' + data.demoLF + '\n\n' +
-      'Is this intentional (partial demo)?\n\n' +
-      'OK = Yes, intentional — save anyway\n' +
-      'Cancel = Go back and fix Demo LF'
-    );
-    if (!proceed) {
-      document.getElementById('demoLF')?.focus();
-      return;
+  // ── Demo LF confirm — warn on 0 or mismatch vs totalLF, but ONLY while
+  // still Draft/Committed. Once a job is Accepted, the LF numbers are
+  // locked in and saveJob() gets called internally from all over the app
+  // afterward (recording a deposit, scheduling, final payment, etc.) — the
+  // bug Didz reported was this prompt re-firing on every one of those saves
+  // at every later stage, not just while still quoting. Always allow
+  // override while it does apply.
+  if (['Draft', 'Committed'].includes(data.propStatus)) {
+    if (data.totalLF > 0 && data.demoLF === 0) {
+      const proceed = confirm(
+        '⚠ DEMO LF IS 0\n\n' +
+        'Total LF is ' + data.totalLF + ' but Demo LF is 0.\n\n' +
+        'OK = No demo on this job — save anyway\n' +
+        'Cancel = Go back and fix Demo LF'
+      );
+      if (!proceed) {
+        document.getElementById('demoLF')?.focus();
+        return;
+      }
+    } else if (data.totalLF > 0 && data.demoLF !== data.totalLF) {
+      const proceed = confirm(
+        '⚠ DEMO LF MISMATCH\n\n' +
+        'Total LF:  ' + data.totalLF + '\n' +
+        'Demo LF:   ' + data.demoLF + '\n\n' +
+        'Is this intentional (partial demo)?\n\n' +
+        'OK = Yes, intentional — save anyway\n' +
+        'Cancel = Go back and fix Demo LF'
+      );
+      if (!proceed) {
+        document.getElementById('demoLF')?.focus();
+        return;
+      }
     }
   }
 
