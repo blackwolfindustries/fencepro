@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.3</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.4</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -12804,33 +12804,48 @@ function renderEstimateCosts(estimateId, containerId) {
   const pctColor = gpPct === null ? 'rgba(255,255,255,.6)' :
                    gpPct >= 30 ? '#4ADE80' : gpPct >= 15 ? '#FCD34D' : '#F87171';
 
+  // Stacked-card rows, NOT a fixed-column table. This panel now lives in the
+  // 380px Estimator sidebar (.est-side) instead of the old full-width Job
+  // Summary screen it was built for. The old <table> had a fixed 70px
+  // actions column plus white-space:nowrap cells that added up to well over
+  // 380px — the rightmost content (the Edit/Delete buttons, and especially
+  // the inline "Delete? Yes/No" confirm, which needs even more room) ran off
+  // the visible/clickable area. That was the root cause of "can't delete an
+  // expense" — the Yes/No buttons existed and worked, they just weren't
+  // reachable. Cards stack vertically and everything (including the delete
+  // confirm) wraps within whatever width is actually available, so nothing
+  // can overflow out of reach regardless of sidebar width.
   const renderRows = (entries, cat) => {
     if (entries.length === 0) return '';
     return entries.map(c => {
       const safeId  = c.id.replace(/[^a-zA-Z0-9_]/g,'_');
       const dateStr = c.date ? new Date(c.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}) : '—';
       const label   = [c.vendor, c.desc].filter(Boolean).join(' — ') || '—';
-      return `<tr style="border-bottom:1px solid var(--border)" id="cost-row-${safeId}">
-        <td style="padding:8px 12px;font-size:12px;font-weight:700;color:var(--text2);white-space:nowrap">${catIcon[cat]||'📦'} ${cat}</td>
-        <td style="padding:8px 12px;font-size:12px;color:var(--text3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${label}">${label}</td>
-        <td style="padding:8px 12px;font-size:11px;font-family:var(--mono);color:var(--text3);white-space:nowrap">${dateStr}</td>
-        <td style="padding:8px 12px;text-align:right;font-size:13px;font-weight:700;font-family:var(--mono);color:var(--text)">${fmt(c.amount||0)}</td>
-        <td style="padding:8px 8px;text-align:center;white-space:nowrap">
-          <button onclick="openAddCostModal('${estimateId}','${c.id}')" title="Edit"
-            style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;color:var(--text3)"
-            onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='var(--text3)'">✏️</button>
-          <button onclick="deleteEstCost('${estimateId}','${c.id}')" title="Delete"
-            style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;color:var(--text3)"
-            onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">🗑</button>
-          <div id="cost-del-confirm-${c.id}" style="display:none;align-items:center;gap:4px;margin-top:2px">
-            <span style="font-size:10px;color:var(--red);font-weight:700">Delete?</span>
-            <button onclick="confirmDeleteEstCost('${estimateId}','${c.id}')"
-              style="font-size:10px;padding:2px 6px;background:var(--red);color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:700">Yes</button>
-            <button onclick="cancelDeleteEstCost('${c.id}')"
-              style="font-size:10px;padding:2px 6px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:4px;cursor:pointer">No</button>
-          </div>
-        </td>
-      </tr>`;
+      return `<div id="cost-row-${safeId}" style="padding:8px 10px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span style="font-size:11px;font-weight:700;color:var(--text2);white-space:nowrap">${catIcon[cat]||'📦'} ${cat}</span>
+          <span style="font-size:13px;font-weight:700;font-family:var(--mono);color:var(--text);white-space:nowrap">${fmt(c.amount||0)}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px;overflow-wrap:anywhere" title="${label}">${label}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px">
+          <span style="font-size:11px;font-family:var(--mono);color:var(--text3)">${dateStr}</span>
+          <span style="display:flex;gap:2px;flex-shrink:0">
+            <button onclick="openAddCostModal('${estimateId}','${c.id}')" title="Edit"
+              style="background:none;border:none;cursor:pointer;font-size:13px;padding:3px 6px;color:var(--text3)"
+              onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='var(--text3)'">✏️</button>
+            <button onclick="deleteEstCost('${estimateId}','${c.id}')" title="Delete"
+              style="background:none;border:none;cursor:pointer;font-size:13px;padding:3px 6px;color:var(--text3)"
+              onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">🗑</button>
+          </span>
+        </div>
+        <div id="cost-del-confirm-${c.id}" style="display:none;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border)">
+          <span style="font-size:11px;color:var(--red);font-weight:700;margin-right:auto">Delete this expense?</span>
+          <button onclick="confirmDeleteEstCost('${estimateId}','${c.id}')"
+            style="font-size:11px;padding:3px 9px;background:var(--red);color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:700;white-space:nowrap">Yes, delete</button>
+          <button onclick="cancelDeleteEstCost('${c.id}')"
+            style="font-size:11px;padding:3px 9px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:4px;cursor:pointer;white-space:nowrap">Cancel</button>
+        </div>
+      </div>`;
     }).join('');
   };
 
@@ -12869,27 +12884,14 @@ function renderEstimateCosts(estimateId, containerId) {
       </div>
     </div>
 
-    <!-- Costs table -->
+    <!-- Costs list (stacked cards — see renderRows note above on why) -->
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px">
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead>
-          <tr style="background:var(--surface2)">
-            <th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);border-bottom:1px solid var(--border)">Category</th>
-            <th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);border-bottom:1px solid var(--border)">Vendor / Description</th>
-            <th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);border-bottom:1px solid var(--border)">Date</th>
-            <th style="padding:7px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);border-bottom:1px solid var(--border)">Amount</th>
-            <th style="padding:7px 8px;border-bottom:1px solid var(--border);width:70px"></th>
-          </tr>
-        </thead>
-        <tbody>${allRows}</tbody>
-        <tfoot>
-          <tr style="background:var(--surface2)">
-            <td colspan="3" style="padding:8px 12px;font-size:12px;font-weight:700;color:var(--text2);border-top:1px solid var(--border)">Total</td>
-            <td style="padding:8px 12px;text-align:right;font-size:14px;font-weight:800;color:var(--orange);font-family:var(--mono);border-top:1px solid var(--border)">${fmt(totalAll)}</td>
-            <td style="border-top:1px solid var(--border)"></td>
-          </tr>
-        </tfoot>
-      </table>
+      <div style="padding:6px 10px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Expenses</div>
+      <div>${allRows}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface2);border-top:1px solid var(--border)">
+        <span style="font-size:12px;font-weight:700;color:var(--text2)">Total</span>
+        <span style="font-size:14px;font-weight:800;color:var(--orange);font-family:var(--mono)">${fmt(totalAll)}</span>
+      </div>
     </div>` : `
     <!-- Empty state -->
     <div style="background:var(--surface);border:1.5px dashed var(--border);border-radius:var(--r);padding:16px;text-align:center;color:var(--text3);font-size:12px;margin-bottom:10px">
