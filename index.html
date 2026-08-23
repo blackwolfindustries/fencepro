@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.6</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.7</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -3723,12 +3723,29 @@
         <div><label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:4px">Invoice Date</label><input id="ei_invoiceDate" type="date" style="width:100%;box-sizing:border-box"></div>
         <div><label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:4px">Due Date</label><input id="ei_dueDate" type="date" style="width:100%;box-sizing:border-box"></div>
         <div><label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:4px">Amount Due</label><input id="ei_amountDue" type="number" min="0" step="0.01" style="width:100%;box-sizing:border-box"></div>
-        <div><label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:4px">Payment Status</label>
-          <select id="ei_status" style="width:100%;box-sizing:border-box"><option>Unpaid</option><option>Partial</option><option>Paid in Full</option></select></div>
-        <div><label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:4px">Payment Method</label>
-          <select id="ei_payMethod" style="width:100%;box-sizing:border-box"><option value="">—</option><option>Cash</option><option>Check</option><option>Credit Card</option><option>Zelle</option><option>Venmo</option><option>Other</option></select></div>
-        <div><label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:4px">Payment Date</label><input id="ei_payDate" type="date" style="width:100%;box-sizing:border-box"></div>
       </div>
+      <!-- Payment status/method/date are tracked automatically from Record Deposit
+           and Record Final Payment on the job — same reasoning as Generate Invoice.
+           Read-only so this record can't be edited out of sync with the real
+           payment ledger; it self-heals to the real values every time it's saved. -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px 20px">
+        <div style="flex:1;min-width:110px">
+          <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Payment Status</div>
+          <div id="ei_statusDisplay" style="font-size:13px;font-weight:700">Unpaid</div>
+        </div>
+        <div style="flex:1;min-width:110px">
+          <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Payment Method</div>
+          <div id="ei_payMethodDisplay" style="font-size:13px;font-weight:700">—</div>
+        </div>
+        <div style="flex:1;min-width:110px">
+          <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Payment Date</div>
+          <div id="ei_payDateDisplay" style="font-size:13px;font-weight:700">—</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text3)">💡 To record an actual payment, use <strong>Record Deposit</strong> or <strong>Record Final Payment</strong> on the job — this status updates from there automatically.</div>
+      <input type="hidden" id="ei_status">
+      <input type="hidden" id="ei_payMethod">
+      <input type="hidden" id="ei_payDate">
       <div><label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:4px">Notes</label><textarea id="ei_notes" rows="3" style="width:100%;box-sizing:border-box;resize:vertical"></textarea></div>
     </div>
     <div class="mactions">
@@ -15103,9 +15120,48 @@ function openEditInvoice(invId) {
   document.getElementById('ei_invoiceDate').value = toDateInput(inv['Invoice Date'] || inv.invoiceDate);
   document.getElementById('ei_dueDate').value     = toDateInput(inv['Due Date']     || inv.dueDate);
   document.getElementById('ei_amountDue').value   = inv['Amount Due']     || inv.amountDue   || 0;
-  document.getElementById('ei_status').value      = inv['Payment Status'] || inv.status      || 'Unpaid';
-  document.getElementById('ei_payMethod').value   = inv['Payment Method'] || inv.paymentMethod || '';
-  document.getElementById('ei_payDate').value     = toDateInput(inv['Payment Date'] || inv.paymentDate);
+
+  // Payment status/method/date — pulled from the real recorded payment on the
+  // matching job (Record Deposit / Record Final Payment), same as Generate
+  // Invoice. Never editable here; the old editable version let this record's
+  // cached copy silently disagree with the real payment ledger.
+  const jobIdPrefix = inv['Job ID'] || inv.jobId || '';
+  const matchJob = jobs.find(j => j.invoiceId === invId)
+                || jobs.find(j => (j.jobId || (j.id||'').split('-')[0]) === jobIdPrefix);
+
+  const eiCP        = matchJob?.contractPrice || 0;
+  const eiTotalPaid = matchJob?.totalPaid > 0 ? matchJob.totalPaid : (Number(matchJob?.depositPaid) || 0);
+  let eiStatus = 'Unpaid', eiPayMethod = '', eiPayDate = '';
+  if (matchJob) {
+    if (eiTotalPaid >= eiCP && eiCP > 0) {
+      eiStatus    = 'Paid in Full';
+      eiPayMethod = matchJob.finalPaymentMethod || '';
+      eiPayDate   = matchJob.finalPaymentDate   || '';
+    } else if (matchJob.propStatus === 'Deposit Received' || (Number(matchJob.depositPaid)||0) > 0) {
+      eiStatus    = 'Partial'; // matches this record's own status vocabulary (no "Deposit Received" option here)
+      eiPayMethod = matchJob.depositMethod || '';
+      eiPayDate   = matchJob.depositDate   || '';
+    }
+  } else {
+    // Matching job isn't loaded locally (e.g. archived) — fall back to whatever
+    // was last saved on the invoice record rather than showing blank.
+    eiStatus    = inv['Payment Status'] || inv.status || 'Unpaid';
+    eiPayMethod = inv['Payment Method'] || inv.paymentMethod || '';
+    eiPayDate   = inv['Payment Date']   || inv.paymentDate   || '';
+  }
+
+  document.getElementById('ei_status').value    = eiStatus;
+  document.getElementById('ei_payMethod').value = eiPayMethod;
+  document.getElementById('ei_payDate').value   = eiPayDate;
+  document.getElementById('ei_statusDisplay').textContent = eiStatus;
+  document.getElementById('ei_statusDisplay').style.color =
+    eiStatus === 'Paid in Full' ? 'var(--green)' :
+    eiStatus === 'Unpaid'       ? 'var(--orange)' : 'var(--accent)';
+  document.getElementById('ei_payMethodDisplay').textContent = eiPayMethod || '—';
+  document.getElementById('ei_payDateDisplay').textContent = eiPayDate
+    ? new Date((String(eiPayDate).includes('T') ? eiPayDate : eiPayDate + 'T12:00:00')).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+    : '—';
+
   document.getElementById('ei_notes').value       = inv['Notes']          || inv.notes       || '';
 
   openM('mEditInvoice');
