@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.5</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.17.6</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -4230,28 +4230,28 @@
     <div class="fg2" style="gap:10px;margin-bottom:12px">
       <div class="f"><label>INVOICE DATE</label><input type="date" id="invDate"></div>
       <div class="f"><label>DUE DATE</label><input type="date" id="invDue"></div>
-      <div class="f"><label>PAYMENT STATUS</label>
-        <select id="invStatus">
-          <option>Unpaid</option>
-          <option>Deposit Received</option>
-          <option>Partial</option>
-          <option>Paid in Full</option>
-          <option>Overdue</option>
-        </select>
-      </div>
-      <div class="f"><label>PAYMENT METHOD</label>
-        <select id="invPayMethod">
-          <option value="">—</option>
-          <option>Cash</option>
-          <option>Check</option>
-          <option>Credit Card</option>
-          <option>Zelle</option>
-          <option>Venmo</option>
-          <option>Financing</option>
-        </select>
-      </div>
-      <div class="f"><label>PAYMENT DATE</label><input type="date" id="invPayDate"></div>
     </div>
+    <!-- Payment status/method/date are tracked automatically from Record Deposit
+         and Record Final Payment — shown here read-only so this screen can't drift
+         out of sync with the real payment record. -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:4px;display:flex;flex-wrap:wrap;gap:10px 20px">
+      <div style="flex:1;min-width:110px">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Payment Status</div>
+        <div id="invStatusDisplay" style="font-size:13px;font-weight:700">Unpaid</div>
+      </div>
+      <div style="flex:1;min-width:110px">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Payment Method</div>
+        <div id="invPayMethodDisplay" style="font-size:13px;font-weight:700">—</div>
+      </div>
+      <div style="flex:1;min-width:110px">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Payment Date</div>
+        <div id="invPayDateDisplay" style="font-size:13px;font-weight:700">—</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">💡 To record an actual payment, use <strong>Record Deposit</strong> or <strong>Record Final Payment</strong> — this status updates from there automatically.</div>
+    <input type="hidden" id="invStatus">
+    <input type="hidden" id="invPayMethod">
+    <input type="hidden" id="invPayDate">
     <div class="pblock" style="margin-bottom:12px">
       <div class="prow"><span>Contract Price (<span id="invPriceType">—</span>)</span><span id="invAmt" style="font-weight:700">$0</span></div>
       <div id="invPayHistoryBlock" style="display:none;border-top:1px solid var(--border2);margin-top:4px;padding-top:4px"></div>
@@ -10150,9 +10150,28 @@ async function openInvoice() {
   let _defaultInvStatus = 'Unpaid';
   if (_jobTotalPaid >= _jobCP && _jobCP > 0)          _defaultInvStatus = 'Paid in Full';
   else if (_jobStatus === 'Deposit Received' || depositPaid > 0) _defaultInvStatus = 'Deposit Received';
-  document.getElementById('invStatus').value = _defaultInvStatus;
-  document.getElementById('invPayMethod').value = '';
-  document.getElementById('invPayDate').value   = '';
+  // Payment method/date are pulled from the real recorded payment (Record Deposit /
+  // Record Final Payment) — never typed here, so this screen can't show a status
+  // that the actual payment ledger disagrees with.
+  let _payMethod = '', _payDate = '';
+  if (_defaultInvStatus === 'Paid in Full') {
+    _payMethod = job?.finalPaymentMethod || '';
+    _payDate   = job?.finalPaymentDate   || '';
+  } else if (_defaultInvStatus === 'Deposit Received') {
+    _payMethod = job?.depositMethod || '';
+    _payDate   = job?.depositDate   || '';
+  }
+  document.getElementById('invStatus').value    = _defaultInvStatus;
+  document.getElementById('invPayMethod').value = _payMethod;
+  document.getElementById('invPayDate').value   = _payDate;
+  document.getElementById('invStatusDisplay').textContent = _defaultInvStatus;
+  document.getElementById('invStatusDisplay').style.color =
+    _defaultInvStatus === 'Paid in Full' ? 'var(--green)' :
+    _defaultInvStatus === 'Unpaid'       ? 'var(--orange)' : 'var(--accent)';
+  document.getElementById('invPayMethodDisplay').textContent = _payMethod || '—';
+  document.getElementById('invPayDateDisplay').textContent = _payDate
+    ? new Date(_payDate + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+    : '—';
 
   // Pricing section — shows what was actually accepted
   document.getElementById('invPriceType').textContent  = priceType === 'Cash' ? 'Cash / Check' : 'CC / Finance';
