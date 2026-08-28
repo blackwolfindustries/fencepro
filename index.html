@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.18.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.18.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2795,15 +2795,15 @@
             <div style="font-size:24px;font-weight:900;color:var(--green);font-family:var(--mono)" id="perf_closed">—</div>
             <div style="font-size:9px;color:var(--text3);margin-top:2px">click to view ↓</div>
           </div>
-          <div style="background:var(--surface2,var(--surface));border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
+          <div id="perfcard_conversion" onclick="perfDrillDown('conversion')" style="background:var(--surface2,var(--surface));border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border);cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--orange)'" onmouseout="this.style.boxShadow=''">
             <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Conversion %</div>
             <div style="font-size:24px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="perf_conversion">—</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px">Leads → Estimates</div>
+            <div style="font-size:9px;color:var(--text3);margin-top:2px">Leads → Estimates · click to view ↓</div>
           </div>
-          <div style="background:var(--surface2,var(--surface));border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border)">
+          <div id="perfcard_closure" onclick="perfDrillDown('closure')" style="background:var(--surface2,var(--surface));border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border);cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--orange)'" onmouseout="this.style.boxShadow=''">
             <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Closure %</div>
             <div style="font-size:24px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="perf_closure">—</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px">Estimates → Jobs</div>
+            <div style="font-size:9px;color:var(--text3);margin-top:2px">Estimates → Jobs · click to view ↓</div>
           </div>
         </div>
         <!-- Drill-down panel — shared by the three clickable cards above, populated on click -->
@@ -16801,6 +16801,68 @@ function renderPerformance(filteredProposals, range) {
 // Jobs Closed) — same shared-panel pattern as the Overview tab's kpiDrillDown().
 // Reads from _perfDrillRows, captured fresh by renderPerformance() above so it
 // always matches whatever date range is currently selected.
+// ── Row/header builders shared by every perfDrillDown() view ─────────────
+// Leads use the normalized {name,date,channel,campaign,extra} shape (see
+// renderPerformance() above); estimates/closed use raw proposal CSV rows.
+function _perfFmtDate(s) {
+  const d = parseAnalyticsDate(s);
+  return d ? d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}) : '—';
+}
+function _perfLeadsHeadHTML() {
+  return `<th style="${_thStyle('left')}">Name</th>
+    <th style="${_thStyle('left')}">Created</th>
+    <th style="${_thStyle('left')}">Channel</th>
+    <th style="${_thStyle('left')}">Campaign</th>
+    <th style="${_thStyle('left')}">Contact Type</th>`;
+}
+function _perfLeadsRowsHTML(rows) {
+  if (!rows.length) return '<tr><td colspan="5" style="padding:14px;text-align:center;color:var(--text3)">No data for this selection</td></tr>';
+  return rows.map((c, i) => `<tr style="border-bottom:1px solid var(--border);${i%2===0?'background:var(--surface2)':''}">
+    <td style="padding:7px 8px;font-weight:600;color:var(--text)">${escHtml(c.name)}</td>
+    <td style="padding:7px 8px;color:var(--text2)">${_perfFmtDate(c.date)}</td>
+    <td style="padding:7px 8px;color:var(--text2)">${escHtml(c.channel || '—')}</td>
+    <td style="padding:7px 8px;color:var(--text2)">${escHtml(c.campaign || '—')}</td>
+    <td style="padding:7px 8px;color:var(--text2);font-size:11px">${escHtml(c.extra || '—')}</td>
+  </tr>`).join('');
+}
+function _perfProposalsHeadHTML() {
+  return `<th style="${_thStyle('left')}">Name</th>
+    <th style="${_thStyle('left')}">Status</th>
+    <th style="${_thStyle('right')}">Value</th>
+    <th style="${_thStyle('left')}">Sent</th>
+    <th style="${_thStyle('left')}">Channel</th>
+    <th style="${_thStyle('left')}">Campaign</th>
+    <th style="${_thStyle('left')}">Service</th>`;
+}
+function _perfProposalsRowsHTML(rows) {
+  if (!rows.length) return '<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--text3)">No data for this selection</td></tr>';
+  const statusColors = {
+    'Open':'var(--blue)', 'Accepted':'var(--green)',
+    'Complete':'#16A34A', 'Declined':'var(--red)', 'Expired':'var(--text3)'
+  };
+  return rows.map((r, i) => {
+    const val    = parseFloat(r['Value']) || 0;
+    const status = r['Status'] || '—';
+    const color  = statusColors[status] || 'var(--text2)';
+    return `<tr style="border-bottom:1px solid var(--border);${i%2===0?'background:var(--surface2)':''}">
+      <td style="padding:7px 8px;font-weight:600;color:var(--text)">${escHtml(r['Name'] || r['Customer'] || '—')}</td>
+      <td style="padding:7px 8px"><span style="font-size:10px;font-weight:700;color:${color};background:${color}18;padding:2px 7px;border-radius:10px">${escHtml(status)}</span></td>
+      <td style="padding:7px 8px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">$${Math.round(val).toLocaleString()}</td>
+      <td style="padding:7px 8px;color:var(--text2)">${_perfFmtDate(r['Sent'] || r['Created'])}</td>
+      <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Channel'] || '—')}</td>
+      <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Campaign'] || '—')}</td>
+      <td style="padding:7px 8px;color:var(--text2);font-size:11px">${escHtml(r['Service'] || r['Title'] || '—')}</td>
+    </tr>`;
+  }).join('');
+}
+// One labeled section within a two-part drill-down (Conversion/Closure) —
+// its own title bar + column headers + rows, stacked in the same tbody.
+function _perfSectionHTML(label, count, colspan, headHTML, rowsHTML) {
+  return `<tr><td colspan="${colspan}" style="padding:8px 8px 5px;font-weight:800;color:var(--navy);background:var(--surface2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;border-top:1px solid var(--border)">${escHtml(label)} (${count})</td></tr>
+    <tr style="border-bottom:2px solid var(--border)">${headHTML}</tr>
+    ${rowsHTML}`;
+}
+
 function perfDrillDown(kind) {
   const panel = document.getElementById('perfDrillPanel');
   const title = document.getElementById('perfDrillTitle');
@@ -16808,8 +16870,8 @@ function perfDrillDown(kind) {
   const tbody = document.getElementById('perfDrillBody');
   if (!panel || !thead || !tbody) return;
 
-  // Clear active highlight on all three cards
-  ['leads','estimates','closed'].forEach(k => {
+  // Clear active highlight on all five clickable cards
+  ['leads','estimates','closed','conversion','closure'].forEach(k => {
     const c = document.getElementById('perfcard_' + k);
     if (c) c.style.outline = '';
   });
@@ -16823,74 +16885,45 @@ function perfDrillDown(kind) {
   _perfActiveDrill = kind;
   panel.style.display = 'block';
 
-  const colors = { leads:'var(--navy)', estimates:'var(--navy)', closed:'var(--green)' };
+  const colors = { leads:'var(--navy)', estimates:'var(--navy)', closed:'var(--green)',
+                    conversion:'var(--orange)', closure:'var(--orange)' };
   const activeCard = document.getElementById('perfcard_' + kind);
   if (activeCard) activeCard.style.outline = '2px solid ' + (colors[kind] || 'var(--navy)');
 
   const rangeSelect = document.getElementById('analyticsRange');
   const rangeLabel  = rangeSelect?.selectedOptions?.[0]?.textContent || '';
-  const rows = _perfDrillRows[kind] || [];
-  const labels = { leads: 'Leads', estimates: 'Estimates Sent', closed: 'Jobs Closed' };
-  title.textContent = rows.length + ' ' + (labels[kind] || kind) + (rangeLabel ? ' — ' + rangeLabel : '');
-
-  const fmtDate = s => {
-    const d = parseAnalyticsDate(s);
-    return d ? d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'}) : '—';
-  };
+  const rangeSuffix = rangeLabel ? ' — ' + rangeLabel : '';
 
   if (kind === 'leads') {
-    // Normalized shape: {name, date, channel, campaign, extra}
-    thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
-      <th style="${_thStyle('left')}">Name</th>
-      <th style="${_thStyle('left')}">Created</th>
-      <th style="${_thStyle('left')}">Channel</th>
-      <th style="${_thStyle('left')}">Campaign</th>
-      <th style="${_thStyle('left')}">Contact Type</th>
-    </tr>`;
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3)">No data for this selection</td></tr>';
-    } else {
-      tbody.innerHTML = rows.map((c, i) => `<tr style="border-bottom:1px solid var(--border);${i%2===0?'background:var(--surface2)':''}">
-        <td style="padding:7px 8px;font-weight:600;color:var(--text)">${escHtml(c.name)}</td>
-        <td style="padding:7px 8px;color:var(--text2)">${fmtDate(c.date)}</td>
-        <td style="padding:7px 8px;color:var(--text2)">${escHtml(c.channel || '—')}</td>
-        <td style="padding:7px 8px;color:var(--text2)">${escHtml(c.campaign || '—')}</td>
-        <td style="padding:7px 8px;color:var(--text2);font-size:11px">${escHtml(c.extra || '—')}</td>
-      </tr>`).join('');
-    }
-  } else {
-    // 'estimates' / 'closed' — raw proposal CSV rows, same columns as kpiDrillDown()
-    thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
-      <th style="${_thStyle('left')}">Name</th>
-      <th style="${_thStyle('left')}">Status</th>
-      <th style="${_thStyle('right')}">Value</th>
-      <th style="${_thStyle('left')}">Sent</th>
-      <th style="${_thStyle('left')}">Channel</th>
-      <th style="${_thStyle('left')}">Campaign</th>
-      <th style="${_thStyle('left')}">Service</th>
-    </tr>`;
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--text3)">No data for this selection</td></tr>';
-    } else {
-      const statusColors = {
-        'Open':'var(--blue)', 'Accepted':'var(--green)',
-        'Complete':'#16A34A', 'Declined':'var(--red)', 'Expired':'var(--text3)'
-      };
-      tbody.innerHTML = rows.map((r, i) => {
-        const val    = parseFloat(r['Value']) || 0;
-        const status = r['Status'] || '—';
-        const color  = statusColors[status] || 'var(--text2)';
-        return `<tr style="border-bottom:1px solid var(--border);${i%2===0?'background:var(--surface2)':''}">
-          <td style="padding:7px 8px;font-weight:600;color:var(--text)">${escHtml(r['Name'] || r['Customer'] || '—')}</td>
-          <td style="padding:7px 8px"><span style="font-size:10px;font-weight:700;color:${color};background:${color}18;padding:2px 7px;border-radius:10px">${escHtml(status)}</span></td>
-          <td style="padding:7px 8px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">$${Math.round(val).toLocaleString()}</td>
-          <td style="padding:7px 8px;color:var(--text2)">${fmtDate(r['Sent'] || r['Created'])}</td>
-          <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Channel'] || '—')}</td>
-          <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Campaign'] || '—')}</td>
-          <td style="padding:7px 8px;color:var(--text2);font-size:11px">${escHtml(r['Service'] || r['Title'] || '—')}</td>
-        </tr>`;
-      }).join('');
-    }
+    const rows = _perfDrillRows.leads;
+    title.textContent = rows.length + ' Leads' + rangeSuffix;
+    thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">${_perfLeadsHeadHTML()}</tr>`;
+    tbody.innerHTML = _perfLeadsRowsHTML(rows);
+  } else if (kind === 'estimates' || kind === 'closed') {
+    const rows  = _perfDrillRows[kind];
+    const label = kind === 'estimates' ? 'Estimates Sent' : 'Jobs Closed';
+    title.textContent = rows.length + ' ' + label + rangeSuffix;
+    thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">${_perfProposalsHeadHTML()}</tr>`;
+    tbody.innerHTML = _perfProposalsRowsHTML(rows);
+  } else if (kind === 'conversion') {
+    // Conversion % = Estimates Sent / Leads — show both halves of the ratio,
+    // stacked, so it's clear what feeds the number rather than re-deriving it.
+    const leadRows = _perfDrillRows.leads;
+    const estRows  = _perfDrillRows.estimates;
+    const pct = document.getElementById('perf_conversion')?.textContent || '—';
+    title.textContent = pct + ' Conversion — ' + estRows.length + ' Estimates from ' + leadRows.length + ' Leads' + rangeSuffix;
+    thead.innerHTML = '';
+    tbody.innerHTML = _perfSectionHTML('Leads', leadRows.length, 5, _perfLeadsHeadHTML(), _perfLeadsRowsHTML(leadRows))
+                     + _perfSectionHTML('Estimates Sent', estRows.length, 7, _perfProposalsHeadHTML(), _perfProposalsRowsHTML(estRows));
+  } else if (kind === 'closure') {
+    // Closure % = Jobs Closed / Estimates Sent
+    const estRows    = _perfDrillRows.estimates;
+    const closedRows = _perfDrillRows.closed;
+    const pct = document.getElementById('perf_closure')?.textContent || '—';
+    title.textContent = pct + ' Closure — ' + closedRows.length + ' Closed from ' + estRows.length + ' Estimates' + rangeSuffix;
+    thead.innerHTML = '';
+    tbody.innerHTML = _perfSectionHTML('Estimates Sent', estRows.length, 7, _perfProposalsHeadHTML(), _perfProposalsRowsHTML(estRows))
+                     + _perfSectionHTML('Jobs Closed', closedRows.length, 7, _perfProposalsHeadHTML(), _perfProposalsRowsHTML(closedRows));
   }
 
   setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
