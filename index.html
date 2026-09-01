@@ -137,12 +137,13 @@
 
   /* ── ESTIMATOR ────────────────────────────────── */
   .est-layout{display:grid;grid-template-columns:1fr 380px;height:100%;overflow:hidden;flex:1}
-  .est-main{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--bg);min-height:0}
+  .est-main{overflow-y:auto;overflow-x:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--bg);min-height:0;min-width:0}
   .est-side{
     background:var(--surface);
     border-left:2px solid var(--border);
-    overflow-y:auto;padding:18px;
+    overflow-y:auto;overflow-x:hidden;padding:18px;
     display:flex;flex-direction:column;gap:10px;
+    min-width:0;
   }
 
   /* ── CARDS ────────────────────────────────────── */
@@ -1053,7 +1054,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.18.3</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.18.4</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
