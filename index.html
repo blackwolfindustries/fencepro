@@ -1024,7 +1024,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.18.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.18.2</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -5577,6 +5577,20 @@ function showApp() {
 const OWNER_EMAIL  = 'anthonyd@blackwolfindustriesli.com';
 const AUTH_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyV-y9YMwfl6181-xLaFoiJHvsn5QT1GAER-VJc533_Ifc-WYzNmTXyXpDq1JBi-RsI/exec';
 const AUTH_API_KEY    = 'fp_bwi_2026_xK9mQpLvNzRtWjYd';
+
+// ── Self-heal: default Setup's cloud Script URL to the same deployment ──
+// login already uses on every device, the same way `apiKey` already
+// defaults in code. Without this, a device that never had the Setup-tab
+// Script URL entered by hand (or lost it — e.g. iOS Safari clearing site
+// data) silently runs on local/hardcoded defaults with no visible error,
+// which is how a phone/iPad can show stale supplier delivery fees, fence
+// types, crews, parts, or companies while desktop shows the real synced
+// data. A `scriptUrl` already saved on this device (localStorage
+// `fp_settings`) always wins — this only fills in a genuinely blank one.
+if (!settings.scriptUrl) {
+  settings.scriptUrl = AUTH_SCRIPT_URL;
+  localStorage.setItem('fp_settings', JSON.stringify(settings));
+}
 
 function getAllowedEmails() {
   try {
