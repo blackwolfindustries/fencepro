@@ -733,6 +733,35 @@
     .board-col{min-width:85vw!important}
   }
 
+  /* ── FIX 6: SETUP SUPPLIER ROW — stack on mobile instead of ──── */
+  /* squeezing name + two $ fields + note + delete button into a  */
+  /* fixed 1fr/110px/110px/auto/auto row (only fit on desktop).   */
+  @media(max-width:768px){
+    .supplier-row{
+      display:flex!important;
+      flex-direction:column!important;
+      align-items:flex-start!important;
+      gap:6px!important;
+    }
+    /* Force the supplier name onto its own full-width line so the */
+    /* remaining pieces (fees, note, delete) wrap cleanly below it. */
+    .supplier-row > *{width:auto!important}
+    .supplier-row > *:first-child{width:100%!important}
+  }
+
+  /* ── FIX 7: ANALYTICS — responsive KPI/stat-card grids ───────── */
+  /* Overview/Pipeline/Performance/Booking/Day-of-Week/Pricing all */
+  /* pack 3–7 stat cards into one dense row with no mobile handling */
+  /* previously — cards were crushed to ~50px wide on a phone.     */
+  @media(min-width:481px) and (max-width:768px){
+    .a-stat-grid{grid-template-columns:repeat(3,1fr)!important}
+    .a-2col-grid{grid-template-columns:1fr!important}
+  }
+  @media(max-width:480px){
+    .a-stat-grid{grid-template-columns:repeat(2,1fr)!important}
+    .a-2col-grid{grid-template-columns:1fr!important}
+  }
+
   @media print{
     /* Default print — hide app chrome */
     .header,.est-side,.btn,.statusbar,.hdr-right,.nav-tabs{display:none!important}
@@ -1024,7 +1053,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.18.2</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.18.3</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2654,7 +2683,7 @@
 
     <!-- ══ OVERVIEW ══ -->
     <div id="atab-overview" style="display:flex;flex-direction:column;gap:16px;padding:16px">
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:12px">
+      <div class="a-stat-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:12px">
         <div class="card" id="kpicard_total" onclick="kpiDrillDown('total')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--navy)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Proposals</div>
           <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_total">—</div>
@@ -2693,7 +2722,7 @@
         </div>
       </div>
       <!-- Row 2: Job Sizing KPIs -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:0">
+      <div class="a-stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:0">
         <div class="card" id="kpicard_avg" onclick="kpiDrillDown('avg')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--navy)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg Closed Job</div>
           <div style="font-size:22px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_avg">—</div>
@@ -2747,7 +2776,7 @@
 
     <!-- ══ PIPELINE ══ -->
     <div id="atab-pipeline" style="display:none;flex-direction:column;gap:16px;padding:16px">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div class="a-stat-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
         <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Open Proposals</div>
           <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="pipe_kpi_count">—</div>
@@ -2779,7 +2808,7 @@
           <div class="card-title" style="margin-bottom:0">Lead → Estimate → Close Funnel</div>
           <div style="font-size:11px;color:var(--text3)" id="perfDataNote"></div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px">
+        <div class="a-stat-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px">
           <div id="perfcard_leads" onclick="perfDrillDown('leads')" style="background:var(--surface2,var(--surface));border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--border);cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--navy)'" onmouseout="this.style.boxShadow=''">
             <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Leads</div>
             <div style="font-size:24px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="perf_leads">—</div>
@@ -2833,7 +2862,7 @@
 
     <!-- ══ BREAKDOWN ══ -->
     <div id="atab-breakdown" style="display:none;flex-direction:column;gap:16px;padding:16px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="a-2col-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="card">
           <div class="card-title">By Channel</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -2849,7 +2878,7 @@
           </table>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="a-2col-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="card">
           <div class="card-title">By Fence Type</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -2865,7 +2894,7 @@
           </table>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="a-2col-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="card">
           <div class="card-title">By Material</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -2881,7 +2910,7 @@
     <div id="atab-booking" style="display:none;flex-direction:column;gap:16px;padding:16px">
 
       <!-- KPI tiles -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      <div class="a-stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
         <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Avg Days to Book</div>
           <div style="font-size:36px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="book_avg">—</div>
@@ -2907,7 +2936,7 @@
       <!-- Distribution bar — % booked within X days -->
       <div class="card">
         <div class="card-title">Booking Speed Distribution</div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px" id="book_dist_bars"></div>
+        <div class="a-stat-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px" id="book_dist_bars"></div>
         <div style="font-size:11px;color:var(--text3)">Percentage of accepted proposals booked within each time window</div>
       </div>
 
@@ -2934,7 +2963,7 @@
     <div id="atab-dow" style="display:none;flex-direction:column;gap:16px;padding:16px">
 
       <!-- KPI tiles -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      <div class="a-stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
         <div class="card" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Best Day</div>
           <div style="font-size:28px;font-weight:900;color:var(--orange);font-family:var(--mono)" id="dow_best_day">—</div>
@@ -3018,7 +3047,7 @@
       </div>
 
       <!-- KPI row -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px" id="pi_kpis"></div>
+      <div class="a-stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px" id="pi_kpis"></div>
 
       <!-- By Fence Type table -->
       <div class="card" style="padding:0;overflow:hidden">
@@ -5003,7 +5032,7 @@ function renderSupplierList() {
   }
 
   el.innerHTML = suppliers.map((s, i) => `
-    <div style="display:grid;grid-template-columns:1fr 110px 110px auto auto;gap:8px;align-items:center;padding:7px 10px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)" id="supp-row-${i}">
+    <div class="supplier-row" style="display:grid;grid-template-columns:1fr 110px 110px auto auto;gap:8px;align-items:center;padding:7px 10px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)" id="supp-row-${i}">
       <span style="font-size:13px;font-weight:600">${s.name}</span>
       <div style="display:flex;align-items:center;gap:4px">
         <span style="font-size:10px;color:var(--text3);font-weight:700">DEL $</span>
