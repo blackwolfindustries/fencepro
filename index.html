@@ -1056,7 +1056,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.19.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.19.2</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -16373,11 +16373,12 @@ function kpiDrillDown(kpi) {
 
   title.textContent = label;
 
-  // Table header — the "subtotal" KPI reads a different CSV column (Subtotal,
-  // not Value), so its column is labeled accordingly rather than reusing the
-  // generic "Value" header, to avoid exactly the kind of "which dollar field
-  // is this" confusion that prompted adding this card in the first place.
-  const valueField = kpi === 'subtotal' ? 'Subtotal' : 'Value';
+  // Table header — "subtotal", "revenue", and "backlog" all read the CSV's
+  // Subtotal column (not Value) as of v3.19.2, so their drill-down column is
+  // labeled accordingly rather than reusing the generic "Value" header, to
+  // avoid exactly the kind of "which dollar field is this" confusion that
+  // prompted adding the Subtotal card in the first place.
+  const valueField = (kpi === 'subtotal' || kpi === 'revenue' || kpi === 'backlog') ? 'Subtotal' : 'Value';
   thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
     <th style="${_thStyle('left')}">Name</th>
     <th style="${_thStyle('left')}">Status</th>
@@ -16435,9 +16436,19 @@ function renderKPIs(csvRows, allCsvRows, range) {
   const csvOpen      = csvRows.filter(r => r['Status'] === 'Open');
   const csvClosed    = csvAccepted.length + csvComplete.length;
 
-  const csvRevenue   = csvComplete.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
-  const csvBacklog   = csvAccepted.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  // Closed Revenue / Accepted Backlog now sum the CSV's "Subtotal" column,
+  // not "Value" (v3.19.2, per Didz) — same status filters as before (Complete
+  // for Closed Revenue, Accepted/Scheduled for Accepted Backlog), just a
+  // different dollar field being summed.
+  const csvRevenue   = csvComplete.reduce((s, r) => s + (parseFloat(r['Subtotal']) || 0), 0);
+  const csvBacklog   = csvAccepted.reduce((s, r) => s + (parseFloat(r['Subtotal']) || 0), 0);
   const csvPipeline  = csvOpen.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  // Avg Job Value (below) intentionally stays on "Value", not "Subtotal" —
+  // only Closed Revenue and Accepted Backlog were asked to switch. Kept as
+  // separate Value-based sums here so that card's number doesn't silently
+  // shift just because csvRevenue/csvBacklog changed meaning above.
+  const csvRevenueValueField = csvComplete.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
+  const csvBacklogValueField = csvAccepted.reduce((s, r) => s + (parseFloat(r['Value']) || 0), 0);
   // Total Proposal Value — sum of the CSV's "Subtotal" column across every
   // proposal in the filtered range, regardless of status. Distinct from the
   // "Value" field the other KPI cards use (Value is presumably subtotal +
@@ -16447,7 +16458,7 @@ function renderKPIs(csvRows, allCsvRows, range) {
 
   const totalProposals = csvRows.length;
   const closeRate      = totalProposals > 0 ? (csvClosed / totalProposals * 100).toFixed(1) : '0.0';
-  const avgVal         = csvClosed > 0 ? (csvRevenue + csvBacklog) / csvClosed : 0;
+  const avgVal         = csvClosed > 0 ? (csvRevenueValueField + csvBacklogValueField) / csvClosed : 0;
 
   // Median Job Value — Accepted + Scheduled + Complete
   const closedVals = [...csvAccepted, ...csvComplete]
