@@ -1056,7 +1056,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.19.2</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.19.3</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2690,11 +2690,21 @@
 
     <!-- ══ OVERVIEW ══ -->
     <div id="atab-overview" style="display:flex;flex-direction:column;gap:16px;padding:16px">
-      <div class="a-stat-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:12px">
+      <div class="a-stat-grid" style="display:grid;grid-template-columns:repeat(9,1fr);gap:12px">
         <div class="card" id="kpicard_total" onclick="kpiDrillDown('total')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--navy)'" onmouseout="this.style.boxShadow=''">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Proposals</div>
           <div style="font-size:28px;font-weight:900;color:var(--navy);font-family:var(--mono)" id="kpi_total">—</div>
           <div style="font-size:9px;color:var(--text3);margin-top:4px">click to view ↓</div>
+        </div>
+        <div class="card" id="kpicard_acceptedcount" onclick="kpiDrillDown('acceptedcount')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--green)'" onmouseout="this.style.boxShadow=''">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Total Accepted Proposals</div>
+          <div style="font-size:28px;font-weight:900;color:var(--green);font-family:var(--mono)" id="kpi_acceptedcount">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px">by Accepted Date · click to view ↓</div>
+        </div>
+        <div class="card" id="kpicard_acceptedvalue" onclick="kpiDrillDown('acceptedvalue')" style="padding:14px;text-align:center;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='0 0 0 2px var(--green)'" onmouseout="this.style.boxShadow=''">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Accepted Proposal Value</div>
+          <div style="font-size:22px;font-weight:900;color:var(--green);font-family:var(--mono)" id="kpi_acceptedvalue">—</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:4px">by Accepted Date · click to view ↓</div>
         </div>
         <div class="card" id="kpicard_convrate" style="padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Conversion Rate</div>
@@ -16305,7 +16315,7 @@ function kpiDrillDown(kpi) {
   if (!panel || !thead || !tbody) return;
 
   // Clear active highlight on all cards
-  ['total','closerate','revenue','backlog','avg','pipeline','subtotal'].forEach(k => {
+  ['total','closerate','revenue','backlog','avg','pipeline','subtotal','acceptedcount','acceptedvalue'].forEach(k => {
     const c = document.getElementById('kpicard_' + k);
     if (c) c.style.outline = '';
   });
@@ -16321,7 +16331,8 @@ function kpiDrillDown(kpi) {
 
   // Highlight active card
   const colors = { total:'var(--navy)', closerate:'var(--orange)', revenue:'var(--green)',
-                   backlog:'var(--blue)', avg:'var(--navy)', pipeline:'var(--blue)', subtotal:'var(--navy)' };
+                   backlog:'var(--blue)', avg:'var(--navy)', pipeline:'var(--blue)', subtotal:'var(--navy)',
+                   acceptedcount:'var(--green)', acceptedvalue:'var(--green)' };
   const activeCard = document.getElementById('kpicard_' + kpi);
   if (activeCard) activeCard.style.outline = '2px solid ' + (colors[kpi] || 'var(--navy)');
 
@@ -16335,7 +16346,19 @@ function kpiDrillDown(kpi) {
     if (range.end   && d > range.end)   return false;
     return true;
   });
-  const allRows = analyticsData; // for backlog — uses all time
+  const allRows = analyticsData; // for backlog (all time) and the two Accepted-Date cards (their own date filter, below)
+
+  // Accepted-Date range filter — shared by the acceptedcount/acceptedvalue
+  // cases below. Deliberately independent of Status and of the Date/Created/
+  // Sent field every other card filters on: this counts/sums any row whose
+  // "Accepted Date" column falls in the selected range, full stop, per Didz.
+  const _inAcceptedRange = r => {
+    const d = parseAnalyticsDate(r['Accepted Date']);
+    if (!d) return false;
+    if (range.start && d < range.start) return false;
+    if (range.end   && d > range.end)   return false;
+    return true;
+  };
 
   // Select rows based on KPI
   let rows = [];
@@ -16369,21 +16392,35 @@ function kpiDrillDown(kpi) {
       rows  = filtered;
       label = 'All Proposals by Subtotal — ' + filtered.length + ' rows';
       break;
+    case 'acceptedcount':
+      rows  = allRows.filter(_inAcceptedRange);
+      label = 'Accepted Proposals (by Accepted Date) — ' + rows.length + ' rows';
+      break;
+    case 'acceptedvalue':
+      rows  = allRows.filter(_inAcceptedRange);
+      label = 'Accepted Proposal Value (by Accepted Date) — ' + rows.length + ' rows';
+      break;
   }
 
   title.textContent = label;
 
-  // Table header — "subtotal", "revenue", and "backlog" all read the CSV's
-  // Subtotal column (not Value) as of v3.19.2, so their drill-down column is
-  // labeled accordingly rather than reusing the generic "Value" header, to
-  // avoid exactly the kind of "which dollar field is this" confusion that
-  // prompted adding the Subtotal card in the first place.
-  const valueField = (kpi === 'subtotal' || kpi === 'revenue' || kpi === 'backlog') ? 'Subtotal' : 'Value';
+  // Table header — "subtotal", "revenue", "backlog", "acceptedcount" and
+  // "acceptedvalue" all read the CSV's Subtotal column (not Value), so their
+  // drill-down column is labeled accordingly rather than reusing the generic
+  // "Value" header, to avoid exactly the kind of "which dollar field is this"
+  // confusion that prompted adding the Subtotal card in the first place.
+  const subtotalKpis = ['subtotal', 'revenue', 'backlog', 'acceptedcount', 'acceptedvalue'];
+  const valueField = subtotalKpis.includes(kpi) ? 'Subtotal' : 'Value';
+  // The two Accepted-Date cards filter on "Accepted Date", not Sent/Created —
+  // show that column here instead of Sent, so it's obvious what's driving
+  // which rows made the cut.
+  const isAcceptedDateKpi = (kpi === 'acceptedcount' || kpi === 'acceptedvalue');
+  const dateColLabel = isAcceptedDateKpi ? 'Accepted' : 'Sent';
   thead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
     <th style="${_thStyle('left')}">Name</th>
     <th style="${_thStyle('left')}">Status</th>
     <th style="${_thStyle('right')}">${valueField}</th>
-    <th style="${_thStyle('left')}">Sent</th>
+    <th style="${_thStyle('left')}">${dateColLabel}</th>
     <th style="${_thStyle('left')}">Channel</th>
     <th style="${_thStyle('left')}">Campaign</th>
     <th style="${_thStyle('left')}">Service</th>
@@ -16408,11 +16445,12 @@ function kpiDrillDown(kpi) {
     const val    = parseFloat(r[valueField]) || 0;
     const status = r['Status'] || '—';
     const color  = statusColors[status] || 'var(--text2)';
+    const dateVal = isAcceptedDateKpi ? r['Accepted Date'] : (r['Sent'] || r['Created']);
     return `<tr style="border-bottom:1px solid var(--border);${i%2===0?'background:var(--surface2)':''}">
       <td style="padding:7px 8px;font-weight:600;color:var(--text)">${escHtml(r['Name'] || r['Customer'] || '—')}</td>
       <td style="padding:7px 8px"><span style="font-size:10px;font-weight:700;color:${color};background:${color}18;padding:2px 7px;border-radius:10px">${escHtml(status)}</span></td>
       <td style="padding:7px 8px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">$${Math.round(val).toLocaleString()}</td>
-      <td style="padding:7px 8px;color:var(--text2)">${fmt(r['Sent'] || r['Created'])}</td>
+      <td style="padding:7px 8px;color:var(--text2)">${fmt(dateVal)}</td>
       <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Channel'] || '—')}</td>
       <td style="padding:7px 8px;color:var(--text2)">${escHtml(r['Campaign'] || '—')}</td>
       <td style="padding:7px 8px;color:var(--text2);font-size:11px">${escHtml(r['Service'] || r['Title'] || '—')}</td>
@@ -16455,6 +16493,25 @@ function renderKPIs(csvRows, allCsvRows, range) {
   // markup/fees, or the accepted contract price) — this card is specifically
   // the raw Subtotal column, per Didz's request.
   const csvSubtotal  = csvRows.reduce((s, r) => s + (parseFloat(r['Subtotal']) || 0), 0);
+
+  // Total Accepted Proposals / Accepted Proposal Value (v3.19.3, per Didz) —
+  // count and Subtotal-sum of every CSV row whose "Accepted Date" column
+  // falls inside the selected range, independent of current Status (a
+  // proposal accepted last month but marked Complete since still counts as
+  // accepted last month) and independent of the Date/Created/Sent field
+  // every other card filters on. Uses allCsvRows (the full dataset, like the
+  // Accepted Backlog drill-down does), not the already-filtered csvRows,
+  // since csvRows was filtered on a different date field and could wrongly
+  // exclude a row whose Accepted Date is in range but Created/Sent is not.
+  const csvAcceptedInRange = allCsvRows.filter(r => {
+    const d = parseAnalyticsDate(r['Accepted Date']);
+    if (!d) return false;
+    if (range.start && d < range.start) return false;
+    if (range.end   && d > range.end)   return false;
+    return true;
+  });
+  const acceptedCount = csvAcceptedInRange.length;
+  const acceptedValue = csvAcceptedInRange.reduce((s, r) => s + (parseFloat(r['Subtotal']) || 0), 0);
 
   const totalProposals = csvRows.length;
   const closeRate      = totalProposals > 0 ? (csvClosed / totalProposals * 100).toFixed(1) : '0.0';
@@ -16502,6 +16559,8 @@ function renderKPIs(csvRows, allCsvRows, range) {
   }
 
   document.getElementById('kpi_total').textContent     = totalProposals.toLocaleString();
+  document.getElementById('kpi_acceptedcount').textContent = acceptedCount.toLocaleString();
+  document.getElementById('kpi_acceptedvalue').textContent = '$' + Math.round(acceptedValue).toLocaleString();
   document.getElementById('kpi_convrate').textContent  = convRate !== null ? convRate + '%' : '—';
   document.getElementById('kpi_convrate_sub').textContent = convLeads + ' leads → ' + convEstimates + ' estimates';
   document.getElementById('kpi_closerate').textContent = closeRate + '%';
