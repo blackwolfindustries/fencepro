@@ -1056,7 +1056,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.19.3</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1080,6 +1080,15 @@
     <div class="cloud-status" onclick="show('setup')" title="Cloud connection settings">
       <div class="cloud-dot" id="cloudDot"></div>
       <span id="cloudLabel">Not connected</span>
+    </div>
+    <!-- v3.20.0 — Company selector, moved here from the Proposal modal so
+         it's picked at the start of the estimate and flows through
+         everything (proposal, invoice, CI form, emails) from the start,
+         rather than being decided implicitly whenever the Proposal
+         screen happens to be opened. Populated by renderCompanyButtons(). -->
+    <div class="franchise-wrap" title="Which company this estimate belongs to">
+      <span>Company</span>
+      <div id="companyBtnGroupHeader" style="display:flex;background:rgba(255,255,255,.1);border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.2)"></div>
     </div>
     <div class="franchise-wrap">
       <span>Franchise</span>
@@ -1111,6 +1120,14 @@
     <button class="mob-nav-btn" onclick="show('setup');fpToggleDrawer()">⚙ Setup</button>
   </nav>
   <div class="mob-drawer-footer">
+    <!-- v3.20.0 — mobile equivalent of the header's company button group.
+         A native <select> rather than the button row, since the header's
+         franchise-wrap (and thus the button-group version) is hidden
+         entirely at mobile widths — see .hdr-right .franchise-wrap rule. -->
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.7);font-weight:600;margin-bottom:10px">
+      <span>Company</span>
+      <select id="companySelectMobile" onchange="selectCompany(this.value)" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:4px 8px;font-size:12px;font-weight:700;font-family:var(--sans)"></select>
+    </div>
     <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.7);font-weight:600">
       <span>Franchise</span>
       <label class="tog"><input type="checkbox" id="franchTog2" onchange="document.getElementById('franchTog').checked=this.checked;onFranchChange()"><span class="tog-slider"></span></label>
@@ -2540,6 +2557,10 @@
           <label>HOW TO PROCEED — TRF VERSION</label>
           <textarea id="tmpl_proceed_trf" rows="3" style="font-size:12px;line-height:1.6;resize:vertical"></textarea>
         </div>
+        <div class="f" style="margin-bottom:10px">
+          <label>HOW TO PROCEED — BATPIG VERSION</label>
+          <textarea id="tmpl_proceed_batpig" rows="3" style="font-size:12px;line-height:1.6;resize:vertical"></textarea>
+        </div>
       </div>
 
       <!-- INVOICE TEMPLATE -->
@@ -3250,8 +3271,8 @@
           <div style="flex:1">
             <div id="prop_companyName" style="font-size:24px;font-weight:900;color:#1B2B4B;letter-spacing:-.4px;line-height:1;margin-bottom:5px"></div>
             <div style="font-size:11px;color:#999;line-height:1.7;margin-bottom:18px">
-              169 Commack Rd #1009, Commack, NY 11725<br>
-              631-275-2020
+              <span id="prop_companyAddr"></span><br>
+              <span id="prop_companyPhone"></span>
             </div>
             <!-- Bill To -->
             <div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Bill To</div>
@@ -3797,7 +3818,7 @@
         <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:24px;border-bottom:3px solid #1B2B4B">
           <div style="flex:1">
             <div id="mo_companyName" style="font-size:24px;font-weight:900;color:#1B2B4B;letter-spacing:-.4px;line-height:1;margin-bottom:5px"></div>
-            <div style="font-size:11px;color:#999;line-height:1.7;margin-bottom:18px">169 Commack Rd #1009, Commack, NY 11725<br>631-275-2020</div>
+            <div style="font-size:11px;color:#999;line-height:1.7;margin-bottom:18px"><span id="mo_companyAddr"></span><br><span id="mo_companyPhone"></span></div>
             <div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Bill To</div>
             <div id="mo_custName" style="font-size:14px;font-weight:700;color:#1B2B4B;margin-bottom:3px"></div>
             <div style="font-size:12px;color:#555;line-height:1.4">
@@ -3951,7 +3972,7 @@
       </td>
     </tr>
     <tr>
-      <td style="border-right:1px solid #000;border-bottom:1px solid #000;padding:4px 6px;font-size:12px">169 Commack Rd #1009</td>
+      <td style="border-right:1px solid #000;border-bottom:1px solid #000;padding:4px 6px;font-size:12px" id="ci_contractorAddr"></td>
       <td style="border-bottom:1px solid #000;padding:4px 6px;font-size:12px" id="ci_custAddr"></td>
     </tr>
     <tr>
@@ -3963,7 +3984,7 @@
       </td>
     </tr>
     <tr>
-      <td style="border-right:1px solid #000;border-bottom:1px solid #000;padding:4px 6px;font-size:12px">Commack &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; NY &nbsp;&nbsp;&nbsp;&nbsp; 11725</td>
+      <td style="border-right:1px solid #000;border-bottom:1px solid #000;padding:4px 6px;font-size:12px" id="ci_contractorCityStateZip"></td>
       <td style="border-bottom:1px solid #000;padding:4px 6px;font-size:12px" id="ci_custCityStateZip"></td>
     </tr>
     <tr>
@@ -4078,144 +4099,6 @@
 </div>
 
 </div><!-- .app -->
-
-<!-- ══ CI FORM MODAL ════════════════════════════════════════ -->
-<div class="moverlay hidden" id="mCIForm" style="align-items:flex-start;padding:0">
-  <div style="width:100%;height:100vh;display:flex;flex-direction:column;background:var(--bg)">
-
-    <!-- Toolbar -->
-    <div style="background:var(--navy);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.2)">
-      <div style="font-size:15px;font-weight:800;color:#fff">📋 ST-124 Capital Improvement Certificate</div>
-      <div style="margin-left:auto;display:flex;gap:8px">
-        <button class="btn btn-sm" onclick="sendCIFormEmail()" style="background:#16A34A;color:#fff;border-color:#16A34A">📧 Generate &amp; Email to Customer</button>
-        <button class="btn btn-sm" onclick="printCIForm()" style="background:var(--orange);color:#fff;border-color:var(--orange)">📄 Save PDF</button>
-        <button class="btn btn-sm" style="color:rgba(255,255,255,.7);background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2)" onclick="closeM('mCIForm')">✕ Close</button>
-      </div>
-    </div>
-
-    <!-- Form preview -->
-    <div style="flex:1;overflow-y:auto;padding:30px;background:#E8E8E8">
-      <div id="ciFormDoc" style="background:#fff;max-width:750px;margin:0 auto;padding:40px 50px;box-shadow:0 4px 24px rgba(0,0,0,.15);font-family:Arial,sans-serif;font-size:12px;color:#000">
-
-        <!-- Header -->
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-          <div>
-            <div style="font-size:13px;font-weight:700">New York State and Local Sales and Use Tax</div>
-            <div style="font-size:17px;font-weight:900;color:#000">Certificate of Capital Improvement</div>
-          </div>
-          <div style="text-align:right;font-size:11px;border:1px solid #000;padding:4px 8px">
-            <div style="font-weight:700">ST-124</div>
-            <div>(5/06)</div>
-          </div>
-        </div>
-
-        <div style="font-size:10px;margin-bottom:12px;border-top:2px solid #000;border-bottom:1px solid #000;padding:4px 0;line-height:1.6">
-          After this certificate is completed and signed by both the customer and the contractor performing the capital improvement, it must be kept by the contractor.<br>
-          <strong>Read this form completely before making any entries. This certificate may not be used to purchase building materials.</strong>
-        </div>
-
-        <!-- Customer + Contractor info row -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #000;margin-bottom:12px">
-          <!-- Customer -->
-          <div style="border-right:1px solid #000">
-            <div style="background:#ddd;padding:3px 6px;font-weight:700;font-size:11px;border-bottom:1px solid #000">Name of customer (print or type)</div>
-            <div style="padding:5px 6px;min-height:22px;font-weight:700" id="ci_custName"></div>
-            <div style="background:#ddd;padding:3px 6px;font-weight:700;font-size:11px;border-top:1px solid #000;border-bottom:1px solid #000">Street address</div>
-            <div style="padding:5px 6px;min-height:22px" id="ci_custAddr"></div>
-            <div style="background:#ddd;padding:3px 6px;font-weight:700;font-size:11px;border-top:1px solid #000;border-bottom:1px solid #000">City &nbsp;&nbsp;&nbsp; State &nbsp;&nbsp;&nbsp; ZIP code</div>
-            <div style="padding:5px 6px;min-height:22px" id="ci_custCityStateZip"></div>
-            <div style="background:#ddd;padding:3px 6px;font-weight:700;font-size:11px;border-top:1px solid #000;border-bottom:1px solid #000">Certificate of Authority number (if any)</div>
-            <div style="padding:5px 6px;min-height:22px;color:#888;font-style:italic;font-size:11px">N/A</div>
-          </div>
-          <!-- Contractor -->
-          <div>
-            <div style="background:#ddd;padding:3px 6px;font-weight:700;font-size:11px;border-bottom:1px solid #000">Name of contractor (print or type)</div>
-            <div style="padding:5px 6px;min-height:22px;font-weight:700" id="ci_contractorName"></div>
-            <div style="background:#ddd;padding:3px 6px;font-weight:700;font-size:11px;border-top:1px solid #000;border-bottom:1px solid #000">Street address</div>
-            <div style="padding:5px 6px;min-height:22px">169 Commack Rd #1009</div>
-            <div style="background:#ddd;padding:3px 6px;font-weight:700;font-size:11px;border-top:1px solid #000;border-bottom:1px solid #000">City &nbsp;&nbsp;&nbsp; State &nbsp;&nbsp;&nbsp; ZIP code</div>
-            <div style="padding:5px 6px;min-height:22px">Commack, NY 11725</div>
-            <div style="background:#ddd;padding:3px 6px;font-weight:700;font-size:11px;border-top:1px solid #000;border-bottom:1px solid #000">Certificate of Authority number (if any)</div>
-            <div style="padding:5px 6px;min-height:22px;font-weight:700" id="ci_coaNum"></div>
-          </div>
-        </div>
-
-        <!-- To be completed by customer -->
-        <div style="border:1px solid #000;margin-bottom:12px">
-          <div style="background:#ddd;padding:4px 8px;font-weight:700;font-size:11px;border-bottom:1px solid #000">To be completed by the customer:</div>
-          <div style="padding:6px 8px">
-            <div style="font-weight:700;font-size:11px;margin-bottom:3px">Describe capital improvement to be performed:</div>
-            <div id="ci_description" style="min-height:32px;padding:3px 0;font-size:12px"></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 2fr;border-top:1px solid #000">
-            <div style="border-right:1px solid #000;padding:6px 8px">
-              <div style="font-size:11px;font-weight:700;margin-bottom:3px">Project name</div>
-              <div id="ci_projectName" style="font-size:12px"></div>
-            </div>
-            <div style="padding:6px 8px">
-              <div style="font-size:11px;font-weight:700;margin-bottom:3px">Street address (where the work is to be performed)</div>
-              <div id="ci_workAddr" style="font-size:12px"></div>
-            </div>
-          </div>
-          <div style="border-top:1px solid #000;padding:6px 8px">
-            <div style="font-size:11px;margin-bottom:8px">I certify that:</div>
-            <div style="font-size:11px;margin-bottom:4px">— I am the <strong>☑ owner</strong> &nbsp;☐ tenant, of the real property identified on this form, and</div>
-            <div style="font-size:11px;margin-bottom:4px">— The work described above will result in a capital improvement to the real property within the guidelines of this form, and</div>
-            <div style="font-size:11px;margin-bottom:8px">— This contract (check one) &nbsp;☐ includes &nbsp;<strong>☑ does not include</strong>&nbsp; the sale of tangible personal property that, when installed, retains its identity as tangible personal property and does not become a permanent part of the real property.</div>
-            <div style="font-size:10px;color:#333;margin-bottom:12px;line-height:1.5">
-              I understand that: I will be responsible for any sales tax, interest, and penalty due on the contractor's total charge if this work does not qualify as a capital improvement. I will be subject to civil or criminal penalties under the Tax Law if I issue a false or fraudulent certificate.
-            </div>
-            <!-- Customer signature row -->
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:0;border-top:1px solid #000">
-              <div style="border-right:1px solid #000;padding:6px 8px">
-                <div style="font-size:10px;color:#666;margin-bottom:16px">Signature of customer</div>
-                <div style="border-bottom:1px solid #000;height:1px;margin-bottom:2px"></div>
-              </div>
-              <div style="border-right:1px solid #000;padding:6px 8px">
-                <div style="font-size:10px;color:#666;margin-bottom:16px">Title</div>
-                <div style="border-bottom:1px solid #000;height:1px;margin-bottom:2px"></div>
-              </div>
-              <div style="padding:6px 8px">
-                <div style="font-size:10px;color:#666;margin-bottom:4px">Date</div>
-                <div style="font-size:11px" id="ci_date"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- To be completed by contractor -->
-        <div style="border:1px solid #000">
-          <div style="background:#ddd;padding:4px 8px;font-weight:700;font-size:11px;border-bottom:1px solid #000">To be completed by the contractor:</div>
-          <div style="padding:6px 8px">
-            <div style="font-size:11px;margin-bottom:8px">I, the contractor, certify that I have entered into a contract to perform the work described by the customer named above. (A copy of the written contract, if any, is attached.)</div>
-            <div style="font-size:11px;margin-bottom:10px;color:#333">I understand that my failure to collect tax as a result of accepting an improperly completed certificate will make me personally liable for the tax otherwise due, plus penalties and interest.</div>
-            <!-- Contractor signature row -->
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:0;border-top:1px solid #000">
-              <div style="border-right:1px solid #000;padding:6px 8px">
-                <div style="font-size:10px;color:#666;margin-bottom:4px">Signature of contractor or officer</div>
-                <div style="font-size:11px;font-style:italic;min-height:24px" id="ci_contractorSig"></div>
-                <div style="border-bottom:1px solid #000;height:1px;margin-top:4px"></div>
-              </div>
-              <div style="border-right:1px solid #000;padding:6px 8px">
-                <div style="font-size:10px;color:#666;margin-bottom:4px">Title</div>
-                <div style="font-size:11px">Owner</div>
-              </div>
-              <div style="padding:6px 8px">
-                <div style="font-size:10px;color:#666;margin-bottom:4px">Date</div>
-                <div style="font-size:11px" id="ci_contractorDate"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top:8px;font-size:10px;text-align:center;color:#666">
-          This certificate is not valid unless all entries are completed. &nbsp;·&nbsp; ST-124 (5/06)
-        </div>
-
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- Status bar -->
 <div class="statusbar">
@@ -4441,7 +4324,7 @@
           <div style="flex:1">
             <div id="inv_companyName" style="font-size:24px;font-weight:900;color:#1B2B4B;letter-spacing:-.4px;line-height:1;margin-bottom:5px"></div>
             <div style="font-size:11px;color:#999;line-height:1.7;margin-bottom:18px">
-              169 Commack Rd #1009, Commack, NY 11725<br>631-275-2020
+              <span id="inv_companyAddr"></span><br><span id="inv_companyPhone"></span>
             </div>
             <div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Bill To</div>
             <div id="inv_custName" style="font-size:14px;font-weight:700;color:#1B2B4B;margin-bottom:3px"></div>
@@ -7745,6 +7628,10 @@ function collectData() {
     internalNotes:   val('internalNotes'),
     completionNotes: curIdx >= 0 ? (jobs[curIdx]?.completionNotes || '') : '',
     franchiseOn: document.getElementById('franchTog').checked,
+    // v3.20.0 — which company (BWI/TRF/BATPIG/etc.) this estimate belongs
+    // to, now captured as part of the estimate record itself rather than
+    // only as a side effect of opening the Proposal modal.
+    company: activeCompany || 'BWI',
     photos:      photos.map(p => ({ name: p.name, driveUrl: p.driveUrl || '' })),
     docs:        docs.map(d => ({ name: d.name, driveUrl: d.driveUrl||'', docType: d.docType||'Other', uploadedAt: d.uploadedAt||'' })),
     // Calculated fields (for Sheets analysis)
@@ -8264,6 +8151,13 @@ function loadJobLocal(idx) {
   document.getElementById('franchTog').checked      = d.franchiseOn !== false;
   document.getElementById('deliveryOverride').checked = d.deliveryOverride || d['Delivery Override'] === 'Yes' || false;
 
+  // v3.20.0 — restore this estimate's own selected company (falls back to
+  // BWI for any pre-v3.20.0 job that predates the Company column, which
+  // matches exactly what always happened before this field existed).
+  activeCompany = g('company', 'Company') || 'BWI';
+  renderCompanyButtons();
+  selectCompany(activeCompany);
+
   onFranchChange();
   onDeliveryOverride();
   onSupplierChange();
@@ -8304,6 +8198,11 @@ function newEst() {
   document.getElementById('projDesc').value     = '';
   document.getElementById('deliveryOverride').checked = false;
   document.getElementById('franchTog').checked = true;  // franchise always ON by default
+  // v3.20.0 — every new estimate starts on BWI until actively switched,
+  // per Didz's call (simplest, matches prior default behavior exactly).
+  activeCompany = 'BWI';
+  renderCompanyButtons();
+  selectCompany('BWI');
   onFranchChange();
   onDeliveryOverride();
   onSupplierChange();
@@ -8392,10 +8291,30 @@ function buildCompanyMaps() {
     CI_COMPANIES[c.code]  = {
       name: c.name, coa: c.coaNum || '',
       addr1: c.addr1 || '', addr2: c.addr2 || '',
-      city: c.city || '', state: c.state || 'NY', zip: c.zip || ''
+      city: c.city || '', state: c.state || 'NY', zip: c.zip || '',
+      // v3.20.0 — phone was already stored per company (Setup ▸ Manage
+      // Companies) but never carried into this lookup object, so every
+      // consumer fell back to the single global Setup "Company Info"
+      // phone field instead of each company's own number.
+      phone: c.phone || ''
     };
     COMPANY_LOGOS[c.code] = { src: c.logo || '', alt: c.name, width: 64, height: 64 };
   });
+}
+
+// v3.20.0 — single shared source for "this company's real address/phone,
+// as a display string." Every document that shows a company's own
+// address (Proposal, Multi-Option Proposal, Combined view, Invoice, CI
+// Form preview, emailed proposal) now reads through these two instead of
+// each having its own hardcoded BWI/TRF office text.
+function companyAddrLine(co) {
+  const c = CI_COMPANIES[co] || CI_COMPANIES.BWI || {};
+  return [c.addr1, c.addr2, [c.city, c.state, c.zip].filter(Boolean).join(', ')]
+    .filter(Boolean).join(', ');
+}
+function companyPhoneFor(co) {
+  const c = CI_COMPANIES[co] || CI_COMPANIES.BWI || {};
+  return c.phone || '';
 }
 
 function setFavicon(co) {
@@ -8411,39 +8330,65 @@ function setFavicon(co) {
 
 let activeCompany = 'BWI';
 
-// Renders one toggle button per active company into the proposal toolbar —
-// replaces the old hardcoded btnBWI/btnTRF pair so new companies just show
-// up automatically once added in Setup.
-function renderCompanyButtons() {
-  const wrap = document.getElementById('companyBtnGroup');
+// Renders one toggle button per active company. v3.20.0: now renders into
+// TWO places — the header (#companyBtnGroupHeader, the primary picker,
+// visible on the Estimator screen from the start of the estimate) and the
+// Proposal modal toolbar (#companyBtnGroup, kept as a secondary place to
+// correct it right before sending). Each mount gets its own id prefix so
+// duplicate DOM ids never collide; selectCompany() keeps both in sync.
+function _renderCompanyBtnsInto(containerId, idPrefix) {
+  const wrap = document.getElementById(containerId);
   if (!wrap) return;
   const { companies } = loadLists();
   const list = (companies && companies.length ? companies : getDefaultCompanies()).filter(c => c.active !== false);
   wrap.innerHTML = list.map(c => `
-    <button id="btnCo_${c.code}" onclick="selectCompany('${c.code}')"
+    <button id="${idPrefix}${c.code}" onclick="selectCompany('${c.code}')"
       style="padding:6px 14px;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;border:none;transition:.15s;background:${c.code === activeCompany ? 'var(--orange)' : 'transparent'};color:${c.code === activeCompany ? '#fff' : 'rgba(255,255,255,.6)'}">
       ${c.code}
     </button>`).join('');
+}
+function renderCompanyButtons() {
+  _renderCompanyBtnsInto('companyBtnGroupHeader', 'btnCoHdr_');
+  _renderCompanyBtnsInto('companyBtnGroup',       'btnCo_');
+  // Mobile drawer's <select> equivalent (see mob-drawer-footer)
+  const mobSel = document.getElementById('companySelectMobile');
+  if (mobSel) {
+    const { companies } = loadLists();
+    const list = (companies && companies.length ? companies : getDefaultCompanies()).filter(c => c.active !== false);
+    mobSel.innerHTML = list.map(c => `<option value="${c.code}"${c.code===activeCompany?' selected':''}>${c.code}</option>`).join('');
+  }
+}
+
+// v3.20.0 — generic per-company lookup for "Proceed to Accept" wording,
+// replacing the old two-company (TRF-or-else-BWI) ternary. A company
+// with no tmpl_proceed_<code> template of its own (anything added after
+// Batpig) falls back to BWI's wording rather than showing blank.
+function proceedTextFor(co) {
+  const key = 'proceed_' + String(co || 'BWI').toLowerCase();
+  return tmplVal(key) || tmplVal('proceed_bwi');
 }
 
 function selectCompany(co) {
   activeCompany = co;
   const { companies } = loadLists();
   const list = (companies && companies.length ? companies : getDefaultCompanies());
-  list.forEach(c => {
-    const btn = document.getElementById('btnCo_' + c.code);
-    if (!btn) return;
-    btn.style.background = c.code === co ? 'var(--orange)' : 'transparent';
-    btn.style.color      = c.code === co ? '#fff' : 'rgba(255,255,255,.6)';
+  const mobSel = document.getElementById('companySelectMobile');
+  if (mobSel && mobSel.value !== co) mobSel.value = co;
+  // v3.20.0 — sync both button mounts (header + Proposal modal toolbar).
+  ['btnCoHdr_', 'btnCo_'].forEach(prefix => {
+    list.forEach(c => {
+      const btn = document.getElementById(prefix + c.code);
+      if (!btn) return;
+      btn.style.background = c.code === co ? 'var(--orange)' : 'transparent';
+      btn.style.color      = c.code === co ? '#fff' : 'rgba(255,255,255,.6)';
+    });
   });
   document.getElementById('prop_companyName').textContent = COMPANIES[co] || COMPANIES.BWI;
-  // Update proceed text per company — TRF has its own template; every other
-  // company (including any added later) defaults to the BWI template until
-  // per-company proceed text is worth building out.
-  const proceedBWI  = tmplVal('proceed_bwi');
-  const proceedTRF  = tmplVal('proceed_trf');
-  const proceedText = co === 'TRF' ? proceedTRF : proceedBWI;
-  document.getElementById('prop_proceed').innerHTML = proceedText;
+  const propAddrEl  = document.getElementById('prop_companyAddr');
+  const propPhoneEl = document.getElementById('prop_companyPhone');
+  if (propAddrEl)  propAddrEl.textContent  = companyAddrLine(co);
+  if (propPhoneEl) propPhoneEl.textContent = companyPhoneFor(co);
+  document.getElementById('prop_proceed').innerHTML = proceedTextFor(co);
   setFavicon(co);
 }
 
@@ -8582,9 +8527,14 @@ function openProposal() {
     propCarouselPhotos = [];
   }
 
-  // Restore saved company selector if available
-  if (curIdx >= 0 && jobs[curIdx].proposalCompany) {
-    activeCompany = jobs[curIdx].proposalCompany;
+  // v3.20.0 — activeCompany is already set correctly by loadJobLocal()
+  // when this estimate was opened; this is just a defensive re-sync in
+  // case a proposal was opened without a fresh load. Reads the same
+  // unified 'company' field collectData()/saveJob() now use — the old
+  // separate proposalCompany field is retired so there's one fact, not
+  // two that can drift apart.
+  if (curIdx >= 0 && jobs[curIdx].company) {
+    activeCompany = jobs[curIdx].company;
   }
   renderCompanyButtons(); // (re)build the toolbar buttons from the current Companies list
   selectCompany(activeCompany);
@@ -8888,7 +8838,12 @@ function saveProposalEdits() {
   jobs[curIdx].proposalScope     = document.getElementById('prop_scope')?.textContent || '';
   const termsDiv = document.getElementById('prop_terms');
   jobs[curIdx].proposalTerms = termsDiv ? termsDiv.innerHTML : '';
-  jobs[curIdx].proposalCompany   = activeCompany;
+  // v3.20.0 — was proposalCompany, a separate field only ever set here;
+  // folded into the single 'company' field collectData()/saveJob() and
+  // loadJobLocal() now use, so there's one source of truth instead of
+  // two that can drift (matches the app's existing dual-payment-path
+  // lesson: never let two fields represent the same fact).
+  jobs[curIdx].company = activeCompany;
   persistJobs();
 }
 
@@ -8908,8 +8863,15 @@ Customer Obligations:
 5. Any images attached to the proposal are for reference only and may be slightly different in person.`,
   proceed_bwi: `If you would like to proceed, reply to the email or text stating you approve and a payment link will be sent to collect the 50% deposit. If paying cash or check we will make arrangements to pick up deposit. Balance is due at job completion.`,
   proceed_trf: `If you would like to proceed, reply to the email stating you approve and a payment link will be sent to collect the 50% deposit. Balance is due at job completion.`,
+  // v3.20.0 — Batpig-specific version, per Didz's call (Batpig is now a
+  // real company estimates go out under, not just BWI/TRF). Cloned from
+  // BWI's wording as a starting point — editable in Setup ▸ Templates.
+  proceed_batpig: `If you would like to proceed, reply to the email or text stating you approve and a payment link will be sent to collect the 50% deposit. If paying cash or check we will make arrangements to pick up deposit. Balance is due at job completion.`,
   invoice_due_days:  0,
-  invoice_notes:     `Check payable to Cash or Black Wolf Industries LLC · Zelle: blackwolfindustries`,
+  // v3.20.0 — was a literal "Black Wolf Industries LLC" with no
+  // {{company}} token at all, so it never reflected the selected
+  // company even when the surrounding code tried to substitute one in.
+  invoice_notes:     `Check payable to Cash or {{company}} · Zelle: blackwolfindustries`,
   invoice_footer:    `Thank you for your business.`,
   email_subject:     `Your Fence Estimate — {{company}}`,
   email_body: `Hi {{firstName}},\n\nThank you for the opportunity to earn your business. Please find your estimate details below.\n\nCash / Check Price: {{cashPrice}}\nCC / Finance Price: {{ccPrice}}\n\n{{proposalLink}}\n\nThis link is secure and will expire in 30 days. Once you accept, we will be in touch to collect the deposit and get you scheduled.\n\nPlease don't hesitate to call or text with any questions.\n\nThank you,\n{{company}}\n{{phone}}`
@@ -8979,6 +8941,7 @@ function loadTemplateFields() {
   el('tmpl_terms').value           = tmplVal('terms');
   el('tmpl_proceed_bwi').value     = tmplVal('proceed_bwi');
   el('tmpl_proceed_trf').value     = tmplVal('proceed_trf');
+  el('tmpl_proceed_batpig').value  = tmplVal('proceed_batpig');
   el('tmpl_invoice_due_days').value= tmplVal('invoice_due_days');
   el('tmpl_invoice_notes').value   = tmplVal('invoice_notes');
   el('tmpl_invoice_footer').value  = tmplVal('invoice_footer');
@@ -8994,6 +8957,7 @@ function saveTemplates() {
     terms:             el('tmpl_terms').value,
     proceed_bwi:       el('tmpl_proceed_bwi').value,
     proceed_trf:       el('tmpl_proceed_trf').value,
+    proceed_batpig:    el('tmpl_proceed_batpig').value,
     invoice_due_days:  parseInt(el('tmpl_invoice_due_days').value) || 14,
     invoice_notes:     el('tmpl_invoice_notes').value,
     invoice_footer:    el('tmpl_invoice_footer').value,
@@ -10173,7 +10137,7 @@ function openShare() {
   const link = window.location.href.split('?')[0] + '?job=' + encodeURIComponent(val('estId'));
   document.getElementById('shareLink').value = link;
   const cname = val('custName') || 'Valued Customer';
-  const co    = settings.companyName || 'FencePro';
+  const co    = (COMPANIES[activeCompany] || COMPANIES.BWI) || 'FencePro';
   document.getElementById('shareMsg').value =
 `Dear ${cname},
 
@@ -10188,7 +10152,7 @@ ${val('scopeNotes') ? 'Scope: ' + val('scopeNotes') + '\n\n' : ''}This estimate 
 
 Thank you,
 ${co}
-${settings.companyPhone || ''}`;
+${companyPhoneFor(activeCompany || 'BWI')}`;
   openM('mShare');
 }
 
@@ -10373,9 +10337,12 @@ async function openInvoice() {
   const noteField = document.getElementById('invCustomerNote');
   if (noteField) noteField.value = '';
 
+  // v3.20.0 — token source switched from the single global Setup field
+  // to the estimate's actually-selected company.
   document.getElementById('invPayNote').value = resolveTokens(
     tmplVal('invoice_notes'),
-    { company: settings.companyName || 'FencePro LLC', phone: settings.companyPhone || '' }
+    { company: (CI_COMPANIES[activeCompany]||CI_COMPANIES.BWI)?.name || 'FencePro LLC',
+      phone:   (CI_COMPANIES[activeCompany]||CI_COMPANIES.BWI)?.phone || '' }
   );
   openM('mInvoice');
 }
@@ -10427,9 +10394,9 @@ async function saveInvoice() {
     balanceDue:    _invBalanceDue    || 0,
     depositType:   _invDepositType   || '50pct',
     payNote:       document.getElementById('invPayNote')?.value || '',
-    companyName:   settings.companyName || ((COMPANIES[activeCompany] || COMPANIES.BWI)),
-    companyAddr:   settings.companyAddr || '169 Commack Rd #1009, Commack, NY 11725',
-    companyPhone:  settings.companyPhone || '631-275-2020',
+    companyName:   (COMPANIES[activeCompany] || COMPANIES.BWI),
+    companyAddr:   companyAddrLine(activeCompany),
+    companyPhone:  companyPhoneFor(activeCompany),
   };
 
   // Move status to Invoiced
@@ -13182,10 +13149,13 @@ async function sendDepositReceipt(jobOverride) {
   }
 
 
-  const co           = settings.companyName  || 'FencePro';
-  const coPhone      = settings.companyPhone || '';
+  // v3.20.0 — this receipt is for a specific job, so it should show THAT
+  // job's company (job.company), not whichever company happens to be
+  // active in the header right now.
+  const co           = COMPANIES[job.company] || COMPANIES[activeCompany] || COMPANIES.BWI || 'FencePro';
+  const coPhone      = companyPhoneFor(job.company || activeCompany || 'BWI');
   const coEmail      = settings.companyEmail || '';
-  const coAddr       = settings.companyAddr  || '';
+  const coAddr       = companyAddrLine(job.company || activeCompany || 'BWI');
   const custName     = job.custName     || 'Valued Customer';
   const custEmail    = job.custEmail    || '';
   const jobAddr      = job.jobAddr      || '';
@@ -13666,13 +13636,13 @@ function showPropCombinedView() {
     return `<tr><td style="padding:3px 14px 3px 0;font-size:11px;color:#999;text-align:right">Option ${letter}</td><td style="padding:3px 0;font-size:11px;color:#666;font-weight:600;text-align:right">$${Math.round(final).toLocaleString()}</td></tr>`;
   }).join('');
 
-  const proceedText = (activeCompany==='TRF'?tmplVal('proceed_trf'):tmplVal('proceed_bwi'));
+  const proceedText = proceedTextFor(activeCompany);
 
   container.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:24px;border-bottom:3px solid #1B2B4B">
       <div>
         <div style="font-size:22px;font-weight:900;color:#1B2B4B;margin-bottom:4px">${escHtml(co)}</div>
-        <div style="font-size:11px;color:#999;line-height:1.7;margin-bottom:14px">169 Commack Rd #1009, Commack, NY 11725<br>631-275-2020</div>
+        <div style="font-size:11px;color:#999;line-height:1.7;margin-bottom:14px">${escHtml(companyAddrLine(activeCompany))}<br>${escHtml(companyPhoneFor(activeCompany))}</div>
         <div style="font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px">Bill To</div>
         <div style="font-size:14px;font-weight:700;color:#1B2B4B;margin-bottom:2px">${escHtml(first.custName||'')}</div>
         <div style="font-size:12px;color:#555;line-height:1.4">
@@ -13982,7 +13952,8 @@ async function generateProposalLink(mode, estimateIds) {
     const co        = (COMPANIES[activeCompany] || COMPANIES.BWI);
     const finalCC   = '$' + Math.round(job.calc_final || lastCalc.final || 0).toLocaleString();
     const finalCash = '$' + Math.round(job.calc_cash  || lastCalc.cash  || 0).toLocaleString();
-    const phone     = settings.companyPhone || '631-275-2020';
+    const phone     = companyPhoneFor(activeCompany || 'BWI');
+    const companyAddr = companyAddrLine(activeCompany || 'BWI');
 
     // Build HTML email
     // Resolve logo for active company
@@ -13991,7 +13962,7 @@ async function generateProposalLink(mode, estimateIds) {
 
     _proposalEmailOpts = {
       custFirst, custName, ccPrice: finalCC, cashPrice: finalCash,
-      proposalUrl: _proposalLinkUrl, company: co, phone,
+      proposalUrl: _proposalLinkUrl, company: co, phone, companyAddr,
       fenceType:  job.fenceType  || val('fenceType')  || '',
       jobAddr:    job.jobAddr    || val('jobAddr')    || '',
       scopeNotes: job.scopeNotes || val('scopeNotes') || '',
@@ -14139,7 +14110,7 @@ function buildProposalEmailHtml(opts) {
       <tr>
         <td style="vertical-align:middle">
           <p style="margin:0;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-.4px">${escHtml(opts.company)}</p>
-          <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,.55)">169 Commack Rd #1009, Commack NY 11725 &nbsp;·&nbsp; ${escHtml(opts.phone)}</p>
+          <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,.55)">${escHtml(opts.companyAddr || '')} &nbsp;·&nbsp; ${escHtml(opts.phone)}</p>
         </td>
         ${opts.logoSrc ? `<td style="vertical-align:middle;text-align:right;padding-left:20px;width:72px">
           <img src="${opts.logoSrc}" alt="${escHtml(opts.logoAlt||opts.company)}" width="64" height="64"
@@ -14316,7 +14287,7 @@ function openMailto() {
   const custFirst= custName.split(' ')[0] || 'there';
   const co       = (COMPANIES[activeCompany] || COMPANIES.BWI);
   const subj     = resolveTokens(tmplVal('email_subject'), {
-    company: co, phone: settings.companyPhone||'631-275-2020',
+    company: co, phone: companyPhoneFor(activeCompany || 'BWI'),
     firstName: custFirst, fullName: custName
   });
   const subject = encodeURIComponent(subj);
@@ -14760,7 +14731,12 @@ function renderEstList() {
 // ════════════════════════════════════════════════
 // MULTI-OPTION PROPOSAL
 // ════════════════════════════════════════════════
-let moActiveCompany = 'BWI';
+// v3.20.0 — used to track its own separate moActiveCompany variable,
+// only seeded from activeCompany once when the modal opened and free to
+// drift independently after that (the exact "two facts, one truth" bug
+// already fixed for proposalCompany above). Now shares the single
+// activeCompany the whole app uses, so picking a company anywhere keeps
+// every open surface in sync.
 let moEstimates     = [];
 
 // Renders one button per active company into the multi-option proposal
@@ -14772,13 +14748,15 @@ function renderMultiCompanyButtons() {
   const list = (companies && companies.length ? companies : getDefaultCompanies()).filter(c => c.active !== false);
   wrap.innerHTML = list.map(c => `
     <button id="moBtnCo_${c.code}" onclick="selectMultiCompany('${c.code}')"
-      style="padding:6px 14px;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;border:none;transition:.15s;background:${c.code === moActiveCompany ? 'var(--orange)' : 'transparent'};color:${c.code === moActiveCompany ? '#fff' : 'rgba(255,255,255,.6)'}">
+      style="padding:6px 14px;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;border:none;transition:.15s;background:${c.code === activeCompany ? 'var(--orange)' : 'transparent'};color:${c.code === activeCompany ? '#fff' : 'rgba(255,255,255,.6)'}">
       ${c.code}
     </button>`).join('');
 }
 
 function selectMultiCompany(co) {
-  moActiveCompany = co;
+  // Keeps the header, Proposal-modal toolbar, favicon, and prop_* fields
+  // in sync too — one shared activeCompany, not a second copy.
+  selectCompany(co);
   const { companies } = loadLists();
   const list = (companies && companies.length ? companies : getDefaultCompanies());
   list.forEach(c => {
@@ -14788,6 +14766,10 @@ function selectMultiCompany(co) {
     btn.style.color      = c.code === co ? '#fff' : 'rgba(255,255,255,.6)';
   });
   document.getElementById('mo_companyName').textContent = COMPANIES[co] || COMPANIES.BWI;
+  const moAddrEl  = document.getElementById('mo_companyAddr');
+  const moPhoneEl = document.getElementById('mo_companyPhone');
+  if (moAddrEl)  moAddrEl.textContent  = companyAddrLine(co);
+  if (moPhoneEl) moPhoneEl.textContent = companyPhoneFor(co);
   const curJob  = curIdx >= 0 ? jobs[curIdx] : null;
   const depText = clientProceedText(curJob);
   const proceed = co==='BWI'
@@ -14805,9 +14787,8 @@ function openMultiOptionProposal() {
   moEstimates = checked.map(c => matches[parseInt(c.dataset.idx)]);
   const first = moEstimates[0];
 
-  moActiveCompany = activeCompany || 'BWI';
   renderMultiCompanyButtons(); // (re)build the toolbar buttons from the current Companies list
-  const co      = COMPANIES[moActiveCompany] || COMPANIES.BWI;
+  const co      = COMPANIES[activeCompany] || COMPANIES.BWI;
   const today   = new Date();
   const expires = new Date(today); expires.setDate(expires.getDate() + 30);
   const fmtDate = d => d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
@@ -14826,7 +14807,7 @@ function openMultiOptionProposal() {
   document.getElementById('mo_expires').textContent     = fmtDate(expires);
 
   buildMultiOptionTabs();
-  selectMultiCompany(moActiveCompany);
+  selectMultiCompany(activeCompany);
   openM('mMultiProposal');
 }
 
@@ -14835,7 +14816,7 @@ function onCombinedToggle() {
   const modal = document.getElementById('mMultiProposal');
   if (modal && !modal.classList.contains('hidden')) {
     buildMultiOptionTabs();
-    selectMultiCompany(moActiveCompany);
+    selectMultiCompany(activeCompany);
   }
 }
 
@@ -15144,6 +15125,10 @@ async function printInvoice() {
   // Company name
   const co = (COMPANIES[activeCompany] || COMPANIES.BWI);
   document.getElementById('inv_companyName').textContent = co;
+  const coAddrEl2 = document.getElementById('inv_companyAddr');
+  if (coAddrEl2) coAddrEl2.textContent = companyAddrLine(activeCompany);
+  const coPhoneEl2 = document.getElementById('inv_companyPhone');
+  if (coPhoneEl2) coPhoneEl2.textContent = companyPhoneFor(activeCompany);
 
   // Customer info
   // Pull all address parts — form fields first, then job object fallback
@@ -15201,7 +15186,7 @@ async function printInvoice() {
 
   // Payment instructions
   document.getElementById('inv_payNote').textContent = document.getElementById('invPayNote').value ||
-    (settings.companyPhone ? 'Check payable to ' + co + ' · Zelle/Venmo ' + settings.companyPhone : '');
+    'Check payable to ' + co + ' · Zelle/Venmo ' + companyPhoneFor(activeCompany || 'BWI');
 
   // Customer note — show section only if note was entered
   const customerNote = (document.getElementById('invCustomerNote')?.value || '').trim();
