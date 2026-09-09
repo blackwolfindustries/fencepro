@@ -1056,7 +1056,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -10832,7 +10832,11 @@ function combineEstimates(estimates) {
   // Payment / franchise from first estimate (for fee display)
   const payMethod  = estimates[0].payMethod  || 'CC';
   const county     = estimates[0].custCounty || 'Suffolk';
-  const franOn     = true;
+  // v3.20.1 — was hardcoded `true`, so the combined total always charged the
+  // franchise fee even when the estimates being combined have it off. Now
+  // reads the real per-estimate flag, same as the individual cards above do
+  // (j.franchiseOn !== false).
+  const franOn     = estimates[0].franchiseOn !== false;
   const franFee    = franOn ? CFG.FRANCHISE_PCT : 0;
   const franFeeDol = finalRnd * franFee;
 
