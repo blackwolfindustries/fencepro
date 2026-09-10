@@ -117,6 +117,11 @@
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
   .franchise-wrap{display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.7);font-family:var(--sans);font-weight:600}
+  /* v3.20.2 — was reusing .franchise-wrap directly; gave it its own class
+     so the two header pill-groups (Company, Franchise) don't visually run
+     together with no separation, and so a future style change to one
+     doesn't silently affect the other. */
+  .company-wrap{display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.7);font-family:var(--sans);font-weight:600;padding-right:10px;margin-right:2px;border-right:1px solid rgba(255,255,255,.15)}
   .tog{position:relative;width:36px;height:20px;cursor:pointer}
   .tog input{opacity:0;width:0;height:0}
   .tog-slider{position:absolute;inset:0;background:rgba(255,255,255,.2);border-radius:20px;transition:.2s}
@@ -455,6 +460,7 @@
     .nav-tabs{display:none!important}
     .hdr-right .cloud-status{display:none!important}
     .hdr-right .franchise-wrap{display:none!important}
+    .hdr-right .company-wrap{display:none!important}
 
     /* Show hamburger button */
     .mob-burger{
@@ -1056,7 +1062,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.2</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1086,7 +1092,7 @@
          everything (proposal, invoice, CI form, emails) from the start,
          rather than being decided implicitly whenever the Proposal
          screen happens to be opened. Populated by renderCompanyButtons(). -->
-    <div class="franchise-wrap" title="Which company this estimate belongs to">
+    <div class="company-wrap" title="Which company this estimate belongs to">
       <span>Company</span>
       <div id="companyBtnGroupHeader" style="display:flex;background:rgba(255,255,255,.1);border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.2)"></div>
     </div>
@@ -1122,11 +1128,12 @@
   <div class="mob-drawer-footer">
     <!-- v3.20.0 — mobile equivalent of the header's company button group.
          A native <select> rather than the button row, since the header's
-         franchise-wrap (and thus the button-group version) is hidden
-         entirely at mobile widths — see .hdr-right .franchise-wrap rule. -->
+         company-wrap (v3.20.2 — its own class, was folded into
+         franchise-wrap) is hidden entirely at mobile widths — see
+         .hdr-right .company-wrap rule. -->
     <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.7);font-weight:600;margin-bottom:10px">
       <span>Company</span>
-      <select id="companySelectMobile" onchange="selectCompany(this.value)" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:4px 8px;font-size:12px;font-weight:700;font-family:var(--sans)"></select>
+      <select id="companySelectMobile" onchange="selectCompany(this.value, true)" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:4px 8px;font-size:12px;font-weight:700;font-family:var(--sans)"></select>
     </div>
     <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.7);font-weight:600">
       <span>Franchise</span>
@@ -5144,6 +5151,12 @@ function normalizeJob(j) {
     material:    s(j.material,   j['Material'],      ''),
     payMethod:   s(j.payMethod,  j['Payment Method'],'CC'),
     supplier:    s(j.supplier,   j['Supplier'],      ''),
+    // v3.20.2 — normalizeJob() rebuilds the job object from a fixed field
+    // list on every save/load; `company` (added in v3.20.0) was never added
+    // here, so it was silently dropped every time a job passed through this
+    // function — meaning any company you picked reverted to BWI (the
+    // fallback used everywhere `company` is missing) the moment you saved.
+    company:     s(j.company,    j['Company'],       'BWI'),
     projDesc:    s(j.projDesc,   j['Project Description'], ''),
     scopeNotes:  s(j.scopeNotes, j['Scope Notes'],   ''),
     internalNotes: s(j.internalNotes, j['Internal Notes'], ''),
@@ -8342,7 +8355,7 @@ function _renderCompanyBtnsInto(containerId, idPrefix) {
   const { companies } = loadLists();
   const list = (companies && companies.length ? companies : getDefaultCompanies()).filter(c => c.active !== false);
   wrap.innerHTML = list.map(c => `
-    <button id="${idPrefix}${c.code}" onclick="selectCompany('${c.code}')"
+    <button id="${idPrefix}${c.code}" onclick="selectCompany('${c.code}', true)"
       style="padding:6px 14px;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;border:none;transition:.15s;background:${c.code === activeCompany ? 'var(--orange)' : 'transparent'};color:${c.code === activeCompany ? '#fff' : 'rgba(255,255,255,.6)'}">
       ${c.code}
     </button>`).join('');
@@ -8368,7 +8381,15 @@ function proceedTextFor(co) {
   return tmplVal(key) || tmplVal('proceed_bwi');
 }
 
-function selectCompany(co) {
+// v3.20.2 — `propagate` defaults to false so every existing call that
+// RESTORES an already-saved company (loadJobLocal, newEst, openProposal's
+// defensive re-sync, the Setup company-deletion fallback) stays a no-op
+// side-effect-free read. Only the three places the user actually CLICKS a
+// company control (header/modal buttons, mobile <select>, Multi-Option
+// Proposal's selector) pass true, per Didz's rule that one job never spans
+// multiple companies — changing it on any one lettered option should
+// change it for all of that job's options.
+function selectCompany(co, propagate) {
   activeCompany = co;
   const { companies } = loadLists();
   const list = (companies && companies.length ? companies : getDefaultCompanies());
@@ -8390,6 +8411,32 @@ function selectCompany(co) {
   if (propPhoneEl) propPhoneEl.textContent = companyPhoneFor(co);
   document.getElementById('prop_proceed').innerHTML = proceedTextFor(co);
   setFavicon(co);
+  if (propagate) propagateCompanyToSiblings(co);
+}
+
+// v3.20.2 — applies a user-chosen company to every other lettered option
+// (A/B/C...) of the SAME job number, both in the local jobs[] array (so
+// switching between sibling tabs shows the new company immediately) and,
+// in the background, on the sheet itself — without re-running saveJob()
+// per sibling, which would re-trigger photo uploads/new-contact detection/
+// etc. for records the user isn't actively editing.
+function propagateCompanyToSiblings(co) {
+  if (curIdx < 0 || !jobs[curIdx]) return;
+  const prefix = (jobs[curIdx].id || '').split('-')[0];
+  if (!prefix) return;
+  let changed = false;
+  jobs.forEach(j => {
+    if (j.id && j.id.split('-')[0] === prefix && j.company !== co) {
+      j.company = co;
+      changed = true;
+    }
+  });
+  if (!changed) return;
+  persistJobs();
+  renderSiblingPills();
+  if (settings.scriptUrl) {
+    cloudCall({ action: 'updateCompanyForJob', data: { jobPrefix: prefix, company: co } }).catch(() => {});
+  }
 }
 
 function openProposal() {
@@ -14760,7 +14807,7 @@ function renderMultiCompanyButtons() {
 function selectMultiCompany(co) {
   // Keeps the header, Proposal-modal toolbar, favicon, and prop_* fields
   // in sync too — one shared activeCompany, not a second copy.
-  selectCompany(co);
+  selectCompany(co, true);
   const { companies } = loadLists();
   const list = (companies && companies.length ? companies : getDefaultCompanies());
   list.forEach(c => {
