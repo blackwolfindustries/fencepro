@@ -1062,7 +1062,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.2</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.3</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -11069,9 +11069,19 @@ function openCIForm() {
   const s = id => document.getElementById(id);
   s('ci_contractorName').textContent   = data.companyName;
   s('ci_coaNum').textContent           = data.coaNum;
+  // v3.20.3 — these two were missing entirely, which is why the contractor
+  // (company) address/city/state/zip boxes rendered blank: nothing was ever
+  // writing into them even though getCIFormData() already returns the right
+  // per-company values.
+  s('ci_contractorAddr').textContent         = data.companyAddr;
+  s('ci_contractorCityStateZip').textContent = [data.companyCity, data.companyState, data.companyZip].filter(Boolean).join('  ');
   s('ci_custName').textContent         = data.custName;
   s('ci_custAddr').textContent         = data.custAddr;
-  s('ci_custCityStateZip').textContent = [data.jobCity, data.jobState, data.custZip].filter(Boolean).join('  ');
+  // v3.20.3 — was reading data.jobCity/data.jobState, which don't exist on
+  // the object getCIFormData() returns (the real fields are custCity/
+  // custState), so both silently dropped out and only the zip was left —
+  // exactly the "zip alone, no city or state" you saw.
+  s('ci_custCityStateZip').textContent = [data.custCity, data.custState, data.custZip].filter(Boolean).join('  ');
   s('ci_description').textContent      = data.description;
   s('ci_projectName').textContent      = data.projectName;
   s('ci_workStreet').textContent       = data.workStreet;
