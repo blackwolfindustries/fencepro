@@ -1062,7 +1062,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.5</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.6</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -12471,7 +12471,14 @@ async function openRecordFinalPayment() {
             if (curIdx >= 0) jobs[curIdx][f] = job[f];
             return;
           }
-          if (v !== undefined && v !== null && v !== '' && v !== 0) {
+          // v3.20.6 — this excluded v === 0, the same "can never accept a
+          // legitimate zero" defect fixed elsewhere as `Number(v) > 0`, just
+          // phrased differently. balanceDue/balanceDue_calc need the
+          // exception so a job that's actually paid off doesn't get its
+          // stale nonzero balance re-applied here right before the modal
+          // that's supposed to be collecting the final payment on it.
+          if ((v !== undefined && v !== null && v !== '' && v !== 0) ||
+              f === 'balanceDue' || f === 'balanceDue_calc') {
             job[f] = v;
             if (curIdx >= 0) jobs[curIdx][f] = norm[f];
           }
@@ -12548,6 +12555,14 @@ function confirmFinalPayment() {
     jobs[curIdx].finalPaymentDate   = date;
     jobs[curIdx].finalPaymentRef    = ref;
     jobs[curIdx].balanceDue         = 0;
+    // v3.20.6 — this never used to bump totalPaid/balanceDue_calc locally,
+    // only balanceDue. Any screen that calculates a live status/balance from
+    // totalPaid (Invoices tab, View Invoice) would still show the stale
+    // pre-payment number until the next full fetch from the server refreshed
+    // jobs[]. Bump both here so it's correct immediately.
+    const cpForTotal = jobs[curIdx].contractPrice || jobs[curIdx].calc_final || 0;
+    jobs[curIdx].totalPaid = cpForTotal > 0 ? cpForTotal : ((Number(jobs[curIdx].totalPaid) || 0) + amount);
+    jobs[curIdx].balanceDue_calc = 0;
 
     // Update the matching invoice record so the Invoices tab stays in sync.
     // v3.20.5 — was comparing the full estimate id ("976-Nicole-J-2026")
@@ -14468,10 +14483,63 @@ function renderInvoicesTab() {
   if (!tbody) return;
 
   const VALID_STATUSES = ['Unpaid','Partial','Paid in Full','Invoiced','Overdue'];
+
+  const getLiveJob = i => {
+    const jobId = String(i['Job ID'] || i.jobId || '').split('-')[0];
+    if (!jobId) return null;
+    return jobs.find(j => String(j.jobId || (j.id||'').split('-')[0]) === jobId) || null;
+  };
+  const safeContract = i => {
+    // Contract price: stored on invoice first, then matching job record
+    let cp = Number(i['Contract Price'] ?? i.contractPrice ?? NaN);
+    if (!isNaN(cp) && cp > 0) return cp;
+    const match = getLiveJob(i);
+    if (match) return match.contractPrice || match.calc_final || 0;
+    return 0;
+  };
+  const safeDeposit = i => {
+    // Deposit paid: from invoice record or matching job
+    const dp = Number(i['Deposit Paid'] ?? i.depositPaid ?? 0);
+    if (dp > 0) return dp;
+    const match = getLiveJob(i);
+    return match ? (match.depositPaid || 0) : 0;
+  };
+  // v3.20.6 — Status and Amount Due used to come only from this invoice
+  // record's own stored 'Payment Status'/'Amount Due' fields, which are only
+  // ever as fresh as the last successful sync to the Invoices sheet. If that
+  // sync silently failed (as it did before the updateInvoice fix) or just
+  // hasn't happened yet, the list kept showing "Unpaid" forever even after
+  // the job was paid in full. Now this checks the matching job's real
+  // totalPaid against the contract price first, and only falls back to the
+  // stored fields when there's no matching job to calculate from.
+  const getStatus = i => {
+    const match = getLiveJob(i);
+    const cp    = safeContract(i);
+    if (match && cp > 0) {
+      const paid = Number(match.totalPaid) || 0;
+      if (paid >= cp) return 'Paid in Full';
+      if (paid > 0)   return 'Partial';
+    }
+    const s = i['Payment Status'] || i.status || '';
+    return VALID_STATUSES.includes(s) ? s : 'Unpaid';
+  };
+  const safeAmt = i => {
+    const match = getLiveJob(i);
+    const cp    = safeContract(i);
+    if (match && cp > 0) {
+      const paid = Number(match.totalPaid) || 0;
+      return Math.max(0, cp - paid);
+    }
+    // No matching job — use stored value if > 0, otherwise calculate from contract - deposit
+    const stored = Number(i['Amount Due'] ?? i.amountDue ?? 0);
+    if (!isNaN(stored) && stored > 0) return stored;
+    const dp = safeDeposit(i);
+    if (cp > 0) return Math.max(0, cp - dp);
+    return 0;
+  };
+
   const filtered = invoices.filter(inv => {
-    const rawSt = inv['Payment Status'] || inv.status || '';
-    const invStatus2 = VALID_STATUSES.includes(rawSt) ? rawSt : 'Unpaid';
-    const matchStatus = !filter || invStatus2 === filter;
+    const matchStatus = !filter || getStatus(inv) === filter;
     const matchQ = !q || [
       inv['Invoice ID']    || inv.invoiceId,
       inv['Customer Name'] || inv.custName,
@@ -14485,35 +14553,6 @@ function renderInvoicesTab() {
     ].some(v => String(v || '').toLowerCase().includes(q));
     return matchStatus && matchQ;
   });
-
-  const safeContract = i => {
-    // Contract price: stored on invoice first, then matching job record
-    let cp = Number(i['Contract Price'] ?? i.contractPrice ?? NaN);
-    if (!isNaN(cp) && cp > 0) return cp;
-    const jobId = String(i['Job ID'] || i.jobId || '').split('-')[0];
-    const match = jobs.find(j => String(j.jobId || j.id.split('-')[0]) === jobId);
-    if (match) return match.contractPrice || match.calc_final || 0;
-    return 0;
-  };
-  const safeDeposit = i => {
-    // Deposit paid: from invoice record or matching job
-    const dp = Number(i['Deposit Paid'] ?? i.depositPaid ?? 0);
-    if (dp > 0) return dp;
-    const jobId = String(i['Job ID'] || i.jobId || '').split('-')[0];
-    const match = jobs.find(j => String(j.jobId || j.id.split('-')[0]) === jobId);
-    return match ? (match.depositPaid || 0) : 0;
-  };
-  const safeAmt = i => {
-    // Amount Due: use stored value if > 0, otherwise calculate from contract - deposit
-    const stored = Number(i['Amount Due'] ?? i.amountDue ?? 0);
-    if (!isNaN(stored) && stored > 0) return stored;
-    // Recalculate: contract price minus any deposit already paid
-    const cp = safeContract(i);
-    const dp = safeDeposit(i);
-    if (cp > 0) return Math.max(0, cp - dp);
-    return 0;
-  };
-  const getStatus = i => { const s = i['Payment Status']||i.status||''; return VALID_STATUSES.includes(s) ? s : 'Unpaid'; };
 
   // Total billed = sum of contract prices across all invoices
   const totalAmt = invoices.reduce((s,i) => s + safeContract(i), 0);
@@ -14546,10 +14585,12 @@ function renderInvoicesTab() {
     const jobAddr   = inv['Job Address']   || inv.jobAddr     || '—';
     const invDate   = inv['Invoice Date']  || inv.invoiceDate || '';
     const dueDate   = inv['Due Date']      || inv.dueDate     || '';
-    const rawStatus = inv['Payment Status'] || inv.status || 'Unpaid';
-    // Only accept known status values — reject dates or other garbage from Sheets
-    const VALID_STATUSES = ['Unpaid','Partial','Paid in Full','Invoiced','Overdue'];
-    const status = VALID_STATUSES.includes(rawStatus) ? rawStatus : 'Unpaid';
+    // v3.20.6 — this used to re-derive status from the stored field with its
+    // own inline copy of the same logic, instead of calling getStatus() above.
+    // That meant a fix to getStatus() alone didn't actually change what
+    // rendered here. Route through the same live-calculating helpers so this
+    // table can't drift out of sync with the KPI totals above it again.
+    const status    = getStatus(inv);
     // Force $0 when Paid in Full regardless of stored amount
     const amtDue    = status === 'Paid in Full' ? 0 : safeAmt(inv);
     const jobId     = inv['Job ID']        || inv.jobId       || '';
@@ -14649,7 +14690,6 @@ function renderInvoiceFromRecord(inv) {
   const invNum      = inv['Invoice Number'] || inv.invoiceNumber || inv['Invoice ID'] || inv.invoiceId || 'Pending';
   const invDate     = inv['Invoice Date']   || inv.invoiceDate   || '';
   const dueDate     = inv['Due Date']       || inv.dueDate       || '';
-  const status      = inv['Payment Status'] || inv.status        || 'Unpaid';
 
   // Contract price — Cash/Check is now the primary customer-facing price.
   // Fall back to CC price if cash isn't available, then old 'Contract Price' for legacy records.
@@ -14667,11 +14707,35 @@ function renderInvoiceFromRecord(inv) {
                         : _invJobObj?.depositPaid         || 0;
   const depositType     = inv.depositType || _invJobObj?.depositType || '50pct';
 
-  // Balance due — $0 if Paid in Full, otherwise Amount Due from sheet or calculate
-  const balanceDue      = (status === 'Paid in Full') ? 0
-                        : Number(inv['Amount Due']) > 0  ? Number(inv['Amount Due'])
-                        : inv.balanceDue > 0             ? inv.balanceDue
-                        : Math.max(0, contractPrice - depositPaid);
+  // v3.20.6 — Status and Balance Due used to come only from this invoice
+  // record's own stored 'Payment Status'/'Amount Due' fields, which only
+  // ever change when something explicitly syncs them back (see
+  // updateInvoice() in Code.gs) — a step that, until v3.20.5/v2.8.3, never
+  // actually worked. Meanwhile the Payment History list just below reads
+  // straight from the matching job's real Payments-sheet total and was
+  // always correct, which is exactly why a fully-paid job could show both
+  // payments correctly AND still say "Deposit Received, $16,200 due" in
+  // the same document. Fix: calculate Status/Balance Due live from that
+  // same job total whenever a matching job is available — the sheet-synced
+  // fields are now only a fallback for an invoice whose job no longer
+  // exists locally (e.g. the job was later deleted).
+  const _liveTotalPaid = Number(_invJobObj?.totalPaid) || 0;
+  let status, balanceDue;
+  if (_invJobObj && contractPrice > 0 && _liveTotalPaid >= contractPrice) {
+    status     = 'Paid in Full';
+    balanceDue = 0;
+  } else if (_invJobObj && contractPrice > 0) {
+    status     = _liveTotalPaid > 0 ? 'Deposit Received' : (inv['Payment Status'] || inv.status || 'Unpaid');
+    balanceDue = Math.max(0, contractPrice - _liveTotalPaid);
+  } else {
+    // No matching job to calculate from — fall back to whatever was last
+    // synced onto the invoice record itself.
+    status     = inv['Payment Status'] || inv.status || 'Unpaid';
+    balanceDue = (status === 'Paid in Full') ? 0
+               : Number(inv['Amount Due']) > 0  ? Number(inv['Amount Due'])
+               : inv.balanceDue > 0             ? inv.balanceDue
+               : Math.max(0, contractPrice - depositPaid);
+  }
 
   // Payment history — prefer freshly fetched _payments attached by viewInvoiceFromTab,
   // fall back to matching job in local array
