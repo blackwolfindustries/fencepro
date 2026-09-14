@@ -1062,7 +1062,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.21.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.21.2</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -12447,6 +12447,7 @@ function confirmScheduleJob() {
           jobId:         j.jobId || j.id.split('-')[0],
           estimateId:    j.id        || '',
           custName:      j.custName  || '',
+          custPhone:     j.custPhone || '', // v2.9.1 — becomes a tap-to-dial link on the calendar event
           fenceType:     j.fenceType || '',
           jobAddr:       j.jobAddr   || '',
           jobCity:       j.jobCity   || '',
