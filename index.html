@@ -1062,7 +1062,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.4</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.5</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -12549,11 +12549,16 @@ function confirmFinalPayment() {
     jobs[curIdx].finalPaymentRef    = ref;
     jobs[curIdx].balanceDue         = 0;
 
-    // Update the matching invoice record so the Invoices tab stays in sync
-    const jobId = jobs[curIdx].id;
+    // Update the matching invoice record so the Invoices tab stays in sync.
+    // v3.20.5 — was comparing the full estimate id ("976-Nicole-J-2026")
+    // against invoices' Job ID column, which only ever stores the numeric
+    // prefix ("976"), so that half of the match could never succeed; fixed
+    // to compare like for like. Kept as a fallback alongside invoiceId.
+    const jobId         = jobs[curIdx].jobId || jobs[curIdx].id.split('-')[0] || '';
+    const thisInvoiceId = jobs[curIdx].invoiceId || '';
     const invIdx = invoices.findIndex(i =>
-      (i['Job ID'] || i.jobId) === jobId ||
-      (i['Invoice ID'] || i.invoiceId) === jobs[curIdx].invoiceId
+      String(i['Job ID'] || i.jobId || '').trim() === String(jobId).trim() ||
+      (thisInvoiceId && (i['Invoice ID'] || i.invoiceId) === thisInvoiceId)
     );
     if (invIdx >= 0) {
       // Backfill Contract Price from job if missing — needed for collected KPI
@@ -12571,11 +12576,25 @@ function confirmFinalPayment() {
       invoices[invIdx].paymentMethod     = method;
       invoices[invIdx].paymentDate       = date;
       localStorage.setItem('fp_invoices', JSON.stringify(invoices));
+    }
 
-      // Sync updated invoice to cloud
-      if (settings.scriptUrl) {
-        cloudCall({ action: 'updateInvoice', data: invoices[invIdx] }).catch(() => {});
-      }
+    // v3.20.5 — fire the cloud sync unconditionally (keyed by invoiceId),
+    // not only when a matching invoice happens to already be cached in the
+    // local invoices[] array. Recording a final payment without having
+    // opened the Invoices tab first in this browser session left that
+    // array empty, so the old `if (invIdx >= 0)` gate around this call
+    // skipped the sync every single time — and separately, the backend
+    // never actually implemented this action at all (see updateInvoice()
+    // in Code.gs), so even a successful local match never actually reached
+    // the sheet either. Both are fixed now.
+    if (settings.scriptUrl && thisInvoiceId) {
+      cloudCall({ action: 'updateInvoice', data: {
+        invoiceId: thisInvoiceId, 'Invoice ID': thisInvoiceId,
+        status: 'Paid in Full', 'Payment Status': 'Paid in Full',
+        amountDue: 0, 'Amount Due': 0,
+        paymentMethod: method, 'Payment Method': method,
+        paymentDate: date, 'Payment Date': date,
+      }}).catch(() => {});
     }
 
     persistJobs();
