@@ -1062,7 +1062,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.20.6</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.21.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -3617,6 +3617,39 @@
     <div class="mactions">
       <button class="btn" onclick="closeM('mSchedule')">Cancel</button>
       <button class="btn btn-a" id="sched_confirm_btn" onclick="confirmScheduleJob()">Save Schedule</button>
+    </div>
+  </div>
+</div>
+
+<!-- v3.21.0 — Schedule an estimate visit directly from a Contact, before any
+     job/estimate record exists. Reuses the same Google Calendar plumbing as
+     the job-install scheduler above (via a new, separate backend action so
+     the working install-scheduling code is never touched). -->
+<div class="moverlay hidden" id="mScheduleEstimate">
+  <div class="mbox" style="max-width:420px">
+    <div class="mtitle">📅 Schedule Estimate Visit</div>
+    <div id="estsched_who" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
+    <input type="hidden" id="estsched_uid">
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="f">
+          <label>DATE</label>
+          <input type="date" id="estsched_date">
+        </div>
+        <div class="f">
+          <label>TIME</label>
+          <input type="time" id="estsched_time" value="10:00">
+        </div>
+      </div>
+      <div class="f">
+        <label>NOTES (optional)</label>
+        <input id="estsched_notes" placeholder="What they want quoted, access details...">
+      </div>
+    </div>
+    <div class="mactions">
+      <button class="btn" id="estsched_cancel_btn" style="color:var(--red);border-color:var(--red);margin-right:auto;display:none" onclick="cancelScheduledEstimate()">Cancel Appointment</button>
+      <button class="btn" onclick="closeM('mScheduleEstimate')">Close</button>
+      <button class="btn btn-a" onclick="confirmScheduleEstimate()">Save &amp; Add to Calendar</button>
     </div>
   </div>
 </div>
@@ -11348,10 +11381,21 @@ function renderCRM() {
 
     const createdDisplay = fmtCreatedDate(c.createdAt);
 
+    // v3.21.0 — small badge showing a booked estimate visit, if one exists
+    let apptBadge = '';
+    if (c.estApptDateTime) {
+      const [apptD, apptT] = c.estApptDateTime.split('T');
+      const apptDate = new Date(apptD + 'T12:00:00');
+      const apptDateStr = isNaN(apptDate.getTime()) ? apptD : apptDate.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+      const apptTimeStr = apptT ? new Date('2000-01-01T' + apptT).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'}) : '';
+      apptBadge = `<div style="font-size:10px;color:var(--blue);font-weight:600">📅 Estimate: ${escHtml(apptDateStr)}${apptTimeStr ? ', ' + escHtml(apptTimeStr) : ''}</div>`;
+    }
+
     return `<tr style="${rowStyle}" data-uid="${escHtml(c.uid || '')}">
       <td>
         <div style="font-weight:700;font-size:13px;color:var(--navy)">${escHtml(c.name || '—')}</div>
         ${estCount > 0 ? `<div style="font-size:10px;color:var(--text3)">${estCount} estimate${estCount>1?'s':''}</div>` : ''}
+        ${apptBadge}
       </td>
       <td style="font-family:var(--mono);font-size:12px">${escHtml(c.phone || '—')}</td>
       <td style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.email || '—')}</td>
@@ -11367,6 +11411,8 @@ function renderCRM() {
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-a btn-sm" style="padding:3px 8px;font-size:11px"
             onclick="crmStartEstimate('${escHtml(c.uid || '')}')">+ Estimate</button>
+          <button class="btn btn-sm" style="padding:3px 8px;font-size:11px;color:var(--blue);border-color:var(--blue)"
+            onclick="openScheduleEstimateForContact('${escHtml(c.uid || '')}')">📅 ${c.estApptDateTime ? 'Reschedule' : 'Schedule'}</button>
           <button class="btn btn-sm" style="padding:3px 8px;font-size:11px"
             onclick="openEditContact('${escHtml(c.uid || '')}')">Edit</button>
           <button class="btn btn-sm" style="padding:3px 8px;font-size:11px;color:${inactive?'var(--green)':'var(--red)'}"
@@ -11560,8 +11606,124 @@ function crmStartEstimate(uid) {
   }
 
   document.getElementById('estContactUID').value = c.uid || '';
+
+  // v3.21.1 — carry over any notes taken when the estimate visit was booked
+  // (what they want quoted, access details, etc.) so they aren't stranded
+  // back on the Contacts screen once the estimate itself is being built.
+  if (c.estApptNotes && c.estApptNotes.trim()) {
+    document.getElementById('internalNotes').value = 'Estimate visit notes: ' + c.estApptNotes.trim();
+  }
+
   assembleId();
   status('Pre-filled from CRM: ' + c.name + ' — enter job # to begin');
+}
+
+// v3.21.0 — Schedule an estimate (site visit) appointment straight from a
+// Contact, before a job/estimate record exists. Reuses the same Google
+// Calendar plumbing the job-install scheduler already relies on (see
+// createEstimateAppointment() in Code.gs) via its own backend action, so
+// nothing about the existing, working install-scheduling flow is touched.
+function openScheduleEstimateForContact(uid) {
+  const c = contacts.find(x => x.uid === uid);
+  if (!c) return;
+
+  document.getElementById('estsched_uid').value = uid;
+  document.getElementById('estsched_who').textContent = c.name +
+    ([c.addr1, c.city].filter(Boolean).join(', ') ? ' — ' + [c.addr1, c.city].filter(Boolean).join(', ') : '');
+
+  if (c.estApptDateTime) {
+    const [d, t] = c.estApptDateTime.split('T');
+    document.getElementById('estsched_date').value = d || '';
+    document.getElementById('estsched_time').value = (t || '10:00').substring(0, 5);
+  } else {
+    document.getElementById('estsched_date').value = '';
+    document.getElementById('estsched_time').value = '10:00';
+  }
+  document.getElementById('estsched_notes').value = c.estApptNotes || '';
+
+  const cancelBtn = document.getElementById('estsched_cancel_btn');
+  if (cancelBtn) cancelBtn.style.display = c.estApptEventId ? '' : 'none';
+
+  openM('mScheduleEstimate');
+}
+
+function confirmScheduleEstimate() {
+  const uid  = document.getElementById('estsched_uid').value;
+  const date = document.getElementById('estsched_date').value;
+  const time = document.getElementById('estsched_time').value || '10:00';
+  const notes = document.getElementById('estsched_notes').value.trim();
+  if (!date) { alert('Please select a date'); return; }
+
+  const idx = contacts.findIndex(x => x.uid === uid);
+  if (idx < 0) return;
+  const c = contacts[idx];
+  const dateTime = date + 'T' + time;
+  const oldEventId = c.estApptEventId || '';
+
+  const finishLocal = (eventId) => {
+    contacts[idx] = { ...c, estApptDateTime: dateTime, estApptNotes: notes, estApptEventId: eventId || '' };
+    localStorage.setItem('fp_contacts', JSON.stringify(contacts));
+    if (settings.scriptUrl) {
+      cloudCall({ action: 'saveContact', data: contacts[idx] }).catch(() => {});
+    }
+    closeM('mScheduleEstimate');
+    renderCRM();
+    const dStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    const tStr = new Date('2000-01-01T' + time).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+    status('✓ Estimate visit scheduled — ' + c.name + ' · ' + dStr + ' · ' + tStr);
+  };
+
+  if (!settings.scriptUrl) {
+    // Offline — save the appointment locally, but there's no calendar to sync to.
+    finishLocal('');
+    showToast('⚠️ Saved locally — connect to the cloud to add this to Google Calendar', 'warn');
+    return;
+  }
+
+  cloudCall({ action: 'createEstimateAppointment', data: {
+    custName: c.name || '', phone: c.phone || '',
+    addr: c.addr1 || '', city: c.city || '', state: 'NY', zip: c.zip || '',
+    dateTime, notes, oldEventId,
+  }}).then(res => {
+    if (res?.success) {
+      finishLocal(res.eventId || '');
+      showToast('✓ Added to Google Calendar');
+    } else {
+      finishLocal(''); // still keep the date/notes locally even if the calendar call failed
+      showToast('⚠️ Saved but Calendar failed: ' + (res?.error || 'unknown error'), 'warn');
+    }
+  }).catch(e => {
+    finishLocal('');
+    showToast('⚠️ Saved but Calendar sync failed — check console', 'warn');
+    console.warn('createEstimateAppointment failed:', e);
+  });
+}
+
+function cancelScheduledEstimate() {
+  const uid = document.getElementById('estsched_uid').value;
+  const idx = contacts.findIndex(x => x.uid === uid);
+  if (idx < 0) return;
+  const c = contacts[idx];
+  if (!confirm('Cancel the estimate appointment for ' + c.name + '?')) return;
+
+  const clearLocal = () => {
+    contacts[idx] = { ...c, estApptDateTime: '', estApptNotes: '', estApptEventId: '' };
+    localStorage.setItem('fp_contacts', JSON.stringify(contacts));
+    if (settings.scriptUrl) {
+      cloudCall({ action: 'saveContact', data: contacts[idx] }).catch(() => {});
+    }
+    closeM('mScheduleEstimate');
+    renderCRM();
+    status('Estimate appointment cancelled — ' + c.name);
+  };
+
+  if (settings.scriptUrl && c.estApptEventId) {
+    cloudCall({ action: 'cancelEstimateAppointment', data: { eventId: c.estApptEventId } })
+      .catch(() => {})
+      .then(clearLocal);
+  } else {
+    clearLocal();
+  }
 }
 </script>
 
