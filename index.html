@@ -1062,7 +1062,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.22.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.22.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -14277,6 +14277,18 @@ async function generateProposalLink(mode, estimateIds) {
   openM('mProposalLink');
 
   try {
+    // v3.22.1 — resolve the company from THIS specific job record first,
+    // falling back to the shared activeCompany global only if the job
+    // somehow has none. `activeCompany` reflects whichever option was most
+    // recently loaded/clicked in the estimator and isn't guaranteed to
+    // still match the estimate(s) actually being proposed here — the exact
+    // "two facts, one truth" drift already fixed for normalizeJob() in
+    // v3.20.2. job.company is the specific record's own saved value, so it
+    // wins. The one company resolved here is reused for every part of the
+    // proposal (the generated document AND this email preview) so they
+    // can't disagree with each other.
+    const proposalCompany = job.company || activeCompany || 'BWI';
+
     const res = await cloudCall({
       action: 'generateProposalToken',
       data: {
@@ -14285,7 +14297,7 @@ async function generateProposalLink(mode, estimateIds) {
         proposalMode: mode,
         custName:   job.custName  || val('custName')  || '',
         custEmail:  resolveJobEmail(job),
-        company:    activeCompany || 'BWI'
+        company:    proposalCompany
       }
     });
 
@@ -14294,15 +14306,15 @@ async function generateProposalLink(mode, estimateIds) {
 
     const custName  = job.custName  || val('custName')  || 'there';
     const custFirst = custName.split(' ')[0];
-    const co        = (COMPANIES[activeCompany] || COMPANIES.BWI);
+    const co        = (COMPANIES[proposalCompany] || COMPANIES.BWI);
     const finalCC   = '$' + Math.round(job.calc_final || lastCalc.final || 0).toLocaleString();
     const finalCash = '$' + Math.round(job.calc_cash  || lastCalc.cash  || 0).toLocaleString();
-    const phone     = companyPhoneFor(activeCompany || 'BWI');
-    const companyAddr = companyAddrLine(activeCompany || 'BWI');
+    const phone     = companyPhoneFor(proposalCompany);
+    const companyAddr = companyAddrLine(proposalCompany);
 
     // Build HTML email
     // Resolve logo for active company
-    const companyKey = activeCompany || 'BWI';
+    const companyKey = proposalCompany;
     const logoData   = (typeof COMPANY_LOGOS !== 'undefined' && COMPANY_LOGOS[companyKey]) || {};
 
     _proposalEmailOpts = {
