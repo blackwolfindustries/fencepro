@@ -1062,7 +1062,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.21.2</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.22.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -3615,7 +3615,8 @@
       </div>
     </div>
     <div class="mactions">
-      <button class="btn" onclick="closeM('mSchedule')">Cancel</button>
+      <button class="btn" id="sched_cancel_btn" style="color:var(--red);border-color:var(--red);margin-right:auto;display:none" onclick="cancelScheduledJob()">Cancel Schedule</button>
+      <button class="btn" onclick="closeM('mSchedule')">Close</button>
       <button class="btn btn-a" id="sched_confirm_btn" onclick="confirmScheduleJob()">Save Schedule</button>
     </div>
   </div>
@@ -5295,6 +5296,7 @@ function normalizeJob(j) {
     scheduledCrew:      s(j.scheduledCrew,      j['Scheduled Crew'],      ''),
     scheduledTime:      s(j.scheduledTime,      j['Scheduled Time'],      ''),
     scheduleNotes:      s(j.scheduleNotes,      j['Schedule Notes'],      ''),
+    calendarEventId:    s(j.calendarEventId,    j['Calendar Event ID'],   ''),
     finalPaymentAmount: n(j.finalPaymentAmount, j['Final Payment Amount'],0),
     finalPaymentMethod: s(j.finalPaymentMethod, j['Final Payment Method'],''),
     finalPaymentDate:   s(j.finalPaymentDate,   j['Final Payment Date'],  ''),
@@ -12307,7 +12309,7 @@ async function openScheduleJob() {
         const norm = normalizeJob(fresh.job);
         ['contractPrice','contractPriceType','depositType','depositRequired',
          'depositPaid','depositMethod','depositDate','depositRef','balanceDue',
-         'scheduledDate','scheduledCrew','scheduledTime','scheduleNotes',
+         'scheduledDate','scheduledCrew','scheduledTime','scheduleNotes','calendarEventId',
          'finalPaymentAmount','finalPaymentMethod','finalPaymentDate','finalPaymentRef'].forEach(f => {
           const v = norm[f];
           if (v !== undefined && v !== null && v !== '') {
@@ -12346,6 +12348,9 @@ async function openScheduleJob() {
   }
   document.getElementById('sched_conflict').style.display = 'none';
   document.getElementById('sched_confirm_btn').textContent = 'Save Schedule';
+  // v2.10.0 — only offer "Cancel Schedule" once there's an actual schedule to cancel
+  const schedCancelBtn = document.getElementById('sched_cancel_btn');
+  if (schedCancelBtn) schedCancelBtn.style.display = (job?.scheduledDate || job?.calendarEventId) ? '' : 'none';
   openM('mSchedule');
   checkCrewConflict();
 }
@@ -12402,6 +12407,10 @@ function confirmScheduleJob() {
   const time  = document.getElementById('sched_time')?.value || 'Full Day';
   if (!date) { alert('Please select an install date'); return; }
 
+  // v2.10.0 — carry forward any calendar event this job already has, so a
+  // reschedule can replace it instead of leaving a duplicate on the calendar.
+  const oldEventId = curIdx >= 0 ? (jobs[curIdx]?.calendarEventId || '') : '';
+
   if (curIdx >= 0) {
     jobs[curIdx].scheduledDate  = date;
     jobs[curIdx].scheduledCrew  = crew;
@@ -12419,45 +12428,53 @@ function confirmScheduleJob() {
   // assign a new letter. updateStatus only writes to the Jobs sheet — safe.
   const j = curIdx >= 0 ? jobs[curIdx] : null;
   if (j && settings.scriptUrl) {
-    cloudCall({ action: 'updateStatus', data: {
-      jobId:             j.jobId || j.id.split('-')[0],
-      estimateId:        j.id                || '',
-      contactUID:        j.contactUID        || '',
-      custName:          j.custName          || '',
-      status:            'Scheduled',
-      contractPrice:     j.contractPrice     || 0,
-      contractPriceType: j.contractPriceType || '',
-      depositType:       j.depositType       || '50pct',
-      depositRequired:   j.depositRequired   || 0,
-      depositPaid:       j.depositPaid       || 0,
-      depositMethod:     j.depositMethod     || '',
-      depositDate:       j.depositDate       || '',
-      depositRef:        j.depositRef        || '',
-      scheduledDate:     date,
-      scheduledCrew:     crew,
-      scheduledTime:     time,
-      scheduleNotes:     notes,
-      balanceDue:        j.balanceDue        || 0,
-      notes:             j.notes             || '',
-      lostReason:        j.lostReason        || '',
-    }}).then(() => {
-      // After the job is saved, create the Google Calendar event
-      if (settings.scriptUrl) {
-        return cloudCall({ action: 'createCalendarEvent', data: {
-          jobId:         j.jobId || j.id.split('-')[0],
-          estimateId:    j.id        || '',
-          custName:      j.custName  || '',
-          custPhone:     j.custPhone || '', // v2.9.1 — becomes a tap-to-dial link on the calendar event
-          fenceType:     j.fenceType || '',
-          jobAddr:       j.jobAddr   || '',
-          jobCity:       j.jobCity   || '',
-          jobState:      j.jobState  || '',
-          scheduledDate: date,
-          scheduledTime: time,
-          scheduledCrew: crew,
-          scheduleNotes: notes,
-        }});
+    // v2.10.0 — create/replace the Google Calendar event FIRST so its event
+    // ID is known before the one Jobs-sheet write that follows, instead of
+    // needing a second round trip just to store it. This is also what lets
+    // "Cancel Schedule" find and delete the right event later.
+    cloudCall({ action: 'createCalendarEvent', data: {
+      jobId:         j.jobId || j.id.split('-')[0],
+      estimateId:    j.id        || '',
+      custName:      j.custName  || '',
+      custPhone:     j.custPhone || '', // v2.9.1 — becomes a tap-to-dial link on the calendar event
+      fenceType:     j.fenceType || '',
+      jobAddr:       j.jobAddr   || '',
+      jobCity:       j.jobCity   || '',
+      jobState:      j.jobState  || '',
+      scheduledDate: date,
+      scheduledTime: time,
+      scheduledCrew: crew,
+      scheduleNotes: notes,
+      oldEventId:    oldEventId,
+    }}).then(calResult => {
+      const newEventId = calResult?.success ? (calResult.eventId || '') : oldEventId;
+      if (calResult?.success && curIdx >= 0) {
+        jobs[curIdx].calendarEventId = newEventId;
+        persistJobs();
       }
+      return cloudCall({ action: 'updateStatus', data: {
+        jobId:             j.jobId || j.id.split('-')[0],
+        estimateId:        j.id                || '',
+        contactUID:        j.contactUID        || '',
+        custName:          j.custName          || '',
+        status:            'Scheduled',
+        contractPrice:     j.contractPrice     || 0,
+        contractPriceType: j.contractPriceType || '',
+        depositType:       j.depositType       || '50pct',
+        depositRequired:   j.depositRequired   || 0,
+        depositPaid:       j.depositPaid       || 0,
+        depositMethod:     j.depositMethod     || '',
+        depositDate:       j.depositDate       || '',
+        depositRef:        j.depositRef        || '',
+        scheduledDate:     date,
+        scheduledCrew:     crew,
+        scheduledTime:     time,
+        scheduleNotes:     notes,
+        balanceDue:        j.balanceDue        || 0,
+        notes:             j.notes             || '',
+        lostReason:        j.lostReason        || '',
+        calendarEventId:   newEventId,
+      }}).then(() => calResult);
     }).then(calResult => {
       if (calResult?.success) {
         const slotLabel = time === 'Morning' ? '8am–12pm' : time === 'Afternoon' ? '1pm–5pm' : '8am–5pm';
@@ -12476,6 +12493,64 @@ function confirmScheduleJob() {
   const slotLabel = time === 'Morning' ? '8am–12pm' : time === 'Afternoon' ? '1pm–5pm' : '8am–5pm';
   showToast('✓ Scheduled' + (crew ? ' — ' + crew : '') + ' · ' + dateStr + ' · ' + slotLabel);
   renderBoard();
+}
+
+// ── CANCEL SCHEDULE — removes the real Google Calendar event and moves the
+// job's status back a step (v2.10.0). Mirrors cancelScheduledEstimate().
+function cancelScheduledJob() {
+  const j = curIdx >= 0 ? jobs[curIdx] : null;
+  if (!j) return;
+  if (!confirm('Cancel the scheduled install for ' + (j.custName || 'this job') + '? This removes it from Google Calendar.')) return;
+
+  // Step back to whatever status naturally precedes Scheduled — Deposit
+  // Received if a deposit's already been recorded, otherwise Accepted.
+  const revertStatus = (Number(j.depositPaid) > 0) ? 'Deposit Received' : 'Accepted';
+  const eventId = j.calendarEventId || '';
+
+  const finishLocal = () => {
+    jobs[curIdx] = { ...j, scheduledDate: '', scheduledCrew: '', scheduledTime: '', scheduleNotes: '', calendarEventId: '', propStatus: revertStatus };
+    persistJobs();
+    if (curIdx >= 0 && document.getElementById('propStatus')) {
+      document.getElementById('propStatus').value = revertStatus;
+      updateBadge();
+    }
+    closeM('mSchedule');
+    renderBoard();
+    status('Schedule cancelled — ' + (j.custName || 'job') + ' moved back to ' + revertStatus);
+  };
+
+  const syncCloud = () => {
+    if (!settings.scriptUrl) return Promise.resolve();
+    return cloudCall({ action: 'updateStatus', data: {
+      jobId:             j.jobId || j.id.split('-')[0],
+      estimateId:        j.id                || '',
+      contactUID:        j.contactUID        || '',
+      custName:          j.custName          || '',
+      status:            revertStatus,
+      allowStatusDowngrade: true,
+      clearSchedule:     true,
+      contractPrice:     j.contractPrice     || 0,
+      contractPriceType: j.contractPriceType || '',
+      depositType:       j.depositType       || '50pct',
+      depositRequired:   j.depositRequired   || 0,
+      depositPaid:       j.depositPaid       || 0,
+      depositMethod:     j.depositMethod     || '',
+      depositDate:       j.depositDate       || '',
+      depositRef:        j.depositRef        || '',
+      balanceDue:        j.balanceDue        || 0,
+      notes:             j.notes             || '',
+      lostReason:        j.lostReason        || '',
+    }}).catch(() => {});
+  };
+
+  if (settings.scriptUrl && eventId) {
+    cloudCall({ action: 'cancelJobCalendarEvent', data: { eventId } })
+      .catch(() => {})
+      .then(() => syncCloud())
+      .then(finishLocal);
+  } else {
+    syncCloud().then(finishLocal);
+  }
 }
 
 // ── MARK IN PROGRESS ──────────────────────────────
