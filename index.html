@@ -211,6 +211,23 @@
     --select-ring:         0 0 0 3px rgba(242,101,34,.2);
     --select-ring-soft:    0 0 0 3px rgba(242,101,34,.15);
     --select-check:        #fff;
+
+    /* v3.24.6 - Theme foundation, phase A step 6: Invoices, Calendar,
+       Parts DB, Setup, plus app-wide bottom status bar and toast popup.
+       The Calendar crew color palette stays in JavaScript on purpose:
+       it builds translucent backgrounds by appending hex opacity to each
+       color, which a CSS variable cannot do. It is a fixed category
+       palette like doctype-* and is not meant to be theme controlled. */
+    --chrome-text-faint:   rgba(255,255,255,.5);
+    --toast-bg:            #1B2B4B;
+    --toast-text:          #fff;
+    --toast-shadow:        0 4px 20px rgba(0,0,0,.3);
+    --stage-check-bg:      rgba(255,255,255,.9);
+    --btn-success-text:    #fff;
+    --control-shadow:      0 1px 4px rgba(0,0,0,.06);
+    --tag-accent-bg:       rgba(242,101,34,.15);
+    --today-bg:            rgba(242,101,34,.06);
+    --today-text:          #fff;
   }
 
   *{box-sizing:border-box;margin:0;padding:0}
@@ -535,7 +552,7 @@
     transition: all .15s;
   }
   .lm-tab:hover { border-color: var(--orange); color: var(--orange); }
-  .lm-tab.lm-active { background: var(--orange); color: #fff; border-color: var(--orange); }
+  .lm-tab.lm-active { background: var(--chip-selected-bg); color: var(--chip-selected-text); border-color: var(--chip-selected-bg); }
 
   /* ── MODAL ────────────────────────────────────── */
   .moverlay{position:fixed;inset:0;background:var(--modal-scrim);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
@@ -545,14 +562,14 @@
 
   /* ── SETUP PANEL ──────────────────────────────── */
   .setup-banner{
-    background:linear-gradient(135deg,var(--navy) 0%,#253659 100%);
+    background:linear-gradient(135deg,var(--panel-grad-start) 0%,var(--panel-grad-end) 100%);
     border-radius:var(--rl);padding:16px 20px;
     font-size:13px;line-height:1.7;
-    display:flex;align-items:flex-start;gap:14px;color:rgba(255,255,255,.85);
+    display:flex;align-items:flex-start;gap:14px;color:var(--panel-ink-85);
     box-shadow:var(--shadow);margin-bottom:16px;
   }
   .setup-icon{font-size:24px;flex-shrink:0;margin-top:2px}
-  .setup-banner strong{color:#fff}
+  .setup-banner strong{color:var(--panel-ink)}
 
   /* ── STATUS BAR ───────────────────────────────── */
   /* ── WORKFLOW STATUS INDICATORS ─────────────────── */
@@ -560,8 +577,8 @@
     content:'✓';
     display:inline-flex;align-items:center;justify-content:center;
     width:16px;height:16px;border-radius:50%;
-    background:rgba(255,255,255,.9);
-    color:#16A34A;font-size:10px;font-weight:900;
+    background:var(--stage-check-bg);
+    color:var(--stage-accept);font-size:10px;font-weight:900;
     margin-right:6px;flex-shrink:0;
   }
   .wf-done{position:relative}
@@ -569,10 +586,10 @@
   /* ── TOAST NOTIFICATION ───────────────────────── */
   .toast{
     position:fixed;bottom:48px;left:50%;transform:translateX(-50%);
-    background:#1B2B4B;color:#fff;
+    background:var(--toast-bg);color:var(--toast-text);
     padding:10px 20px;border-radius:8px;
     font-size:13px;font-weight:600;
-    box-shadow:0 4px 20px rgba(0,0,0,.3);
+    box-shadow:var(--toast-shadow);
     z-index:9999;pointer-events:none;
     opacity:0;transition:opacity .2s;
     white-space:nowrap;
@@ -580,9 +597,9 @@
   .toast.show{opacity:1}
 
   .statusbar{
-    background:var(--navy);
+    background:var(--chrome-bg);
     padding:0 20px;display:flex;align-items:center;gap:14px;
-    font-size:11px;font-family:var(--mono);color:rgba(255,255,255,.5);
+    font-size:11px;font-family:var(--mono);color:var(--chrome-text-faint);
     flex-shrink:0;height:30px;
   }
 
@@ -1223,7 +1240,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.5</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.6</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2105,7 +2122,7 @@
           style="padding:7px 12px 7px 32px;font-size:13px;width:320px;
             border:1.5px solid var(--border2);border-radius:var(--r);
             background:var(--bg);color:var(--text);
-            box-shadow:0 1px 4px rgba(0,0,0,.06);
+            box-shadow:var(--control-shadow);
             outline:none;font-family:var(--sans)"
           onfocus="this.style.borderColor='var(--orange)'" 
           onblur="this.style.borderColor='var(--border2)'">
@@ -2114,7 +2131,7 @@
         style="padding:7px 12px;font-size:13px;font-weight:600;
           border:1.5px solid var(--border2);border-radius:var(--r);
           background:var(--bg);color:var(--text);font-family:var(--sans);
-          box-shadow:0 1px 4px rgba(0,0,0,.06)">
+          box-shadow:var(--control-shadow)">
         <option value="">All Statuses</option>
         <option>Unpaid</option>
         <option>Partial</option>
@@ -2489,8 +2506,8 @@
         Exports <strong>everything</strong> — estimates, contacts, invoices, job costs, settings, and all app data — into a single file. Use this to move your data to a new device or the hosted version of FencePro.
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn" onclick="exportFullSystem()" style="flex:1;justify-content:center;background:var(--orange);color:#fff;border-color:var(--orange)">⬇ Export Everything</button>
-        <label class="btn" style="flex:1;justify-content:center;cursor:pointer;margin:0;background:var(--green);color:#fff;border-color:var(--green)">
+        <button class="btn" onclick="exportFullSystem()" style="flex:1;justify-content:center;background:var(--btn-primary-bg);color:var(--btn-primary-text);border-color:var(--btn-primary-bg)">⬇ Export Everything</button>
+        <label class="btn" style="flex:1;justify-content:center;cursor:pointer;margin:0;background:var(--green);color:var(--btn-success-text);border-color:var(--green)">
           ⬆ Import Everything
           <input type="file" accept=".json" style="display:none" onchange="importFullSystem(this.files[0]);this.value=''">
         </label>
@@ -2767,7 +2784,7 @@
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--text3);line-height:1.7">
           <div style="font-weight:700;color:var(--text2);margin-bottom:4px">⚡ Auto-generated (not editable here)</div>
           CC / Finance Price: $X,XXX &nbsp;·&nbsp; Cash / Check Price: $X,XXX<br>
-          <span style="background:var(--orange);color:#fff;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700">VIEW MY PROPOSAL →</span> &nbsp;← branded button with live link
+          <span style="background:var(--btn-primary-bg);color:var(--btn-primary-text);padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700">VIEW MY PROPOSAL →</span> &nbsp;← branded button with live link
         </div>
         <div class="f" style="margin-bottom:10px">
           <label>CLOSING MESSAGE</label>
@@ -5065,7 +5082,7 @@ function lmRender() {
         style="flex:1;font-size:13px;display:none;padding:3px 7px;border:1.5px solid var(--orange);border-radius:4px;background:var(--surface);color:var(--text)"
         onkeydown="if(event.key==='Enter') lmSaveRename(${i}); if(event.key==='Escape') lmCancelRename(${i})">
       <button id="lm-edit-${i}"   class="btn btn-ghost btn-sm" onclick="lmStartRename(${i})"   style="padding:2px 8px;font-size:11px">✏</button>
-      <button id="lm-save-${i}"   class="btn btn-sm"           onclick="lmSaveRename(${i})"    style="padding:2px 8px;font-size:11px;display:none;background:var(--green);color:#fff;border-color:var(--green)">✓</button>
+      <button id="lm-save-${i}"   class="btn btn-sm"           onclick="lmSaveRename(${i})"    style="padding:2px 8px;font-size:11px;display:none;background:var(--green);color:var(--btn-success-text);border-color:var(--green)">✓</button>
       <button id="lm-cancel-${i}" class="btn btn-ghost btn-sm" onclick="lmCancelRename(${i})"  style="padding:2px 8px;font-size:11px;display:none">✕</button>
       <button id="lm-del-${i}"    class="btn btn-ghost btn-sm" onclick="lmDelete(${i})"         style="color:var(--red);padding:2px 8px;font-size:11px">🗑</button>
     </div>`).join('');
@@ -5830,7 +5847,7 @@ async function renderAccessList() {
     return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface2);border-radius:var(--r);margin-bottom:6px">
       <span style="font-size:11px;font-family:var(--mono);color:var(--text1);flex:1">${email}</span>
       ${isOwner
-        ? `<span style="font-size:10px;color:var(--orange);font-weight:700;padding:2px 8px;background:rgba(242,101,34,.15);border-radius:99px">Owner</span>`
+        ? `<span style="font-size:10px;color:var(--orange);font-weight:700;padding:2px 8px;background:var(--tag-accent-bg);border-radius:99px">Owner</span>`
         : `<button onclick="removeAllowedEmail('${email}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px" title="Remove">🗑</button>`
       }
     </div>`;
@@ -7071,7 +7088,7 @@ function renderContactsSetup() {
     return;
   }
   el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--green-bg);border:1px solid #86EFAC;border-radius:var(--r)">
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--green-bg);border:1px solid var(--btn-success-border);border-radius:var(--r)">
       <div style="font-size:20px">✓</div>
       <div>
         <div style="font-weight:700;color:var(--green);font-size:13px">${contacts.length.toLocaleString()} contacts loaded</div>
@@ -12406,14 +12423,14 @@ function renderCalendar() {
     grid.insertAdjacentHTML('beforeend', `
       <div style="border-right:1px solid var(--border);border-bottom:1px solid var(--border);
                   padding:6px;position:relative;
-                  background:${isToday ? 'rgba(242,101,34,.06)' : 'var(--bg)'};
-                  ${hasConflict ? 'box-shadow:inset 0 0 0 2px #EF4444' : ''}">
+                  background:${isToday ? 'var(--today-bg)' : 'var(--bg)'};
+                  ${hasConflict ? 'box-shadow:inset 0 0 0 2px var(--danger-solid)' : ''}">
         <div style="font-size:12px;font-weight:${isToday?'800':'500'};
                     color:${isToday?'var(--orange)':'var(--text2)'};
-                    ${isToday?'background:var(--orange);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:4px;font-size:11px':'margin-bottom:4px'}">
+                    ${isToday?'background:var(--orange);color:var(--today-text);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:4px;font-size:11px':'margin-bottom:4px'}">
           ${d}
         </div>
-        ${hasConflict ? '<div style="font-size:9px;font-weight:700;color:#EF4444;margin-bottom:3px">⚠ CONFLICT</div>' : ''}
+        ${hasConflict ? '<div style="font-size:9px;font-weight:700;color:var(--danger-solid);margin-bottom:3px">⚠ CONFLICT</div>' : ''}
         ${jobChips}
         ${dayJobs.length === 0 ? '' : `<div style="font-size:9px;color:var(--text3);margin-top:2px">${dayJobs.length} job${dayJobs.length>1?'s':''}</div>`}
       </div>`);
@@ -15027,7 +15044,7 @@ function renderInvoicesTab() {
     // Check if overdue
     const isOverdue = dueDate && status !== 'Paid in Full' && new Date(dueDate) < new Date();
 
-    return `<tr style="border-bottom:1px solid var(--border);${isOverdue ? 'background:#FFF5F5' : ''}">
+    return `<tr style="border-bottom:1px solid var(--border);${isOverdue ? 'background:var(--danger-soft-bg)' : ''}">
       <td style="padding:10px 14px;font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600">${escHtml(invId)}</td>
       <td style="padding:10px 14px;font-weight:600">${escHtml(custName)}</td>
       <td style="padding:10px 14px;font-size:12px;color:var(--text2)">${escHtml((jobAddr).split(',')[0])}</td>
@@ -15039,8 +15056,8 @@ function renderInvoicesTab() {
       </td>
       <td style="padding:10px 14px;text-align:center;white-space:nowrap">
         <button class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="viewInvoiceFromTab('${escHtml(invId)}')">View</button>
-        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;margin-left:4px;background:var(--navy);color:#fff;border-color:var(--navy)" onclick="openEditInvoice('${escHtml(invId)}')">✏</button>
-        <button class="btn btn-sm inv-del-btn" style="font-size:11px;padding:3px 8px;margin-left:4px;color:var(--red);border-color:var(--border)" onmouseover="this.style.background='var(--red)';this.style.color='#fff'" onmouseout="this.style.background='';this.style.color='var(--red)'" onclick="deleteInvoice('${escHtml(invId)}')">🗑</button>
+        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;margin-left:4px;background:var(--btn-navy-bg);color:var(--btn-navy-text);border-color:var(--btn-navy-bg)" onclick="openEditInvoice('${escHtml(invId)}')">✏</button>
+        <button class="btn btn-sm inv-del-btn" style="font-size:11px;padding:3px 8px;margin-left:4px;color:var(--red);border-color:var(--border)" onmouseover="this.style.background='var(--red)';this.style.color='var(--danger-text)'" onmouseout="this.style.background='';this.style.color='var(--red)'" onclick="deleteInvoice('${escHtml(invId)}')">🗑</button>
       </td>
     </tr>`;
   }).join('');
