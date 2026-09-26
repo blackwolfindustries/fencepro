@@ -82,6 +82,92 @@
     --chrome-scrim:         rgba(0,0,0,.45);
     /* Status colors are deliberately NOT theme-controlled (see plan). */
     --status-live:          #4ADE80;
+
+    /* v3.24.2 - Theme foundation, phase A step 2: Estimator screen.
+       "Panel" = the dark navy surfaces on the Estimator (price banner at
+       the top, CRM entry box in the sidebar). The panel-ink scale is the
+       panel's foreground color at fixed opacities, used for text, divider
+       lines, and translucent fills. Metric colors are the figures shown on
+       the panel. Values are exactly what was hardcoded before. */
+    --panel-bg:           var(--navy);
+    --panel-grad-start:   var(--navy);
+    --panel-grad-end:     var(--navy2);
+    --panel-shadow:       0 4px 12px rgba(27,43,75,.2);
+    --panel-ink:          #fff;
+    --panel-ink-90:       rgba(255,255,255,.9);
+    --panel-ink-85:       rgba(255,255,255,.85);
+    --panel-ink-80:       rgba(255,255,255,.8);
+    --panel-ink-70:       rgba(255,255,255,.7);
+    --panel-ink-60:       rgba(255,255,255,.6);
+    --panel-ink-50:       rgba(255,255,255,.5);
+    --panel-ink-45:       rgba(255,255,255,.45);
+    --panel-ink-40:       rgba(255,255,255,.4);
+    --panel-ink-35:       rgba(255,255,255,.35);
+    --panel-ink-30:       rgba(255,255,255,.3);
+    --panel-ink-25:       rgba(255,255,255,.25);
+    --panel-ink-20:       rgba(255,255,255,.2);
+    --panel-ink-18:       rgba(255,255,255,.18);
+    --panel-ink-15:       rgba(255,255,255,.15);
+    --panel-ink-12:       rgba(255,255,255,.12);
+    --panel-ink-10:       rgba(255,255,255,.1);
+    --panel-ink-08:       rgba(255,255,255,.08);
+    --panel-well:         rgba(0,0,0,.25);
+    --panel-accent:       var(--orange);
+    --panel-accent-text:  #fff;
+    --panel-warn-text:    #FCA5A5;
+    --metric-cash:        #4ADE80;
+    --metric-cash-text:   #1a1a1a;
+    --metric-fence:       #60A5FA;
+    --metric-fee:         #FB923C;
+    --metric-material:    #93C5FD;
+    --metric-labor:       #C4B5FD;
+    --metric-caution:     #FCD34D;
+    --metric-negative:    #EF4444;
+
+    /* Shared controls (used on every screen, first converted here). */
+    --btn-primary-bg:       var(--orange);
+    --btn-primary-bg-hover: var(--orange2);
+    --btn-primary-text:     #fff;
+    --btn-primary-shadow:   0 2px 8px rgba(242,101,34,.3);
+    --btn-navy-bg:          var(--navy);
+    --btn-navy-bg-hover:    var(--navy2);
+    --btn-navy-text:        #fff;
+    --btn-success-border:   #86EFAC;
+    --btn-success-bg-hover: #BBF7D0;
+    --input-bg:             #fff;
+    --input-shadow:         0 1px 3px rgba(0,0,0,.07), inset 0 1px 2px rgba(0,0,0,.04);
+    --input-focus-shadow:   0 0 0 3px rgba(242,101,34,.12), 0 1px 3px rgba(0,0,0,.07);
+    --input-placeholder:    #8A96AA;
+    --dropdown-shadow:      0 8px 24px rgba(0,0,0,.2);
+    --danger-overlay:       rgba(220,38,38,.85);
+    --danger-overlay-text:  #fff;
+
+    /* Status and category colors: fixed meaning, NOT theme controlled.
+       Job workflow stage buttons, warning notices, document type dots. */
+    --stage-send:          var(--blue);
+    --stage-accept:        var(--green);
+    --stage-accept-soft:   rgba(22,163,74,.12);
+    --stage-accept-line:   rgba(22,163,74,.4);
+    --stage-receipt-bg:    #F0FDF4;
+    --stage-deposit:       var(--blue);
+    --stage-schedule:      var(--amber);
+    --stage-progress:      #7C3AED;
+    --stage-complete:      var(--green);
+    --stage-payment:       var(--navy);
+    --stage-text:          #fff;
+    --notice-bg:           var(--amber-bg);
+    --notice-border:       #F59E0B;
+    --notice-text:         #92400E;
+    --notice-bg-soft:      rgba(245,158,11,.08);
+    --notice-line-soft:    rgba(245,158,11,.3);
+    --notice-line-mid:     rgba(245,158,11,.25);
+    --doctype-drawing:     #2563EB;
+    --doctype-workorder:   #D97706;
+    --doctype-permit:      #7C3AED;
+    --doctype-contract:    #16A34A;
+    --doctype-invoice:     #0891B2;
+    --doctype-photo:       #DB2777;
+    --doctype-other:       #64748B;
   }
 
   *{box-sizing:border-box;margin:0;padding:0}
@@ -208,7 +294,7 @@
     letter-spacing:.04em;text-transform:uppercase;
   }
   input,select,textarea{
-    background:#fff;
+    background:var(--input-bg);
     border:1.5px solid var(--border2);
     border-radius:var(--r);
     color:var(--text);
@@ -219,15 +305,15 @@
     width:100%;
     transition:border-color .15s, box-shadow .15s;
     -webkit-appearance:none;
-    box-shadow:0 1px 3px rgba(0,0,0,.07), inset 0 1px 2px rgba(0,0,0,.04);
+    box-shadow:var(--input-shadow);
   }
   input:focus,select:focus,textarea:focus{
     outline:none;
     border-color:var(--orange);
-    box-shadow:0 0 0 3px rgba(242,101,34,.12), 0 1px 3px rgba(0,0,0,.07);
-    background:#fff;
+    box-shadow:var(--input-focus-shadow);
+    background:var(--input-bg);
   }
-  input::placeholder{color:#8A96AA;font-weight:400}
+  input::placeholder{color:var(--input-placeholder);font-weight:400}
   input[readonly],select[readonly],textarea[readonly]{
     background:var(--surface2);
     box-shadow:none;
@@ -272,12 +358,12 @@
   .btn:hover{border-color:var(--border2);background:var(--surface2);color:var(--text)}
   .btn:active{transform:scale(.98)}
   .btn:disabled{opacity:.4;cursor:not-allowed}
-  .btn-a{background:var(--orange);color:#fff;border-color:var(--orange);box-shadow:0 2px 8px rgba(242,101,34,.3)}
-  .btn-a:hover{background:var(--orange2);border-color:var(--orange2);color:#fff}
-  .btn-navy{background:var(--navy);color:#fff;border-color:var(--navy)}
-  .btn-navy:hover{background:var(--navy2);color:#fff}
-  .btn-g{background:var(--green-bg);color:var(--green);border-color:#86EFAC}
-  .btn-g:hover{background:#BBF7D0}
+  .btn-a{background:var(--btn-primary-bg);color:var(--btn-primary-text);border-color:var(--btn-primary-bg);box-shadow:var(--btn-primary-shadow)}
+  .btn-a:hover{background:var(--btn-primary-bg-hover);border-color:var(--btn-primary-bg-hover);color:var(--btn-primary-text)}
+  .btn-navy{background:var(--btn-navy-bg);color:var(--btn-navy-text);border-color:var(--btn-navy-bg)}
+  .btn-navy:hover{background:var(--btn-navy-bg-hover);color:var(--btn-navy-text)}
+  .btn-g{background:var(--green-bg);color:var(--green);border-color:var(--btn-success-border)}
+  .btn-g:hover{background:var(--btn-success-bg-hover)}
   .btn-sm{padding:5px 12px;font-size:12px}
   .btn-ghost{background:none;border:none;color:var(--text3);padding:4px 8px;box-shadow:none}
   .btn-ghost:hover{color:var(--red);background:var(--red-bg);border:none}
@@ -298,27 +384,27 @@
     box-shadow:var(--shadow);
   }
   .idbanner-left{display:flex;flex-direction:column;gap:4px}
-  .idbanner-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase}
+  .idbanner-label{font-size:10px;font-weight:700;color:var(--panel-ink-50);letter-spacing:.08em;text-transform:uppercase}
   .idbanner-inputs{display:flex;align-items:center;gap:8px}
   .sib-pills{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-  .sib-pill{padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;font-family:var(--mono);cursor:pointer;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);transition:.15s;user-select:none}
-  .sib-pill:hover{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.5)}
-  .sib-pill.active{background:var(--orange);color:#fff;border-color:var(--orange)}
+  .sib-pill{padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;font-family:var(--mono);cursor:pointer;border:1.5px solid var(--panel-ink-25);background:var(--panel-ink-08);color:var(--panel-ink-60);transition:.15s;user-select:none}
+  .sib-pill:hover{background:var(--panel-ink-18);color:var(--panel-ink);border-color:var(--panel-ink-50)}
+  .sib-pill.active{background:var(--panel-accent);color:var(--panel-accent-text);border-color:var(--panel-accent)}
   .sib-pills{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-  .sib-pill{padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;font-family:var(--mono);cursor:pointer;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);transition:.15s;user-select:none}
-  .sib-pill:hover{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.5)}
-  .sib-pill.active{background:var(--orange);color:#fff;border-color:var(--orange)}
+  .sib-pill{padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;font-family:var(--mono);cursor:pointer;border:1.5px solid var(--panel-ink-25);background:var(--panel-ink-08);color:var(--panel-ink-60);transition:.15s;user-select:none}
+  .sib-pill:hover{background:var(--panel-ink-18);color:var(--panel-ink);border-color:var(--panel-ink-50)}
+  .sib-pill.active{background:var(--panel-accent);color:var(--panel-accent-text);border-color:var(--panel-accent)}
   .jobnum-input{
-    width:80px;background:rgba(255,255,255,.12);
-    border:1.5px solid rgba(255,255,255,.25);border-radius:6px;
-    color:#fff;font-family:var(--mono);font-size:16px;font-weight:500;
+    width:80px;background:var(--panel-ink-12);
+    border:1.5px solid var(--panel-ink-25);border-radius:6px;
+    color:var(--panel-ink);font-family:var(--mono);font-size:16px;font-weight:500;
     padding:4px 8px;text-align:center;letter-spacing:.05em;
   }
-  .jobnum-input:focus{outline:none;border-color:var(--orange);background:rgba(255,255,255,.18)}
-  .jobnum-input::placeholder{color:rgba(255,255,255,.3)}
-  .idnum{font-size:14px;font-weight:600;color:rgba(255,255,255,.85);font-family:var(--mono)}
-  .id-assembled{font-size:12px;color:rgba(255,255,255,.5);font-family:var(--mono);margin-top:1px}
-  .id-arrow{font-size:16px;color:rgba(255,255,255,.3)}
+  .jobnum-input:focus{outline:none;border-color:var(--panel-accent);background:var(--panel-ink-18)}
+  .jobnum-input::placeholder{color:var(--panel-ink-30)}
+  .idnum{font-size:14px;font-weight:600;color:var(--panel-ink-85);font-family:var(--mono)}
+  .id-assembled{font-size:12px;color:var(--panel-ink-50);font-family:var(--mono);margin-top:1px}
+  .id-arrow{font-size:16px;color:var(--panel-ink-30)}
 
   /* ── PHOTO ZONE ───────────────────────────────── */
   .pdrop{
@@ -331,7 +417,7 @@
   .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
   .pthumb{aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--surface2);border:1px solid var(--border);position:relative}
   .pthumb img{width:100%;height:100%;object-fit:cover}
-  .pthumb .xbtn{position:absolute;top:3px;right:3px;background:rgba(220,38,38,.85);border:none;color:#fff;border-radius:4px;padding:2px 5px;font-size:10px;cursor:pointer;display:none;font-weight:700}
+  .pthumb .xbtn{position:absolute;top:3px;right:3px;background:var(--danger-overlay);border:none;color:var(--danger-overlay-text);border-radius:4px;padding:2px 5px;font-size:10px;cursor:pointer;display:none;font-weight:700}
   .pthumb:hover .xbtn{display:block}
 
   /* ── JOB BOARD ────────────────────────────────── */
@@ -607,7 +693,7 @@
     .pbc{
       border-right:none!important;
       border-left:none!important;
-      border-bottom:1px solid rgba(255,255,255,.08)!important;
+      border-bottom:1px solid var(--panel-ink-08)!important;
       padding:7px 10px!important;
     }
     .pbc div:first-child{font-size:8px!important}
@@ -688,7 +774,7 @@
     .pbc{
       border-right:none!important;
       border-left:none!important;
-      border-bottom:1px solid rgba(255,255,255,.08)!important;
+      border-bottom:1px solid var(--panel-ink-08)!important;
       padding:8px 12px!important;
     }
     .pbc div:first-child{font-size:8px!important}
@@ -1094,7 +1180,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.2</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1189,44 +1275,44 @@
 <div class="est-main">
 
   <!-- ── TOP BANNER ──────────────────────────────────────── -->
-  <div style="background:linear-gradient(135deg,#1B2B4B 0%,#253659 100%);border-radius:12px;box-shadow:0 4px 12px rgba(27,43,75,.2);flex-shrink:0">
+  <div style="background:linear-gradient(135deg,var(--panel-grad-start) 0%,var(--panel-grad-end) 100%);border-radius:12px;box-shadow:var(--panel-shadow);flex-shrink:0">
 
     <!-- Row 1: Job # + Status + Recall Search -->
-    <div class="banner-row1" style="display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.1)">
+    <div class="banner-row1" style="display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid var(--panel-ink-10)">
       <div>
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Job # ★</div>
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-50);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Job # ★</div>
         <div style="display:flex;align-items:center;gap:10px">
           <input class="jobnum-input" id="jobPrefix" maxlength="6" placeholder="298"
             oninput="assembleId()" type="text" inputmode="numeric" style="width:80px;font-size:20px;font-weight:700">
           <div>
-            <div style="font-size:13px;font-weight:600;color:#fff;font-family:var(--mono)" id="estId">Enter job #</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.5);font-family:var(--mono);margin-top:1px" id="idAssembled"></div>
+            <div style="font-size:13px;font-weight:600;color:var(--panel-ink);font-family:var(--mono)" id="estId">Enter job #</div>
+            <div style="font-size:10px;color:var(--panel-ink-50);font-family:var(--mono);margin-top:1px" id="idAssembled"></div>
             <input type="hidden" id="jobNo">
             <input type="hidden" id="estContactUID">
           </div>
         </div>
       </div>
-      <div style="width:1px;height:40px;background:rgba(255,255,255,.12)"></div>
+      <div style="width:1px;height:40px;background:var(--panel-ink-12)"></div>
       <div>
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Status</div>
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-50);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Status</div>
         <span class="badge b-y" id="statusBadge">Draft</span>
       </div>
       <div id="siblingPillsWrap" style="display:none">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Estimates</div>
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-50);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Estimates</div>
         <div class="sib-pills" id="siblingPills"></div>
       </div>
       <!-- Recall search — right side of row 1 -->
       <div class="recall-wrap" style="margin-left:auto;position:relative">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Recall Estimate</div>
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-50);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Recall Estimate</div>
         <input id="recallSearch" placeholder="Name, job #, address..." autocomplete="off"
           oninput="onRecallSearch()" onkeydown="onRecallKey(event)"
-          style="width:220px;padding:5px 10px;font-size:12px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;outline:none"
+          style="width:220px;padding:5px 10px;font-size:12px;border-radius:6px;border:1px solid var(--panel-ink-20);background:var(--panel-ink-10);color:var(--panel-ink);outline:none"
           onfocus="onRecallSearch()" onblur="setTimeout(()=>hideRecall(),200)"
           placeholder="🔍 Name, job #, address...">
         <div id="recallDropdown" style="
           display:none;position:absolute;top:100%;right:0;width:300px;
           background:var(--surface);border:1px solid var(--border);
-          border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.2);
+          border-radius:var(--r);box-shadow:var(--dropdown-shadow);
           z-index:1000;max-height:280px;overflow-y:auto;margin-top:3px
         "></div>
       </div>
@@ -1235,59 +1321,59 @@
     <!-- Row 2: Prices -->
     <div class="price-banner-row" style="display:flex;align-items:stretch">
       <!-- CC / Cash toggle pill -->
-      <div id="kpiToggleWrap" style="display:flex;align-items:center;padding:0 12px;border-right:1px solid rgba(255,255,255,.1);flex-shrink:0">
-        <div style="display:flex;background:rgba(0,0,0,.25);border-radius:8px;padding:3px;gap:2px">
+      <div id="kpiToggleWrap" style="display:flex;align-items:center;padding:0 12px;border-right:1px solid var(--panel-ink-10);flex-shrink:0">
+        <div style="display:flex;background:var(--panel-well);border-radius:8px;padding:3px;gap:2px">
           <button id="kpiToggleCC" onclick="setKpiMode('cc')"
-            style="padding:4px 10px;border-radius:6px;border:none;font-size:10px;font-weight:800;letter-spacing:.04em;cursor:pointer;transition:.15s;background:#F26522;color:#fff">CC</button>
+            style="padding:4px 10px;border-radius:6px;border:none;font-size:10px;font-weight:800;letter-spacing:.04em;cursor:pointer;transition:.15s;background:var(--panel-accent);color:var(--panel-accent-text)">CC</button>
           <button id="kpiToggleCash" onclick="setKpiMode('cash')"
-            style="padding:4px 10px;border-radius:6px;border:none;font-size:10px;font-weight:800;letter-spacing:.04em;cursor:pointer;transition:.15s;background:transparent;color:rgba(255,255,255,.5)">CASH</button>
+            style="padding:4px 10px;border-radius:6px;border:none;font-size:10px;font-weight:800;letter-spacing:.04em;cursor:pointer;transition:.15s;background:transparent;color:var(--panel-ink-50)">CASH</button>
         </div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Cash / Check Price</div>
-        <div style="font-size:20px;font-weight:800;color:#4ADE80;font-family:var(--mono)" id="s_cash">$0</div>
+      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid var(--panel-ink-10)">
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Cash / Check Price</div>
+        <div style="font-size:20px;font-weight:800;color:var(--metric-cash);font-family:var(--mono)" id="s_cash">$0</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">CC / Finance Price</div>
-        <div style="font-size:16px;font-weight:600;color:#F26522;font-family:var(--mono);opacity:.8" id="s_final">$0</div>
+      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid var(--panel-ink-10)">
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">CC / Finance Price</div>
+        <div style="font-size:16px;font-weight:600;color:var(--panel-accent);font-family:var(--mono);opacity:.8" id="s_final">$0</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Price per LF</div>
-        <div style="font-size:16px;font-weight:700;color:rgba(255,255,255,.9);font-family:var(--mono)" id="s_plf">—</div>
+      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid var(--panel-ink-10)">
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Price per LF</div>
+        <div style="font-size:16px;font-weight:700;color:var(--panel-ink-90);font-family:var(--mono)" id="s_plf">—</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Fence-Only $/LF</div>
-        <div style="font-size:16px;font-weight:700;color:#60A5FA;font-family:var(--mono)" id="s_plf_fence" title="Price per LF with demo's cost and markup backed out">—</div>
+      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid var(--panel-ink-10)">
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Fence-Only $/LF</div>
+        <div style="font-size:16px;font-weight:700;color:var(--metric-fence);font-family:var(--mono)" id="s_plf_fence" title="Price per LF with demo's cost and markup backed out">—</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Gross Margin $</div>
-        <div style="font-size:16px;font-weight:700;color:#4ADE80;font-family:var(--mono)" id="s_gmd_banner">—</div>
-        <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:2px">Net after franchise: <span style="color:#FB923C;font-family:var(--mono);font-weight:700" id="s_gmd_net">—</span></div>
+      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid var(--panel-ink-10)">
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Gross Margin $</div>
+        <div style="font-size:16px;font-weight:700;color:var(--metric-cash);font-family:var(--mono)" id="s_gmd_banner">—</div>
+        <div style="font-size:9px;color:var(--panel-ink-35);margin-top:2px">Net after franchise: <span style="color:var(--metric-fee);font-family:var(--mono);font-weight:700" id="s_gmd_net">—</span></div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Gross Margin %</div>
-        <div style="font-size:16px;font-weight:700;color:#4ADE80;font-family:var(--mono)" id="s_gm">—</div>
-        <div style="font-size:9px;color:rgba(255,255,255,.35);margin-top:2px">Net after franchise: <span style="color:#FB923C;font-family:var(--mono);font-weight:700" id="s_gm_net">—</span></div>
+      <div class="pbc" style="flex:1;padding:10px 16px;border-right:1px solid var(--panel-ink-10)">
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Gross Margin %</div>
+        <div style="font-size:16px;font-weight:700;color:var(--metric-cash);font-family:var(--mono)" id="s_gm">—</div>
+        <div style="font-size:9px;color:var(--panel-ink-35);margin-top:2px">Net after franchise: <span style="color:var(--metric-fee);font-family:var(--mono);font-weight:700" id="s_gm_net">—</span></div>
       </div>
       <div class="pbc" style="flex:1;padding:10px 16px">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Franchise Fee (8.5%)</div>
-        <div style="font-size:16px;font-weight:700;color:#FB923C;font-family:var(--mono)" id="s_ff_banner">—</div>
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Franchise Fee (8.5%)</div>
+        <div style="font-size:16px;font-weight:700;color:var(--metric-fee);font-family:var(--mono)" id="s_ff_banner">—</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Material %</div>
-        <div style="font-size:16px;font-weight:700;color:#93C5FD;font-family:var(--mono)" id="s_mat_pct">—</div>
+      <div class="pbc" style="flex:1;padding:10px 16px;border-left:1px solid var(--panel-ink-10)">
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Material %</div>
+        <div style="font-size:16px;font-weight:700;color:var(--metric-material);font-family:var(--mono)" id="s_mat_pct">—</div>
       </div>
-      <div class="pbc" style="flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Labor %</div>
-        <div style="font-size:16px;font-weight:700;color:#C4B5FD;font-family:var(--mono)" id="s_lab_pct">—</div>
+      <div class="pbc" style="flex:1;padding:10px 16px;border-left:1px solid var(--panel-ink-10)">
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Labor %</div>
+        <div style="font-size:16px;font-weight:700;color:var(--metric-labor);font-family:var(--mono)" id="s_lab_pct">—</div>
       </div>
-      <div id="taxrow" class="pbc" style="display:none;flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">+ Tax</div>
-        <div style="font-size:14px;font-weight:700;color:rgba(255,255,255,.7);font-family:var(--mono)" id="s_ctax">$0</div>
+      <div id="taxrow" class="pbc" style="display:none;flex:1;padding:10px 16px;border-left:1px solid var(--panel-ink-10)">
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">+ Tax</div>
+        <div style="font-size:14px;font-weight:700;color:var(--panel-ink-70);font-family:var(--mono)" id="s_ctax">$0</div>
       </div>
-      <div id="taxfinalrow" class="pbc" style="display:none;flex:1;padding:10px 16px;border-left:1px solid rgba(255,255,255,.1)">
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Total w/Tax</div>
-        <div style="font-size:16px;font-weight:700;color:#F26522;font-family:var(--mono)" id="s_ctfinal">$0</div>
+      <div id="taxfinalrow" class="pbc" style="display:none;flex:1;padding:10px 16px;border-left:1px solid var(--panel-ink-10)">
+        <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Total w/Tax</div>
+        <div style="font-size:16px;font-weight:700;color:var(--panel-accent);font-family:var(--mono)" id="s_ctfinal">$0</div>
       </div>
     </div>
 
@@ -1328,8 +1414,8 @@
         <label>COUNTY <span style="font-size:9px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">auto</span></label>
         <input id="custCounty" readonly style="background:var(--surface2);color:var(--text3)" placeholder="—">
       </div>
-      <div id="cust_zip_unknown" style="display:none;grid-column:1/-1;background:#FEF3C7;border:1px solid #F59E0B;border-radius:var(--r);padding:10px 12px;margin:2px 0 4px">
-        <div style="font-size:12px;color:#92400E;font-weight:600;margin-bottom:8px">⚠️ Zip not recognized — enter city &amp; county so we remember it next time</div>
+      <div id="cust_zip_unknown" style="display:none;grid-column:1/-1;background:var(--notice-bg);border:1px solid var(--notice-border);border-radius:var(--r);padding:10px 12px;margin:2px 0 4px">
+        <div style="font-size:12px;color:var(--notice-text);font-weight:600;margin-bottom:8px">⚠️ Zip not recognized — enter city &amp; county so we remember it next time</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="f" style="margin:0">
             <label>CITY</label>
@@ -1490,7 +1576,7 @@
           <span class="card-title" style="margin:0">🔒 Internal Notes</span>
           <span style="font-size:9px;font-weight:600;color:var(--text3);background:var(--surface2);padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em">Never on documents</span>
         </div>
-        <textarea id="internalNotes" rows="4" placeholder="Internal use only — pricing rationale, customer context, special considerations..." style="resize:none;height:100px;border-color:rgba(245,158,11,.3)"></textarea>
+        <textarea id="internalNotes" rows="4" placeholder="Internal use only — pricing rationale, customer context, special considerations..." style="resize:none;height:100px;border-color:var(--notice-line-soft)"></textarea>
       </div>
     </div>
 
@@ -1566,7 +1652,7 @@
       <span class="card-title" style="margin:0">📁 Internal Docs</span>
       <span style="font-size:9px;font-weight:600;color:var(--text3);background:var(--surface2);padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em">Never on proposals</span>
     </div>
-    <div id="docUnsavedNote" style="display:none;font-size:11px;color:var(--orange);margin-bottom:8px;padding:6px 8px;background:rgba(245,158,11,.08);border-radius:5px;border:1px solid rgba(245,158,11,.25)">
+    <div id="docUnsavedNote" style="display:none;font-size:11px;color:var(--orange);margin-bottom:8px;padding:6px 8px;background:var(--notice-bg-soft);border-radius:5px;border:1px solid var(--notice-line-mid)">
       ⚠ Save this estimate first to enable document uploads.
       <button onclick="saveJob().then(()=>{ if(jobs[curIdx]?.id) document.getElementById('docUnsavedNote').style.display='none'; })"
         style="margin-left:8px;font-size:11px;font-weight:700;color:var(--orange);background:none;border:1px solid var(--orange);border-radius:4px;padding:2px 8px;cursor:pointer">
@@ -1593,63 +1679,63 @@
 <div class="est-side">
 
   <!-- CRM Entry Box — moved to top for visibility -->
-  <div class="crm-entry-box" style="background:var(--navy);border-radius:var(--r);padding:13px 15px;flex-shrink:0">
+  <div class="crm-entry-box" style="background:var(--panel-bg);border-radius:var(--r);padding:13px 15px;flex-shrink:0">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase">📋 Enter Into CRM</div>
-      <button class="crm-toggle-btn" onclick="fpToggleCRM(this)" style="display:none;background:none;border:1px solid rgba(255,255,255,.3);border-radius:5px;color:rgba(255,255,255,.8);font-size:11px;font-weight:700;padding:4px 10px;cursor:pointer;font-family:var(--sans)">Show ▼</button>
+      <div style="font-size:10px;font-weight:800;color:var(--panel-ink-50);letter-spacing:.08em;text-transform:uppercase">📋 Enter Into CRM</div>
+      <button class="crm-toggle-btn" onclick="fpToggleCRM(this)" style="display:none;background:none;border:1px solid var(--panel-ink-30);border-radius:5px;color:var(--panel-ink-80);font-size:11px;font-weight:700;padding:4px 10px;cursor:pointer;font-family:var(--sans)">Show ▼</button>
     </div>
     <div class="crm-entry-body" style="display:flex;flex-direction:column;gap:7px">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:rgba(255,255,255,.7)">
-        <span>Material Retail in SM</span><span style="font-family:var(--mono);color:#fff;font-weight:600;font-size:15px" id="crm_mat">—</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--panel-ink-70)">
+        <span>Material Retail in SM</span><span style="font-family:var(--mono);color:var(--panel-ink);font-weight:600;font-size:15px" id="crm_mat">—</span>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:rgba(255,255,255,.7)">
-        <span>Labor Retail in SM</span><span style="font-family:var(--mono);color:#fff;font-weight:600;font-size:15px" id="crm_labor">—</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--panel-ink-70)">
+        <span>Labor Retail in SM</span><span style="font-family:var(--mono);color:var(--panel-ink);font-weight:600;font-size:15px" id="crm_labor">—</span>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:rgba(255,255,255,.7)">
-        <span>Demo in SM</span><span style="font-family:var(--mono);color:#fff;font-weight:600;font-size:15px" id="crm_demo">—</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--panel-ink-70)">
+        <span>Demo in SM</span><span style="font-family:var(--mono);color:var(--panel-ink);font-weight:600;font-size:15px" id="crm_demo">—</span>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:rgba(255,255,255,.7)">
-        <span>Discount in SM</span><span style="font-family:var(--mono);color:#fff;font-weight:600;font-size:15px" id="crm_disc">—</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--panel-ink-70)">
+        <span>Discount in SM</span><span style="font-family:var(--mono);color:var(--panel-ink);font-weight:600;font-size:15px" id="crm_disc">—</span>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:rgba(255,255,255,.7)">
-        <span>Add-On Costs</span><span style="font-family:var(--mono);color:#fff;font-weight:600;font-size:15px" id="crm_addons">—</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--panel-ink-70)">
+        <span>Add-On Costs</span><span style="font-family:var(--mono);color:var(--panel-ink);font-weight:600;font-size:15px" id="crm_addons">—</span>
       </div>
-      <div style="height:1px;background:rgba(255,255,255,.15);margin:2px 0"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:rgba(255,255,255,.7)">
+      <div style="height:1px;background:var(--panel-ink-15);margin:2px 0"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--panel-ink-70)">
         <span>Markup in SM (%)</span><span style="font-family:var(--mono);color:var(--orange);font-weight:700;font-size:15px" id="crm_mupct">—</span>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:rgba(255,255,255,.7)">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--panel-ink-70)">
         <span>Markup in SM ($)</span><span style="font-family:var(--mono);color:var(--orange);font-weight:700;font-size:15px" id="crm_muDol">—</span>
       </div>
-      <div style="height:1px;background:rgba(255,255,255,.15);margin:4px 0"></div>
+      <div style="height:1px;background:var(--panel-ink-15);margin:4px 0"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:15px;font-weight:800;color:#fff">Final Price (CC)</span>
+        <span style="font-size:15px;font-weight:800;color:var(--panel-ink)">Final Price (CC)</span>
         <span style="font-family:var(--mono);color:var(--orange);font-size:22px;font-weight:900;letter-spacing:-.5px" id="crm_final">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-        <span style="font-size:13px;font-weight:700;color:#4ADE80">Cash / Check Price</span>
-        <span style="font-family:var(--mono);color:#4ADE80;font-size:18px;font-weight:800;letter-spacing:-.5px" id="crm_cash">—</span>
+        <span style="font-size:13px;font-weight:700;color:var(--metric-cash)">Cash / Check Price</span>
+        <span style="font-family:var(--mono);color:var(--metric-cash);font-size:18px;font-weight:800;letter-spacing:-.5px" id="crm_cash">—</span>
       </div>
 
       <!-- Reverse Cash Markup Calculator -->
-      <div style="height:1px;background:rgba(255,255,255,.15);margin:8px 0 6px"></div>
-      <div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">🔁 Cash Price → Markup Calculator</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:6px">Enter the cash price you want to offer — get the markup % to enter in SM</div>
+      <div style="height:1px;background:var(--panel-ink-15);margin:8px 0 6px"></div>
+      <div style="font-size:9px;font-weight:800;color:var(--panel-ink-40);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">🔁 Cash Price → Markup Calculator</div>
+      <div style="font-size:11px;color:var(--panel-ink-50);margin-bottom:6px">Enter the cash price you want to offer — get the markup % to enter in SM</div>
       <div style="display:flex;gap:6px;align-items:center">
         <div style="position:relative;flex:1">
-          <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.5);font-size:13px">$</span>
+          <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--panel-ink-50);font-size:13px">$</span>
           <input type="number" id="cashCalcInput" placeholder="e.g. 4800"
             oninput="calcCashMarkup()"
-            style="width:100%;padding:7px 8px 7px 20px;border-radius:7px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-size:13px;font-family:var(--mono)">
+            style="width:100%;padding:7px 8px 7px 20px;border-radius:7px;border:1.5px solid var(--panel-ink-20);background:var(--panel-ink-08);color:var(--panel-ink);font-size:13px;font-family:var(--mono)">
         </div>
         <div style="text-align:right;min-width:90px">
-          <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em">Markup %</div>
-          <div style="font-family:var(--mono);color:#F26522;font-size:16px;font-weight:800" id="cashCalcResult">—</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-top:4px">Markup $</div>
-          <div style="font-family:var(--mono);color:#F26522;font-size:16px;font-weight:800" id="cashCalcDol">—</div>
+          <div style="font-size:9px;color:var(--panel-ink-40);text-transform:uppercase;letter-spacing:.06em">Markup %</div>
+          <div style="font-family:var(--mono);color:var(--panel-accent);font-size:16px;font-weight:800" id="cashCalcResult">—</div>
+          <div style="font-size:9px;color:var(--panel-ink-40);text-transform:uppercase;letter-spacing:.06em;margin-top:4px">Markup $</div>
+          <div style="font-family:var(--mono);color:var(--panel-accent);font-size:16px;font-weight:800" id="cashCalcDol">—</div>
         </div>
       </div>
-      <div id="cashCalcWarn" style="display:none;font-size:10px;color:#FCA5A5;margin-top:4px"></div>
+      <div id="cashCalcWarn" style="display:none;font-size:10px;color:var(--panel-warn-text);margin-top:4px"></div>
     </div>
   </div>
 
@@ -1659,16 +1745,16 @@
   <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
     <button class="btn btn-a btn-sm" style="justify-content:center;width:100%" onclick="saveJob()">💾 Save</button>
     <button class="btn btn-g btn-sm" style="justify-content:center;width:100%" onclick="convertJob()">📄 Proposal</button>
-    <button id="wf_send"     class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="generateProposalLink()">📧 Send Proposal Link</button>
-    <button id="wf_accept"   class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="openAcceptProposal()">✅ Accept Proposal</button>
-    <button id="wf_edit_accept" class="btn btn-sm" style="justify-content:center;width:100%;background:rgba(22,163,74,.12);color:#16A34A;border-color:rgba(22,163,74,.4)" onclick="openEditAcceptance()">✏️ Edit Acceptance</button>
-    <button id="wf_deposit"  class="btn btn-sm" style="justify-content:center;width:100%;background:#2563EB;color:#fff;border-color:#2563EB" onclick="openRecordDeposit()">💰 Record Deposit</button>
-    <button id="wf_receipt" class="btn btn-sm" style="justify-content:center;width:100%;display:none;background:#F0FDF4;color:#16A34A;border-color:#86EFAC" onclick="openDepositReceiptForJob()">📄 View / Resend Receipt</button>
-    <button id="wf_schedule" class="btn btn-sm" style="justify-content:center;width:100%;background:#D97706;color:#fff;border-color:#D97706" onclick="openScheduleJob()">📅 Schedule Job</button>
-    <button id="wf_progress" class="btn btn-sm" style="justify-content:center;width:100%;background:#7C3AED;color:#fff;border-color:#7C3AED" onclick="markInProgress()">🔨 In Progress</button>
-    <button id="wf_complete" class="btn btn-sm" style="justify-content:center;width:100%;background:#16A34A;color:#fff;border-color:#16A34A" onclick="markJobComplete()">✅ Complete Job</button>
+    <button id="wf_send"     class="btn btn-sm" style="justify-content:center;width:100%;background:var(--stage-send);color:var(--stage-text);border-color:var(--stage-send)" onclick="generateProposalLink()">📧 Send Proposal Link</button>
+    <button id="wf_accept"   class="btn btn-sm" style="justify-content:center;width:100%;background:var(--stage-accept);color:var(--stage-text);border-color:var(--stage-accept)" onclick="openAcceptProposal()">✅ Accept Proposal</button>
+    <button id="wf_edit_accept" class="btn btn-sm" style="justify-content:center;width:100%;background:var(--stage-accept-soft);color:var(--stage-accept);border-color:var(--stage-accept-line)" onclick="openEditAcceptance()">✏️ Edit Acceptance</button>
+    <button id="wf_deposit"  class="btn btn-sm" style="justify-content:center;width:100%;background:var(--stage-deposit);color:var(--stage-text);border-color:var(--stage-deposit)" onclick="openRecordDeposit()">💰 Record Deposit</button>
+    <button id="wf_receipt" class="btn btn-sm" style="justify-content:center;width:100%;display:none;background:var(--stage-receipt-bg);color:var(--stage-accept);border-color:var(--btn-success-border)" onclick="openDepositReceiptForJob()">📄 View / Resend Receipt</button>
+    <button id="wf_schedule" class="btn btn-sm" style="justify-content:center;width:100%;background:var(--stage-schedule);color:var(--stage-text);border-color:var(--stage-schedule)" onclick="openScheduleJob()">📅 Schedule Job</button>
+    <button id="wf_progress" class="btn btn-sm" style="justify-content:center;width:100%;background:var(--stage-progress);color:var(--stage-text);border-color:var(--stage-progress)" onclick="markInProgress()">🔨 In Progress</button>
+    <button id="wf_complete" class="btn btn-sm" style="justify-content:center;width:100%;background:var(--stage-complete);color:var(--stage-text);border-color:var(--stage-complete)" onclick="markJobComplete()">✅ Complete Job</button>
     <button id="wf_invoice"  class="btn btn-sm" style="justify-content:center;width:100%" onclick="openInvoice()">🧾 Generate Invoice</button>
-    <button id="wf_payment"  class="btn btn-sm" style="justify-content:center;width:100%;background:#1B2B4B;color:#fff;border-color:#1B2B4B" onclick="openRecordFinalPayment()">💵 Record Final Payment</button>
+    <button id="wf_payment"  class="btn btn-sm" style="justify-content:center;width:100%;background:var(--stage-payment);color:var(--stage-text);border-color:var(--stage-payment)" onclick="openRecordFinalPayment()">💵 Record Final Payment</button>
   </div>
 
   <!-- Job Costs — only shown once this estimate has been Accepted or later -->
@@ -7501,10 +7587,10 @@ function setKpiMode(mode) {
   const ccBtn   = document.getElementById('kpiToggleCC');
   const cashBtn = document.getElementById('kpiToggleCash');
   if (ccBtn && cashBtn) {
-    ccBtn.style.background   = mode === 'cc'   ? '#F26522' : 'transparent';
-    ccBtn.style.color        = mode === 'cc'   ? '#fff'    : 'rgba(255,255,255,.5)';
-    cashBtn.style.background = mode === 'cash' ? '#4ADE80' : 'transparent';
-    cashBtn.style.color      = mode === 'cash' ? '#1a1a1a' : 'rgba(255,255,255,.5)';
+    ccBtn.style.background   = mode === 'cc'   ? 'var(--panel-accent)' : 'transparent';
+    ccBtn.style.color        = mode === 'cc'   ? 'var(--panel-accent-text)' : 'var(--panel-ink-50)';
+    cashBtn.style.background = mode === 'cash' ? 'var(--metric-cash)' : 'transparent';
+    cashBtn.style.color      = mode === 'cash' ? 'var(--metric-cash-text)' : 'var(--panel-ink-50)';
   }
 
   const c = lastCalc;
@@ -7615,8 +7701,8 @@ function calcCashMarkup() {
   const dolEl = document.getElementById('cashCalcDol');
 
   if (!desired || isNaN(desired)) {
-    resultEl.textContent = '—'; resultEl.style.color = '#F26522';
-    if (dolEl) { dolEl.textContent = '—'; dolEl.style.color = '#F26522'; }
+    resultEl.textContent = '—'; resultEl.style.color = 'var(--panel-accent)';
+    if (dolEl) { dolEl.textContent = '—'; dolEl.style.color = 'var(--panel-accent)'; }
     return;
   }
 
@@ -7629,8 +7715,8 @@ function calcCashMarkup() {
   }
 
   if (desired < base) {
-    resultEl.textContent = '—'; resultEl.style.color = '#EF4444';
-    if (dolEl) { dolEl.textContent = '—'; dolEl.style.color = '#EF4444'; }
+    resultEl.textContent = '—'; resultEl.style.color = 'var(--metric-negative)';
+    if (dolEl) { dolEl.textContent = '—'; dolEl.style.color = 'var(--metric-negative)'; }
     warnEl.style.display = 'block';
     warnEl.textContent   = '⚠️ Price is below your base cost — you would lose money';
     return;
@@ -7643,13 +7729,13 @@ function calcCashMarkup() {
   const targetMu = lastCalc ? (lastCalc.crmMarkupPct || 40) : 40;
   let col;
   if (mu >= targetMu) {
-    col = '#4ADE80';
+    col = 'var(--metric-cash)';
   } else if (mu >= targetMu * 0.85) {
-    col = '#FCD34D';
+    col = 'var(--metric-caution)';
     warnEl.style.display = 'block';
     warnEl.textContent   = '⚠️ Below your target markup of ' + targetMu.toFixed(1) + '%';
   } else {
-    col = '#EF4444';
+    col = 'var(--metric-negative)';
     warnEl.style.display = 'block';
     warnEl.textContent   = '🚨 Significantly below target markup of ' + targetMu.toFixed(1) + '%';
   }
@@ -10201,9 +10287,9 @@ function renderDocs() {
 
   docs.forEach((doc, i) => {
     const typeColor = {
-      Drawing:'#2563EB', 'Work Order':'#D97706', Permit:'#7C3AED',
-      Contract:'#16A34A', Invoice:'#0891B2', Photo:'#DB2777', Other:'#64748B'
-    }[doc.docType] || '#64748B';
+      Drawing:'var(--doctype-drawing)', 'Work Order':'var(--doctype-workorder)', Permit:'var(--doctype-permit)',
+      Contract:'var(--doctype-contract)', Invoice:'var(--doctype-invoice)', Photo:'var(--doctype-photo)', Other:'var(--doctype-other)'
+    }[doc.docType] || 'var(--doctype-other)';
 
     const shortName = doc.name.replace(/^EST-[A-Z]_[^_]+_/, '');  // display without prefix
     const dateStr   = doc.uploadedAt
