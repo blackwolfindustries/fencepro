@@ -50,6 +50,38 @@
     /* Shadow */
     --shadow-sm: 0 1px 3px rgba(27,43,75,.08), 0 1px 2px rgba(27,43,75,.04);
     --shadow:    0 4px 12px rgba(27,43,75,.08), 0 2px 4px rgba(27,43,75,.04);
+
+    /* v3.24.1 - Theme foundation, phase A step 1: app "chrome" (top header
+       bar, desktop nav tabs, mobile drawer, and the company picker buttons
+       that appear in the header and both proposal toolbars). Every color
+       these use now comes from the tokens below instead of being hardcoded
+       on the element, so a future theme picker only has to change values
+       here. Values are exactly what was hardcoded before, so this release
+       looks identical to v3.24.0. The white-alpha values assume a dark
+       header; a light-header theme would override them. */
+    --chrome-bg:            var(--navy);
+    --chrome-shadow:        0 2px 8px rgba(27,43,75,.3);
+    --chrome-text:          #fff;
+    --chrome-text-soft:     rgba(255,255,255,.75);
+    --chrome-text-dim:      rgba(255,255,255,.7);
+    --chrome-text-muted:    rgba(255,255,255,.6);
+    --chrome-hover-bg:      rgba(255,255,255,.1);
+    --chrome-active-bg:     rgba(255,255,255,.18);
+    --chrome-drawer-hover:  rgba(255,255,255,.08);
+    --chrome-drawer-active: rgba(255,255,255,.14);
+    --chrome-control-bg:    rgba(255,255,255,.1);
+    --chrome-border:        rgba(255,255,255,.2);
+    --chrome-border-strong: rgba(255,255,255,.25);
+    --chrome-divider:       rgba(255,255,255,.15);
+    --chrome-divider-soft:  rgba(255,255,255,.12);
+    --chrome-toggle-off:    rgba(255,255,255,.2);
+    --chrome-idle-dot:      rgba(255,255,255,.3);
+    --chrome-accent:        var(--orange);
+    --chrome-accent-text:   #fff;
+    --chrome-logo-icon:     #000;
+    --chrome-scrim:         rgba(0,0,0,.45);
+    /* Status colors are deliberately NOT theme-controlled (see plan). */
+    --status-live:          #4ADE80;
   }
 
   *{box-sizing:border-box;margin:0;padding:0}
@@ -81,52 +113,52 @@
 
   /* ── HEADER ───────────────────────────────────── */
   .header{
-    background:var(--navy);
+    background:var(--chrome-bg);
     padding:0 20px;
     display:flex;align-items:center;gap:14px;
     height:58px;position:sticky;top:0;z-index:100;
-    box-shadow:0 2px 8px rgba(27,43,75,.3);
+    box-shadow:var(--chrome-shadow);
   }
-  .logo{font-size:18px;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px;white-space:nowrap;letter-spacing:-.3px}
-  .logo-box{width:30px;height:30px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .logo span{color:var(--orange)}
+  .logo{font-size:18px;font-weight:800;color:var(--chrome-text);display:flex;align-items:center;gap:10px;white-space:nowrap;letter-spacing:-.3px}
+  .logo-box{width:30px;height:30px;background:var(--chrome-accent);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .logo span{color:var(--chrome-accent)}
 
   /* ── NAV TABS ─────────────────────────────────── */
   .nav-tabs{display:flex;gap:2px;margin-left:8px}
   .nav-tab{
     padding:6px 14px;border-radius:6px;
     font-size:13px;font-weight:600;cursor:pointer;
-    color:rgba(255,255,255,.6);border:none;background:none;
+    color:var(--chrome-text-muted);border:none;background:none;
     font-family:var(--sans);transition:all .15s;white-space:nowrap;
   }
-  .nav-tab:hover{color:#fff;background:rgba(255,255,255,.1)}
-  .nav-tab.active{color:#fff;background:rgba(255,255,255,.18)}
+  .nav-tab:hover{color:var(--chrome-text);background:var(--chrome-hover-bg)}
+  .nav-tab.active{color:var(--chrome-text);background:var(--chrome-active-bg)}
 
   /* ── HEADER RIGHT ─────────────────────────────── */
   .hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
   .cloud-status{
     display:flex;align-items:center;gap:6px;font-size:11px;
-    font-family:var(--mono);color:rgba(255,255,255,.6);cursor:pointer;
-    padding:5px 12px;border:1px solid rgba(255,255,255,.2);
+    font-family:var(--mono);color:var(--chrome-text-muted);cursor:pointer;
+    padding:5px 12px;border:1px solid var(--chrome-border);
     border-radius:var(--r);transition:.15s;
   }
-  .cloud-status:hover{background:rgba(255,255,255,.1);color:#fff}
-  .cloud-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.3);flex-shrink:0}
-  .cloud-dot.connected{background:#4ADE80}
-  .cloud-dot.saving{background:var(--orange);animation:pulse .8s infinite}
+  .cloud-status:hover{background:var(--chrome-hover-bg);color:var(--chrome-text)}
+  .cloud-dot{width:7px;height:7px;border-radius:50%;background:var(--chrome-idle-dot);flex-shrink:0}
+  .cloud-dot.connected{background:var(--status-live)}
+  .cloud-dot.saving{background:var(--chrome-accent);animation:pulse .8s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
-  .franchise-wrap{display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.7);font-family:var(--sans);font-weight:600}
+  .franchise-wrap{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--chrome-text-dim);font-family:var(--sans);font-weight:600}
   /* v3.20.2 — was reusing .franchise-wrap directly; gave it its own class
      so the two header pill-groups (Company, Franchise) don't visually run
      together with no separation, and so a future style change to one
      doesn't silently affect the other. */
-  .company-wrap{display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(255,255,255,.7);font-family:var(--sans);font-weight:600;padding-right:10px;margin-right:2px;border-right:1px solid rgba(255,255,255,.15)}
+  .company-wrap{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--chrome-text-dim);font-family:var(--sans);font-weight:600;padding-right:10px;margin-right:2px;border-right:1px solid var(--chrome-divider)}
   .tog{position:relative;width:36px;height:20px;cursor:pointer}
   .tog input{opacity:0;width:0;height:0}
-  .tog-slider{position:absolute;inset:0;background:rgba(255,255,255,.2);border-radius:20px;transition:.2s}
-  .tog-slider:before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;opacity:.5}
-  .tog input:checked+.tog-slider{background:var(--orange)}
+  .tog-slider{position:absolute;inset:0;background:var(--chrome-toggle-off);border-radius:20px;transition:.2s}
+  .tog-slider:before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:var(--chrome-text);border-radius:50%;transition:.2s;opacity:.5}
+  .tog input:checked+.tog-slider{background:var(--chrome-accent)}
   .tog input:checked+.tog-slider:before{transform:translateX(16px);opacity:1}
 
   /* ── LAYOUT ───────────────────────────────────── */
@@ -465,23 +497,23 @@
     /* Show hamburger button */
     .mob-burger{
       display:flex;flex-direction:column;justify-content:center;gap:5px;
-      background:none;border:1px solid rgba(255,255,255,.25);border-radius:7px;
+      background:none;border:1px solid var(--chrome-border-strong);border-radius:7px;
       padding:8px 10px;cursor:pointer;margin-left:auto;flex-shrink:0;
     }
     .mob-burger span{
-      display:block;width:20px;height:2px;background:#fff;border-radius:2px;transition:.2s;
+      display:block;width:20px;height:2px;background:var(--chrome-text);border-radius:2px;transition:.2s;
     }
 
     /* Overlay (dims the page behind the drawer) */
     .mob-overlay{
-      display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:190;
+      display:none;position:fixed;inset:0;background:var(--chrome-scrim);z-index:190;
     }
     .mob-overlay.open{display:block}
 
     /* Slide-in drawer from the left */
     .mob-drawer{
       position:fixed;top:0;left:0;width:270px;height:100%;
-      background:var(--navy);z-index:200;
+      background:var(--chrome-bg);z-index:200;
       transform:translateX(-100%);transition:transform .25s ease;
       display:flex;flex-direction:column;
     }
@@ -489,7 +521,7 @@
 
     .mob-drawer-header{
       display:flex;align-items:center;justify-content:space-between;
-      padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.12);
+      padding:16px 18px;border-bottom:1px solid var(--chrome-divider-soft);
       height:58px;box-sizing:border-box;flex-shrink:0;
     }
 
@@ -499,14 +531,14 @@
     .mob-nav-btn{
       display:block;width:100%;text-align:left;
       padding:14px 22px;border:none;background:none;
-      color:rgba(255,255,255,.75);font-size:15px;font-weight:600;
+      color:var(--chrome-text-soft);font-size:15px;font-weight:600;
       font-family:var(--sans);cursor:pointer;transition:.15s;
     }
-    .mob-nav-btn:hover{background:rgba(255,255,255,.08);color:#fff}
-    .mob-nav-btn.active{background:rgba(255,255,255,.14);color:#fff}
+    .mob-nav-btn:hover{background:var(--chrome-drawer-hover);color:var(--chrome-text)}
+    .mob-nav-btn.active{background:var(--chrome-drawer-active);color:var(--chrome-text)}
 
     .mob-drawer-footer{
-      padding:16px 18px;border-top:1px solid rgba(255,255,255,.12);flex-shrink:0;
+      padding:16px 18px;border-top:1px solid var(--chrome-divider-soft);flex-shrink:0;
     }
   }
 
@@ -1057,12 +1089,12 @@
 <header class="header">
   <div class="logo">
     <div class="logo-box">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="stroke:var(--chrome-logo-icon)" stroke-width="2.5">
         <rect x="3" y="6" width="18" height="2" rx="1"/><rect x="3" y="11" width="18" height="2" rx="1"/>
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1094,7 +1126,7 @@
          screen happens to be opened. Populated by renderCompanyButtons(). -->
     <div class="company-wrap" title="Which company this estimate belongs to">
       <span>Company</span>
-      <div id="companyBtnGroupHeader" style="display:flex;background:rgba(255,255,255,.1);border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.2)"></div>
+      <div id="companyBtnGroupHeader" style="display:flex;background:var(--chrome-control-bg);border-radius:6px;overflow:hidden;border:1px solid var(--chrome-border)"></div>
     </div>
     <div class="franchise-wrap">
       <span>Franchise</span>
@@ -1111,8 +1143,8 @@
 <div class="mob-overlay" id="mobOverlay" onclick="fpToggleDrawer()"></div>
 <div class="mob-drawer" id="mobDrawer">
   <div class="mob-drawer-header">
-    <span style="font-weight:800;font-size:16px;color:#fff;letter-spacing:-.2px">FencePro</span>
-    <button onclick="fpToggleDrawer()" style="background:none;border:none;color:rgba(255,255,255,.7);font-size:22px;cursor:pointer;padding:0;line-height:1">&times;</button>
+    <span style="font-weight:800;font-size:16px;color:var(--chrome-text);letter-spacing:-.2px">FencePro</span>
+    <button onclick="fpToggleDrawer()" style="background:none;border:none;color:var(--chrome-text-dim);font-size:22px;cursor:pointer;padding:0;line-height:1">&times;</button>
   </div>
   <nav class="mob-drawer-nav">
     <button class="mob-nav-btn" onclick="show('est');fpToggleDrawer()">Estimator</button>
@@ -1131,11 +1163,11 @@
          company-wrap (v3.20.2 — its own class, was folded into
          franchise-wrap) is hidden entirely at mobile widths — see
          .hdr-right .company-wrap rule. -->
-    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.7);font-weight:600;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--chrome-text-dim);font-weight:600;margin-bottom:10px">
       <span>Company</span>
-      <select id="companySelectMobile" onchange="selectCompany(this.value, true)" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:4px 8px;font-size:12px;font-weight:700;font-family:var(--sans)"></select>
+      <select id="companySelectMobile" onchange="selectCompany(this.value, true)" style="background:var(--chrome-control-bg);color:var(--chrome-text);border:1px solid var(--chrome-border);border-radius:6px;padding:4px 8px;font-size:12px;font-weight:700;font-family:var(--sans)"></select>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.7);font-weight:600">
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--chrome-text-dim);font-weight:600">
       <span>Franchise</span>
       <label class="tog"><input type="checkbox" id="franchTog2" onchange="document.getElementById('franchTog').checked=this.checked;onFranchChange()"><span class="tog-slider"></span></label>
       <span id="franchLabel2" style="color:var(--accent)">ON</span>
@@ -3246,7 +3278,7 @@
       <!-- Company Selector -->
       <div style="display:flex;align-items:center;gap:8px;margin-left:16px">
         <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em">Company</span>
-        <div id="companyBtnGroup" style="display:flex;background:rgba(255,255,255,.1);border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.2)">
+        <div id="companyBtnGroup" style="display:flex;background:var(--chrome-control-bg);border-radius:6px;overflow:hidden;border:1px solid var(--chrome-border)">
           <!-- Populated by renderCompanyButtons() — one button per company in Setup -->
         </div>
       </div>
@@ -3848,7 +3880,7 @@
       <div style="font-size:15px;font-weight:800;color:#fff">📄 Multi-Option Proposal</div>
       <div style="display:flex;align-items:center;gap:8px;margin-left:16px">
         <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em">Company</span>
-        <div id="moCompanyBtnGroup" style="display:flex;background:rgba(255,255,255,.1);border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.2)">
+        <div id="moCompanyBtnGroup" style="display:flex;background:var(--chrome-control-bg);border-radius:6px;overflow:hidden;border:1px solid var(--chrome-border)">
           <!-- Populated by renderMultiCompanyButtons() — one button per company in Setup -->
         </div>
       </div>
@@ -8396,7 +8428,7 @@ function _renderCompanyBtnsInto(containerId, idPrefix) {
   const list = (companies && companies.length ? companies : getDefaultCompanies()).filter(c => c.active !== false);
   wrap.innerHTML = list.map(c => `
     <button id="${idPrefix}${c.code}" onclick="selectCompany('${c.code}', true)"
-      style="padding:6px 14px;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;border:none;transition:.15s;background:${c.code === activeCompany ? 'var(--orange)' : 'transparent'};color:${c.code === activeCompany ? '#fff' : 'rgba(255,255,255,.6)'}">
+      style="padding:6px 14px;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;border:none;transition:.15s;background:${c.code === activeCompany ? 'var(--chrome-accent)' : 'transparent'};color:${c.code === activeCompany ? 'var(--chrome-accent-text)' : 'var(--chrome-text-muted)'}">
       ${c.code}
     </button>`).join('');
 }
@@ -8440,8 +8472,8 @@ function selectCompany(co, propagate) {
     list.forEach(c => {
       const btn = document.getElementById(prefix + c.code);
       if (!btn) return;
-      btn.style.background = c.code === co ? 'var(--orange)' : 'transparent';
-      btn.style.color      = c.code === co ? '#fff' : 'rgba(255,255,255,.6)';
+      btn.style.background = c.code === co ? 'var(--chrome-accent)' : 'transparent';
+      btn.style.color      = c.code === co ? 'var(--chrome-accent-text)' : 'var(--chrome-text-muted)';
     });
   });
   document.getElementById('prop_companyName').textContent = COMPANIES[co] || COMPANIES.BWI;
@@ -15159,7 +15191,7 @@ function renderMultiCompanyButtons() {
   const list = (companies && companies.length ? companies : getDefaultCompanies()).filter(c => c.active !== false);
   wrap.innerHTML = list.map(c => `
     <button id="moBtnCo_${c.code}" onclick="selectMultiCompany('${c.code}')"
-      style="padding:6px 14px;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;border:none;transition:.15s;background:${c.code === activeCompany ? 'var(--orange)' : 'transparent'};color:${c.code === activeCompany ? '#fff' : 'rgba(255,255,255,.6)'}">
+      style="padding:6px 14px;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;border:none;transition:.15s;background:${c.code === activeCompany ? 'var(--chrome-accent)' : 'transparent'};color:${c.code === activeCompany ? 'var(--chrome-accent-text)' : 'var(--chrome-text-muted)'}">
       ${c.code}
     </button>`).join('');
 }
@@ -15173,8 +15205,8 @@ function selectMultiCompany(co) {
   list.forEach(c => {
     const btn = document.getElementById('moBtnCo_' + c.code);
     if (!btn) return;
-    btn.style.background = c.code === co ? 'var(--orange)' : 'transparent';
-    btn.style.color      = c.code === co ? '#fff' : 'rgba(255,255,255,.6)';
+    btn.style.background = c.code === co ? 'var(--chrome-accent)' : 'transparent';
+    btn.style.color      = c.code === co ? 'var(--chrome-accent-text)' : 'var(--chrome-text-muted)';
   });
   document.getElementById('mo_companyName').textContent = COMPANIES[co] || COMPANIES.BWI;
   const moAddrEl  = document.getElementById('mo_companyAddr');
