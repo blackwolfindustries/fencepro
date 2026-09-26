@@ -203,6 +203,14 @@
     --modal-shadow:        0 20px 60px rgba(27,43,75,.2);
     --chip-selected-bg:    var(--orange);
     --chip-selected-text:  #fff;
+
+    /* v3.24.5 - Theme foundation, phase A step 5: Job Summary screen
+       (combined estimate banner and CRM box reuse the panel-* tokens).
+       Selection ring = highlight around a checked estimate card. */
+    --panel-shadow-soft:   0 4px 12px rgba(27,43,75,.15);
+    --select-ring:         0 0 0 3px rgba(242,101,34,.2);
+    --select-ring-soft:    0 0 0 3px rgba(242,101,34,.15);
+    --select-check:        #fff;
   }
 
   *{box-sizing:border-box;margin:0;padding:0}
@@ -1215,7 +1223,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.4</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.5</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2212,7 +2220,7 @@
       <div id="summarySearchDrop" style="
         display:none;position:absolute;top:100%;left:0;width:340px;
         background:var(--surface);border:1px solid var(--border);
-        border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.2);
+        border-radius:var(--r);box-shadow:var(--dropdown-shadow);
         z-index:1000;max-height:300px;overflow-y:auto;margin-top:3px
       "></div>
       <span style="font-size:12px;color:var(--text3);margin-left:8px" id="summaryFound"></span>
@@ -2224,12 +2232,12 @@
 
     <!-- Estimate cards grid -->
     <!-- Instructions -->
-    <div id="summaryInstructions" style="display:none;background:linear-gradient(135deg,#1B2B4B 0%,#253659 100%);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:12px">
+    <div id="summaryInstructions" style="display:none;background:linear-gradient(135deg,var(--panel-grad-start) 0%,var(--panel-grad-end) 100%);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;gap:12px">
       <div style="font-size:22px;flex-shrink:0">☑️</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.8);line-height:1.6">
-        <strong style="color:#fff;font-size:13px">Select estimates to combine</strong><br>
+      <div style="font-size:12px;color:var(--panel-ink-80);line-height:1.6">
+        <strong style="color:var(--panel-ink);font-size:13px">Select estimates to combine</strong><br>
         Check 2 or more estimate cards below — the combined pricing and CRM entry values will calculate automatically.
-        Uses the <span style="color:#F26522;font-weight:700">highest markup %</span> across selected estimates and counts delivery once if same supplier.
+        Uses the <span style="color:var(--panel-accent);font-weight:700">highest markup %</span> across selected estimates and counts delivery once if same supplier.
       </div>
     </div>
 
@@ -2242,66 +2250,66 @@
       </div>
 
       <!-- Combined banner -->
-      <div style="background:linear-gradient(135deg,#1B2B4B 0%,#253659 100%);border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(27,43,75,.15);margin-bottom:12px">
+      <div style="background:linear-gradient(135deg,var(--panel-grad-start) 0%,var(--panel-grad-end) 100%);border-radius:12px;overflow:hidden;box-shadow:var(--panel-shadow-soft);margin-bottom:12px">
         <div style="display:flex">
-          <div style="flex:1;padding:12px 16px;border-right:1px solid rgba(255,255,255,.1)">
-            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">CC / Finance Price</div>
-            <div style="font-size:22px;font-weight:800;color:#F26522;font-family:var(--mono)" id="comb_final">$0</div>
+          <div style="flex:1;padding:12px 16px;border-right:1px solid var(--panel-ink-10)">
+            <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">CC / Finance Price</div>
+            <div style="font-size:22px;font-weight:800;color:var(--panel-accent);font-family:var(--mono)" id="comb_final">$0</div>
           </div>
-          <div style="flex:1;padding:12px 16px;border-right:1px solid rgba(255,255,255,.1)">
-            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Cash / Check Price</div>
-            <div style="font-size:18px;font-weight:700;color:#4ADE80;font-family:var(--mono)" id="comb_cash">$0</div>
+          <div style="flex:1;padding:12px 16px;border-right:1px solid var(--panel-ink-10)">
+            <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Cash / Check Price</div>
+            <div style="font-size:18px;font-weight:700;color:var(--metric-cash);font-family:var(--mono)" id="comb_cash">$0</div>
           </div>
-          <div style="flex:1;padding:12px 16px;border-right:1px solid rgba(255,255,255,.1)">
-            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Price / LF</div>
-            <div style="font-size:16px;font-weight:700;color:rgba(255,255,255,.9);font-family:var(--mono)" id="comb_plf">—</div>
+          <div style="flex:1;padding:12px 16px;border-right:1px solid var(--panel-ink-10)">
+            <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Price / LF</div>
+            <div style="font-size:16px;font-weight:700;color:var(--panel-ink-90);font-family:var(--mono)" id="comb_plf">—</div>
           </div>
-          <div style="flex:1;padding:12px 16px;border-right:1px solid rgba(255,255,255,.1)">
-            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Gross Margin %</div>
-            <div style="font-size:16px;font-weight:700;color:rgba(255,255,255,.9);font-family:var(--mono)" id="comb_gmpct">—</div>
+          <div style="flex:1;padding:12px 16px;border-right:1px solid var(--panel-ink-10)">
+            <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Gross Margin %</div>
+            <div style="font-size:16px;font-weight:700;color:var(--panel-ink-90);font-family:var(--mono)" id="comb_gmpct">—</div>
           </div>
-          <div style="flex:1;padding:12px 16px;border-right:1px solid rgba(255,255,255,.1)">
-            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Gross Margin $</div>
-            <div style="font-size:16px;font-weight:700;color:#4ADE80;font-family:var(--mono)" id="comb_gmdol">—</div>
+          <div style="flex:1;padding:12px 16px;border-right:1px solid var(--panel-ink-10)">
+            <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Gross Margin $</div>
+            <div style="font-size:16px;font-weight:700;color:var(--metric-cash);font-family:var(--mono)" id="comb_gmdol">—</div>
           </div>
           <div style="flex:1;padding:12px 16px">
-            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Franchise Fee</div>
-            <div style="font-size:16px;font-weight:700;color:#FB923C;font-family:var(--mono)" id="comb_ff">—</div>
+            <div style="font-size:9px;font-weight:700;color:var(--panel-ink-45);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Franchise Fee</div>
+            <div style="font-size:16px;font-weight:700;color:var(--metric-fee);font-family:var(--mono)" id="comb_ff">—</div>
           </div>
         </div>
       </div>
 
       <!-- CRM entry values for combined -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div style="background:var(--navy);border-radius:var(--r);padding:14px 16px">
-          <div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">📋 Enter Into CRM (Combined)</div>
+        <div style="background:var(--panel-bg);border-radius:var(--r);padding:14px 16px">
+          <div style="font-size:9px;font-weight:800;color:var(--panel-ink-50);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px">📋 Enter Into CRM (Combined)</div>
           <div style="display:flex;flex-direction:column;gap:5px">
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.7)">
-              <span>Material Retail in SM</span><span style="font-family:var(--mono);color:#fff;font-weight:600" id="comb_crm_mat">—</span>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--panel-ink-70)">
+              <span>Material Retail in SM</span><span style="font-family:var(--mono);color:var(--panel-ink);font-weight:600" id="comb_crm_mat">—</span>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.7)">
-              <span>Labor Retail in SM</span><span style="font-family:var(--mono);color:#fff;font-weight:600" id="comb_crm_lab">—</span>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--panel-ink-70)">
+              <span>Labor Retail in SM</span><span style="font-family:var(--mono);color:var(--panel-ink);font-weight:600" id="comb_crm_lab">—</span>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.7)">
-              <span>Demo in SM</span><span style="font-family:var(--mono);color:#fff;font-weight:600" id="comb_crm_demo">—</span>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--panel-ink-70)">
+              <span>Demo in SM</span><span style="font-family:var(--mono);color:var(--panel-ink);font-weight:600" id="comb_crm_demo">—</span>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.7)">
-              <span>Discount in SM</span><span style="font-family:var(--mono);color:#fff;font-weight:600" id="comb_crm_disc">—</span>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--panel-ink-70)">
+              <span>Discount in SM</span><span style="font-family:var(--mono);color:var(--panel-ink);font-weight:600" id="comb_crm_disc">—</span>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.7)">
-              <span>Add-On Costs</span><span style="font-family:var(--mono);color:#fff;font-weight:600" id="comb_crm_addons">—</span>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--panel-ink-70)">
+              <span>Add-On Costs</span><span style="font-family:var(--mono);color:var(--panel-ink);font-weight:600" id="comb_crm_addons">—</span>
             </div>
-            <div style="height:1px;background:rgba(255,255,255,.12);margin:3px 0"></div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.7)">
-              <span>Markup in SM (%)</span><span style="font-family:var(--mono);color:#F26522;font-weight:700" id="comb_crm_mupct">—</span>
+            <div style="height:1px;background:var(--panel-ink-12);margin:3px 0"></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--panel-ink-70)">
+              <span>Markup in SM (%)</span><span style="font-family:var(--mono);color:var(--panel-accent);font-weight:700" id="comb_crm_mupct">—</span>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.7)">
-              <span>Markup in SM ($)</span><span style="font-family:var(--mono);color:#F26522;font-weight:700" id="comb_crm_mudol">—</span>
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--panel-ink-70)">
+              <span>Markup in SM ($)</span><span style="font-family:var(--mono);color:var(--panel-accent);font-weight:700" id="comb_crm_mudol">—</span>
             </div>
-            <div style="height:1px;background:rgba(255,255,255,.12);margin:3px 0"></div>
+            <div style="height:1px;background:var(--panel-ink-12);margin:3px 0"></div>
             <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800">
-              <span style="color:#fff">Final Price</span>
-              <span style="font-family:var(--mono);color:#F26522;font-size:16px" id="comb_crm_final">—</span>
+              <span style="color:var(--panel-ink)">Final Price</span>
+              <span style="font-family:var(--mono);color:var(--panel-accent);font-size:16px" id="comb_crm_final">—</span>
             </div>
           </div>
         </div>
@@ -10920,7 +10928,7 @@ function lookupJobSummary(prefixArg) {
         <div style="display:flex;align-items:center;gap:8px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:800;color:var(--navy)">
             <span style="width:24px;height:24px;border:2.5px solid var(--border2);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;background:var(--surface2)" class="cb-box" id="cb-box-${i}">
-              <svg id="cb-check-${i}" width="14" height="14" viewBox="0 0 14 14" fill="none" style="display:none"><path d="M2 7l4 4 6-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg id="cb-check-${i}" width="14" height="14" viewBox="0 0 14 14" fill="none" style="display:none"><path d="M2 7l4 4 6-6" style="stroke:var(--select-check)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
             <input type="checkbox" data-idx="${i}" onchange="onSummaryCheck(this)" style="display:none">
             <span style="color:var(--orange);font-family:var(--mono);font-size:12px">${(j.id||'').split('-')[0]||''}</span> · Estimate ${letter}
@@ -10986,9 +10994,9 @@ function onSummaryCheck(cb) {
     if (cb.checked) {
       box.style.background   = 'var(--orange)';
       box.style.borderColor  = 'var(--orange)';
-      box.style.boxShadow    = '0 0 0 3px rgba(242,101,34,.2)';
+      box.style.boxShadow    = 'var(--select-ring)';
       check.style.display    = 'block';
-      if (card) { card.style.borderColor = 'var(--orange)'; card.style.boxShadow = '0 0 0 3px rgba(242,101,34,.15)'; }
+      if (card) { card.style.borderColor = 'var(--orange)'; card.style.boxShadow = 'var(--select-ring-soft)'; }
     } else {
       box.style.background   = 'var(--surface2)';
       box.style.borderColor  = 'var(--border2)';
