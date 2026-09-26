@@ -258,6 +258,35 @@
     --notice-line-strong:    #FCD34D;
     --notice-text-deep:      #78350F;
     --notice-bg-warm:        #FFF8F0;
+
+    /* v3.24.8 - Theme foundation, phase A step 8 (final): Analytics.
+       chart-* colors feed the Chart.js canvases, which cannot read CSS
+       variables on their own; themeColor() looks them up at draw time.
+       Two palettes stay in JavaScript on purpose because the code appends
+       hex opacity to them or computes opacity on the fly: the Year/Year
+       per-year colors (_yoyPalette) and the day-of-week heatmap tiles. */
+    --chart-total-fill:      rgba(27,43,75,.15);
+    --chart-total-line:      rgba(27,43,75,.4);
+    --chart-closed-fill:     rgba(22,163,74,.35);
+    --chart-closed-line:     rgba(22,163,74,.7);
+    --chart-sent-fill:       rgba(59,130,246,.25);
+    --chart-sent-line:       rgba(59,130,246,.6);
+    --chart-rate-line:       #F26522;
+    --chart-rate-fill:       rgba(242,101,34,.1);
+    --chart-close-rate-line: #16A34A;
+    --chart-avg-line:        rgba(37,99,235,.7);
+    --chart-fast:            rgba(22,163,74,.7);
+    --chart-medium:          rgba(242,101,34,.7);
+    --chart-slow:            rgba(220,38,38,.7);
+    --dow-best-end:          #f97316;
+    --dow-bar-end:           var(--blue);
+    --dow-bar-text:          #fff;
+    --dow-heat-text:         #fff;
+    --dow-heat-subtext:      rgba(255,255,255,.65);
+    --status-complete:       var(--green);
+    --status-active-light:   #60A5FA;
+    --tab-hover-bg:          rgba(0,0,0,.03);
+    --tab-active-bg:         rgba(242,101,34,.05);
   }
 
   *{box-sizing:border-box;margin:0;padding:0}
@@ -1011,8 +1040,8 @@
     border-radius: 6px 6px 0 0;
     letter-spacing: .01em;
   }
-  .atab:hover { color: var(--navy); background: rgba(0,0,0,.03); }
-  .atab.atab-active { color: var(--orange); border-bottom-color: var(--orange); background: rgba(242,101,34,.05); }
+  .atab:hover { color: var(--navy); background: var(--tab-hover-bg); }
+  .atab.atab-active { color: var(--orange); border-bottom-color: var(--orange); background: var(--tab-active-bg); }
 
   /* ── PROPOSAL PRINT ── */
     body.printing-proposal .screen,
@@ -1270,7 +1299,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.7</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.8</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -7173,6 +7202,17 @@ function onCustNameInput() {
   `).join('');
   dd._matches = matches;
   dd.style.display = 'block';
+}
+
+// v3.24.8 - read a color from the central theme list (:root CSS
+// variables). Used where a CSS variable cannot be passed directly, such
+// as Chart.js canvases. Falls back to the given value if the variable is
+// missing, so a chart never loses its colors.
+function themeColor(name, fallback) {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  } catch (e) { return fallback; }
 }
 
 function escHtml(s) {
@@ -16636,7 +16676,7 @@ async function renderBookingTime(allRows, range) {
     { label: '8–14 days', fn: d => d.days >= 8  && d.days <= 14 },
     { label: '15+ days',  fn: d => d.days >= 15 }
   ];
-  const distColors = ['var(--green)','var(--green)','var(--orange)','#D97706','var(--red)'];
+  const distColors = ['var(--green)','var(--green)','var(--orange)','var(--amber)','var(--red)'];
   buckets.forEach((b, i) => {
     b.count = data.filter(b.fn).length;
     b.pct   = count > 0 ? Math.round(b.count / count * 100) : 0;
@@ -16688,7 +16728,7 @@ async function renderBookingTime(allRows, range) {
             label: 'Avg Days to Book',
             data:  monthAvgs,
             backgroundColor: monthAvgs.map(v =>
-              v <= 3 ? 'rgba(22,163,74,.7)' : v <= 7 ? 'rgba(242,101,34,.7)' : 'rgba(220,38,38,.7)'
+              v <= 3 ? themeColor('--chart-fast','rgba(22,163,74,.7)') : v <= 7 ? themeColor('--chart-medium','rgba(242,101,34,.7)') : themeColor('--chart-slow','rgba(220,38,38,.7)')
             ),
             borderRadius: 4
           },
@@ -16696,7 +16736,7 @@ async function renderBookingTime(allRows, range) {
             label: 'Overall Avg (' + avgDays + 'd)',
             data:  months.map(() => avgDays),
             type:  'line',
-            borderColor: 'rgba(37,99,235,.7)',
+            borderColor: themeColor('--chart-avg-line','rgba(37,99,235,.7)'),
             borderWidth: 2,
             borderDash:  [6, 4],
             pointRadius: 0,
@@ -16741,7 +16781,7 @@ async function renderBookingTime(allRows, range) {
   tbody.innerHTML = data
     .slice().sort((a, b) => a.days - b.days)
     .map((d, i) => {
-      const c = d.days <= 3 ? 'var(--green)' : d.days <= 7 ? 'var(--orange)' : d.days <= 14 ? '#D97706' : 'var(--red)';
+      const c = d.days <= 3 ? 'var(--green)' : d.days <= 7 ? 'var(--orange)' : d.days <= 14 ? 'var(--amber)' : 'var(--red)';
       return `<tr style="border-bottom:1px solid var(--border);${i%2===0?'background:var(--surface)':''}">
         <td style="padding:7px 8px;font-weight:600">${escHtml(d.name)}</td>
         <td style="padding:7px 8px;color:var(--text2)">${escHtml(d.channel)}</td>
@@ -16810,9 +16850,9 @@ function _drawDOW() {
         </div>
         <div style="background:var(--surface2);border-radius:5px;height:30px;overflow:hidden;position:relative">
           <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;
-            background:${isBest?'linear-gradient(90deg,var(--orange),#f97316)':'linear-gradient(90deg,var(--navy),#2563EB)'};
+            background:${isBest?'linear-gradient(90deg,var(--orange),var(--dow-best-end))':'linear-gradient(90deg,var(--navy),var(--dow-bar-end))'};
             border-radius:5px;transition:width .5s ease"></div>
-          ${pct>20?`<div style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:#fff;white-space:nowrap">${label}${pctStr}</div>`:''}
+          ${pct>20?`<div style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:var(--dow-bar-text);white-space:nowrap">${label}${pctStr}</div>`:''}
         </div>
         <div style="font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap">
           ${pct<=20 ? label+pctStr : ''}
@@ -16825,8 +16865,8 @@ function _drawDOW() {
   heatEl.innerHTML = data.map(d => {
     const intensity = maxCount>0 ? d.count/maxCount : 0;
     const bg = intensity===0 ? 'var(--surface2)' : `rgba(242,101,34,${0.12+intensity*0.85})`;
-    const tc = intensity>0.55 ? '#fff' : 'var(--text1)';
-    const tc2 = intensity>0.55 ? 'rgba(255,255,255,.65)' : 'var(--text3)';
+    const tc = intensity>0.55 ? 'var(--dow-heat-text)' : 'var(--text1)';
+    const tc2 = intensity>0.55 ? 'var(--dow-heat-subtext)' : 'var(--text3)';
     return `
       <div style="background:${bg};border-radius:10px;padding:12px 6px;text-align:center;border:1px solid ${intensity===0?'var(--border)':'transparent'}">
         <div style="font-size:9px;font-weight:700;color:${tc2};text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">${d.day.slice(0,3)}</div>
@@ -17096,7 +17136,7 @@ function kpiDrillDown(kpi) {
 
   const statusColors = {
     'Open':'var(--blue)', 'Accepted':'var(--green)',
-    'Complete':'#16A34A', 'Declined':'var(--red)', 'Expired':'var(--text3)'
+    'Complete':'var(--status-complete)', 'Declined':'var(--red)', 'Expired':'var(--text3)'
   };
   const fmt = s => {
     const d = parseAnalyticsDate(s);
@@ -17285,18 +17325,18 @@ async function renderMonthChart(rows) {
       datasets: [
         {
           type: 'bar', label: 'Proposals Sent',
-          data: totals, backgroundColor: 'rgba(27,43,75,.15)',
-          borderColor: 'rgba(27,43,75,.4)', borderWidth: 1, yAxisID: 'y'
+          data: totals, backgroundColor: themeColor('--chart-total-fill','rgba(27,43,75,.15)'),
+          borderColor: themeColor('--chart-total-line','rgba(27,43,75,.4)'), borderWidth: 1, yAxisID: 'y'
         },
         {
           type: 'bar', label: 'Closed',
-          data: closed, backgroundColor: 'rgba(22,163,74,.35)',
-          borderColor: 'rgba(22,163,74,.7)', borderWidth: 1, yAxisID: 'y'
+          data: closed, backgroundColor: themeColor('--chart-closed-fill','rgba(22,163,74,.35)'),
+          borderColor: themeColor('--chart-closed-line','rgba(22,163,74,.7)'), borderWidth: 1, yAxisID: 'y'
         },
         {
           type: 'line', label: 'Close Rate %',
-          data: rates, borderColor: '#F26522', backgroundColor: 'rgba(242,101,34,.1)',
-          borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#F26522',
+          data: rates, borderColor: themeColor('--chart-rate-line','#F26522'), backgroundColor: themeColor('--chart-rate-fill','rgba(242,101,34,.1)'),
+          borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: themeColor('--chart-rate-line','#F26522'),
           tension: 0.3, yAxisID: 'y2', fill: false
         }
       ]
@@ -17436,8 +17476,8 @@ function showAnalyticsDrill(fieldEnc, keyEnc) {
   // Rows
   const STATUS_COLOR = {
     'Accepted':'var(--green)','Paid in Full':'var(--green)','Deposit Received':'var(--green)',
-    'Scheduled':'var(--green)','In Progress':'#60A5FA','Ready for Invoice':'#60A5FA',
-    'Invoiced':'#60A5FA','Committed':'var(--amber)','Sent':'var(--amber)',
+    'Scheduled':'var(--green)','In Progress':'var(--status-active-light)','Ready for Invoice':'var(--status-active-light)',
+    'Invoiced':'var(--status-active-light)','Committed':'var(--amber)','Sent':'var(--amber)',
     'Lost':'var(--red)','Draft':'var(--text3)'
   };
   let totalRevenue = 0;
@@ -17701,7 +17741,7 @@ function _perfProposalsRowsHTML(rows) {
   if (!rows.length) return '<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--text3)">No data for this selection</td></tr>';
   const statusColors = {
     'Open':'var(--blue)', 'Accepted':'var(--green)',
-    'Complete':'#16A34A', 'Declined':'var(--red)', 'Expired':'var(--text3)'
+    'Complete':'var(--status-complete)', 'Declined':'var(--red)', 'Expired':'var(--text3)'
   };
   return rows.map((r, i) => {
     const val    = parseFloat(r['Value']) || 0;
@@ -17817,28 +17857,28 @@ async function renderPerfChart(months, byMonth) {
         {
           type: 'bar', label: 'Leads',
           data: months.map(m => byMonth[m].leads),
-          backgroundColor: 'rgba(27,43,75,.15)', borderColor: 'rgba(27,43,75,.4)', borderWidth: 1, yAxisID: 'y'
+          backgroundColor: themeColor('--chart-total-fill','rgba(27,43,75,.15)'), borderColor: themeColor('--chart-total-line','rgba(27,43,75,.4)'), borderWidth: 1, yAxisID: 'y'
         },
         {
           type: 'bar', label: 'Estimates',
           data: months.map(m => byMonth[m].estimates),
-          backgroundColor: 'rgba(59,130,246,.25)', borderColor: 'rgba(59,130,246,.6)', borderWidth: 1, yAxisID: 'y'
+          backgroundColor: themeColor('--chart-sent-fill','rgba(59,130,246,.25)'), borderColor: themeColor('--chart-sent-line','rgba(59,130,246,.6)'), borderWidth: 1, yAxisID: 'y'
         },
         {
           type: 'bar', label: 'Closed',
           data: months.map(m => byMonth[m].closed),
-          backgroundColor: 'rgba(22,163,74,.35)', borderColor: 'rgba(22,163,74,.7)', borderWidth: 1, yAxisID: 'y'
+          backgroundColor: themeColor('--chart-closed-fill','rgba(22,163,74,.35)'), borderColor: themeColor('--chart-closed-line','rgba(22,163,74,.7)'), borderWidth: 1, yAxisID: 'y'
         },
         {
           type: 'line', label: 'Conversion %',
-          data: convRates, borderColor: '#F26522', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#F26522',
+          data: convRates, borderColor: themeColor('--chart-rate-line','#F26522'), backgroundColor: 'transparent',
+          borderWidth: 2, pointRadius: 3, pointBackgroundColor: themeColor('--chart-rate-line','#F26522'),
           tension: 0.3, yAxisID: 'y2'
         },
         {
           type: 'line', label: 'Closure %',
-          data: closeRates, borderColor: '#16A34A', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#16A34A',
+          data: closeRates, borderColor: themeColor('--chart-close-rate-line','#16A34A'), backgroundColor: 'transparent',
+          borderWidth: 2, pointRadius: 3, pointBackgroundColor: themeColor('--chart-close-rate-line','#16A34A'),
           borderDash: [5, 3], tension: 0.3, yAxisID: 'y2'
         }
       ]
@@ -18090,7 +18130,7 @@ async function renderYoY() {
   metricPicker.innerHTML = Object.keys(_yoyMetricMeta).map(m => {
     const on = m === activeMetric;
     return `<button class="btn btn-sm" onclick="yoySetMetric('${m}')"
-      style="${on?'background:var(--navy);color:#fff;border-color:var(--navy)':''};font-weight:700">${_yoyMetricMeta[m].label}</button>`;
+      style="${on?'background:var(--btn-navy-bg);color:var(--btn-navy-text);border-color:var(--btn-navy-bg)':''};font-weight:700">${_yoyMetricMeta[m].label}</button>`;
   }).join('');
 
   const thead = document.getElementById('yoy_tableHead');
