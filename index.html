@@ -1219,7 +1219,183 @@
       -webkit-print-color-adjust:exact;print-color-adjust:exact
     }
   }
+  /* v3.25.0 - Setup ▸ Appearance (theme picker) */
+  .theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+  .theme-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:0;overflow:hidden;cursor:pointer;text-align:left;font-family:var(--sans);box-shadow:var(--shadow-sm);transition:border-color .15s,box-shadow .15s}
+  .theme-tile:hover{border-color:var(--border2)}
+  .theme-tile.selected{border-color:var(--orange);box-shadow:var(--select-ring)}
+  .theme-tile-hdr{height:22px;display:flex;align-items:center;justify-content:flex-end;padding:0 8px}
+  .theme-tile-dot{width:22px;height:8px;border-radius:4px}
+  .theme-tile-body{height:46px;padding:8px;display:flex;align-items:flex-end}
+  .theme-tile-panel{height:20px;width:60%;border-radius:4px}
+  .theme-tile-name{font-size:12px;font-weight:700;color:var(--text);padding:7px 10px;border-top:1px solid var(--border)}
+  .theme-custom{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:10px}
+  .theme-color-row{display:flex;align-items:center;gap:8px}
+  .theme-color-row input[type=color]{width:42px;height:34px;padding:2px;border:1px solid var(--border);border-radius:var(--r);background:var(--input-bg);cursor:pointer;flex-shrink:0}
+  .theme-color-row input[type=text]{font-family:var(--mono);text-transform:uppercase}
+  .theme-adjust{font-size:11px;color:var(--text3);margin-top:3px;min-height:14px}
 </style>
+<script>
+// ════════════════════════════════════════════════
+// v3.25.0 - THEME ENGINE (Phase B)
+// A theme is four key colors: header, panel (the dark Estimator price
+// panel and CRM entry box), accent, and page background. applyTheme()
+// writes them, plus every shade derived from them, as inline overrides
+// on <html>, which win over the :root defaults in the stylesheet.
+// "Classic" writes nothing at all, so it is exactly the v3.24.8 look.
+// Tokens with fixed meaning (status-*, stage-*, notice-*, doctype-*,
+// danger-*, metric-*, body text) are never set here, except two that
+// were defined as var(--navy)/var(--orange) and are pinned back to
+// their original literal values so they keep their meaning.
+// This block sits in <head> so the saved theme is applied before the
+// page first paints (no flash of the default colors on load).
+// ════════════════════════════════════════════════
+var THEME_PRESETS = [
+  { id:'classic',  name:'Classic',       header:'#1B2B4B', panel:'#1B2B4B', accent:'#F26522', bg:'#ECEEF2' },
+  { id:'navygold', name:'Navy & Gold',   header:'#14213D', panel:'#1C2D52', accent:'#B8860B', bg:'#EEF0F4' },
+  { id:'oldglory', name:'Old Glory',     header:'#0A3161', panel:'#12396B', accent:'#B31942', bg:'#F2F2EF' },
+  { id:'blackwolf',name:'Black Wolf',    header:'#1F2328', panel:'#2A2F36', accent:'#F26522', bg:'#EBECEE' },
+  { id:'steel',    name:'Steel',         header:'#2E3A46', panel:'#37474F', accent:'#0E7C86', bg:'#ECEFF1' }
+];
+var THEME_TEXT_REF = '#1B2B4B';   // --text, fixed; page background must stay readable behind it
+var _themeSetProps = [];          // every property applyTheme() last wrote, so it can be cleared
+
+function _thHex(h) {
+  h = String(h || '').trim().replace('#','');
+  if (/^[0-9a-f]{3}$/i.test(h)) h = h.split('').map(function(c){ return c + c; }).join('');
+  if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function _thToHex(rgb) {
+  return '#' + rgb.map(function(v){ v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? '0' : '') + v.toString(16); }).join('').toUpperCase();
+}
+function _thMix(rgb, target, t) { return [0,1,2].map(function(i){ return rgb[i] + (target[i] - rgb[i]) * t; }); }
+function _thLum(rgb) {
+  var c = rgb.map(function(v){ v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+function _thContrast(a, b) {
+  var la = _thLum(a), lb = _thLum(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+function _thRgba(rgb, a) { return 'rgba(' + rgb.map(Math.round).join(',') + ',' + a + ')'; }
+
+// Header, panel and accent all carry white text throughout the app, so
+// each is darkened (same hue) until white text on it meets the minimum.
+// The page background carries the dark body text, so it is lightened.
+function themeReadable(key, hex) {
+  var rgb = _thHex(hex);
+  if (!rgb) return null;
+  var white = [255,255,255], black = [0,0,0], guard = 0;
+  if (key === 'bg') {
+    var ref = _thHex(THEME_TEXT_REF);
+    while (_thContrast(rgb, ref) < 9 && guard++ < 60) rgb = _thMix(rgb, white, 0.06);
+  } else {
+    var min = key === 'accent' ? 3 : 4.5;
+    while (_thContrast(rgb, white) < min && guard++ < 60) rgb = _thMix(rgb, black, 0.04);
+  }
+  return _thToHex(rgb);
+}
+
+// Normalizes a stored theme (JSON string or object) into four checked
+// colors. Anything unreadable or missing falls back to Classic.
+function resolveTheme(raw) {
+  var t = raw;
+  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }
+  if (!t || typeof t !== 'object') t = { preset:'classic' };
+  var base = null;
+  for (var i = 0; i < THEME_PRESETS.length; i++) if (THEME_PRESETS[i].id === t.preset) base = THEME_PRESETS[i];
+  if (t.preset !== 'custom' && !base) base = THEME_PRESETS[0];
+  var src = t.preset === 'custom' ? t : base;
+  var out = { preset: t.preset === 'custom' ? 'custom' : base.id };
+  ['header','panel','accent','bg'].forEach(function(k){
+    out[k] = themeReadable(k, src[k]) || THEME_PRESETS[0][k];
+  });
+  return out;
+}
+
+function applyTheme(raw) {
+  var root = document.documentElement;
+  _themeSetProps.forEach(function(p){ root.style.removeProperty(p); });
+  _themeSetProps = [];
+  var t = resolveTheme(raw);
+  if (t.preset === 'classic') return t;   // stylesheet defaults, untouched
+
+  var white = [255,255,255], black = [0,0,0];
+  var H = _thHex(t.header), P = _thHex(t.panel), A = _thHex(t.accent);
+  var set = function(name, value){ root.style.setProperty(name, value); _themeSetProps.push(name); };
+
+  // Core brand
+  set('--navy',      t.header);
+  set('--navy2',     _thToHex(_thMix(H, white, 0.07)));
+  set('--orange',    t.accent);
+  set('--orange2',   _thToHex(_thMix(A, white, 0.14)));
+  set('--orange-bg', _thToHex(_thMix(A, white, 0.93)));
+  set('--bg',        t.bg);
+
+  // Header-tinted shadows, scrims and fills
+  set('--shadow-sm',        '0 1px 3px ' + _thRgba(H,.08) + ', 0 1px 2px ' + _thRgba(H,.04));
+  set('--shadow',           '0 4px 12px ' + _thRgba(H,.08) + ', 0 2px 4px ' + _thRgba(H,.04));
+  set('--chrome-shadow',    '0 2px 8px ' + _thRgba(H,.3));
+  set('--modal-scrim',      _thRgba(H,.45));
+  set('--modal-shadow',     '0 20px 60px ' + _thRgba(H,.2));
+  set('--toast-bg',         t.header);
+  set('--popup-bar-sub-bg', _thToHex(_thMix(H, black, 0.05)));
+  set('--chart-total-fill', _thRgba(H,.15));
+  set('--chart-total-line', _thRgba(H,.4));
+
+  // Panel (its own color, separate from the header)
+  set('--panel-bg',          t.panel);
+  set('--panel-grad-start',  t.panel);
+  set('--panel-grad-end',    _thToHex(_thMix(P, white, 0.07)));
+  set('--panel-shadow',      '0 4px 12px ' + _thRgba(P,.2));
+  set('--panel-shadow-soft', '0 4px 12px ' + _thRgba(P,.15));
+
+  // Accent-tinted rings, highlights and fills
+  set('--btn-primary-shadow', '0 2px 8px ' + _thRgba(A,.3));
+  set('--input-focus-shadow', '0 0 0 3px ' + _thRgba(A,.12) + ', 0 1px 3px rgba(0,0,0,.07)');
+  set('--select-ring',        '0 0 0 3px ' + _thRgba(A,.2));
+  set('--select-ring-soft',   '0 0 0 3px ' + _thRgba(A,.15));
+  set('--tag-accent-bg',      _thRgba(A,.15));
+  set('--today-bg',           _thRgba(A,.06));
+  set('--accent-soft-bg',     _thRgba(A,.2));
+  set('--accent-soft-line',   _thRgba(A,.4));
+  set('--tab-active-bg',      _thRgba(A,.05));
+  set('--chart-rate-line',    t.accent);
+  set('--chart-rate-fill',    _thRgba(A,.1));
+
+  // The accent is used both as a fill (with white text) and as text on
+  // the dark header and panel. On a dark surface a deep accent can get
+  // lost, so the header and panel each get their own copy of the accent,
+  // lightened until it stands out from that surface, with the text drawn
+  // on top of it switched to dark if white would no longer read.
+  var onDark = function(bgRgb) {
+    var c = A, g = 0;
+    while (_thContrast(c, bgRgb) < 3 && g++ < 40) c = _thMix(c, white, 0.06);
+    var ink = _thContrast(c, white) >= 3 ? '#fff' : THEME_TEXT_REF;
+    return [_thToHex(c), ink];
+  };
+  var ca = onDark(H), pa = onDark(P);
+  set('--chrome-accent',      ca[0]);
+  set('--chrome-accent-text', ca[1]);
+  set('--panel-accent',       pa[0]);
+  set('--panel-accent-text',  pa[1]);
+
+  // Fixed-meaning tokens that were defined through the brand colors:
+  // pin them to their original values so the theme cannot move them.
+  set('--stage-payment',    '#1B2B4B');
+  set('--status-scheduled', '#F26522');
+  return t;
+}
+
+// Apply the saved theme before first paint.
+(function(){
+  try {
+    var s = JSON.parse(localStorage.getItem('fp_settings') || '{}');
+    if (s && s.theme) applyTheme(s.theme);
+  } catch (e) {}
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 </head>
 <body>
@@ -1299,7 +1475,7 @@
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.24.8</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.25.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1821,15 +1997,15 @@
       </div>
       <div style="height:1px;background:var(--panel-ink-15);margin:2px 0"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--panel-ink-70)">
-        <span>Markup in SM (%)</span><span style="font-family:var(--mono);color:var(--orange);font-weight:700;font-size:15px" id="crm_mupct">—</span>
+        <span>Markup in SM (%)</span><span style="font-family:var(--mono);color:var(--panel-accent);font-weight:700;font-size:15px" id="crm_mupct">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--panel-ink-70)">
-        <span>Markup in SM ($)</span><span style="font-family:var(--mono);color:var(--orange);font-weight:700;font-size:15px" id="crm_muDol">—</span>
+        <span>Markup in SM ($)</span><span style="font-family:var(--mono);color:var(--panel-accent);font-weight:700;font-size:15px" id="crm_muDol">—</span>
       </div>
       <div style="height:1px;background:var(--panel-ink-15);margin:4px 0"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:15px;font-weight:800;color:var(--panel-ink)">Final Price (CC)</span>
-        <span style="font-family:var(--mono);color:var(--orange);font-size:22px;font-weight:900;letter-spacing:-.5px" id="crm_final">—</span>
+        <span style="font-family:var(--mono);color:var(--panel-accent);font-size:22px;font-weight:900;letter-spacing:-.5px" id="crm_final">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
         <span style="font-size:13px;font-weight:700;color:var(--metric-cash)">Cash / Check Price</span>
@@ -2710,6 +2886,32 @@
       </div>
       <div id="supplierList" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto"></div>
 
+      </div></div>
+
+    <!-- ── APPEARANCE (v3.25.0) ────────────────────────────── -->
+    <div class="card" style="margin-top:12px;margin-bottom:12px">
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_appearance')">
+        <div class="card-title" style="margin:0">🎨 Appearance</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_appearance">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">
+        Pick a color scheme for the whole app. It applies right away and syncs to your other devices.
+        Colors that carry meaning (paid, overdue, pipeline status, delete) stay fixed so they read the same in every theme.
+        Customer documents are not affected yet.
+      </div>
+      <div class="theme-grid" id="themeGrid"></div>
+      <div id="themeCustomWrap" style="display:none">
+        <div class="theme-custom">
+          <div class="f"><label>HEADER</label><div class="theme-color-row"><input type="color" id="thc_header" oninput="onThemeColorInput('header',this.value)"><input type="text" id="tht_header" maxlength="7" onchange="onThemeColorInput('header',this.value)"></div><div class="theme-adjust" id="tha_header"></div></div>
+          <div class="f"><label>PRICE PANEL</label><div class="theme-color-row"><input type="color" id="thc_panel" oninput="onThemeColorInput('panel',this.value)"><input type="text" id="tht_panel" maxlength="7" onchange="onThemeColorInput('panel',this.value)"></div><div class="theme-adjust" id="tha_panel"></div></div>
+          <div class="f"><label>ACCENT</label><div class="theme-color-row"><input type="color" id="thc_accent" oninput="onThemeColorInput('accent',this.value)"><input type="text" id="tht_accent" maxlength="7" onchange="onThemeColorInput('accent',this.value)"></div><div class="theme-adjust" id="tha_accent"></div></div>
+          <div class="f"><label>BACKGROUND</label><div class="theme-color-row"><input type="color" id="thc_bg" oninput="onThemeColorInput('bg',this.value)"><input type="text" id="tht_bg" maxlength="7" onchange="onThemeColorInput('bg',this.value)"></div><div class="theme-adjust" id="tha_bg"></div></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn btn-sm" onclick="setThemePreset('classic')">Reset to Classic</button>
+      </div>
       </div></div>
 
     <!-- ── COMPANIES ───────────────────────────────────────── -->
@@ -6079,6 +6281,7 @@ document.addEventListener('DOMContentLoaded', () => {
   showApp();
   setFavicon(activeCompany);
   loadSettings();
+  renderAppearanceCard(); // v3.25.0
   updateCloudStatus();
   onFranchChange();
 
@@ -6166,6 +6369,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (s.companyEmail) settings.companyEmail = s.companyEmail;
           if (s.companyAddr)  settings.companyAddr  = s.companyAddr;
           if (s.apiKey)       settings.apiKey       = s.apiKey;
+          if (s.theme)        { settings.theme = typeof s.theme === 'string' ? s.theme : JSON.stringify(s.theme); refreshThemeFromSettings(); } // v3.25.0
           if (s.templates)    { try { localStorage.setItem('fp_templates',       JSON.stringify(typeof s.templates === 'string' ? JSON.parse(s.templates) : s.templates)); } catch(e) {} }
           if (s.emailTemplates) { try { localStorage.setItem('fp_email_templates', JSON.stringify(typeof s.emailTemplates === 'string' ? JSON.parse(s.emailTemplates) : s.emailTemplates)); } catch(e) {} }
           localStorage.setItem('fp_settings', JSON.stringify(settings));
@@ -7792,7 +7996,7 @@ function initSetupCollapse() {
   // Default collapsed sections (ones that aren't commonly needed)
   const defaultCollapsed = [
     'sc_passphrase','sc_guide','sc_backup','sc_estbackup',
-    'sc_download','sc_migration','sc_contacts','sc_lists'
+    'sc_download','sc_migration','sc_contacts','sc_lists','sc_appearance'
   ];
   let states = {};
   try { states = JSON.parse(localStorage.getItem('fp_setup_collapsed') || '{}'); } catch(e) {}
@@ -9817,6 +10021,75 @@ function updateCloudStatus() {
 }
 
 // ════════════════════════════════════════════════
+// v3.25.0 - SETUP ▸ APPEARANCE (theme picker)
+// The theme engine itself (presets, readability guard, applyTheme) lives
+// in the small <script> in <head> so it can run before first paint.
+// settings.theme is stored as a JSON string, the same way email
+// templates are, so it round-trips through the Settings sheet as text.
+// Saving writes only settings.theme; it deliberately does not call
+// saveSettings(), which re-reads the Setup connection fields from the
+// screen and could blank them if they were not filled in yet.
+// ════════════════════════════════════════════════
+function currentThemeRaw() {
+  return settings.theme || '{"preset":"classic"}';
+}
+function saveThemeSetting(themeObj) {
+  settings.theme = JSON.stringify(themeObj);
+  localStorage.setItem('fp_settings', JSON.stringify(settings));
+  clearTimeout(window._themeSyncTimer);
+  window._themeSyncTimer = setTimeout(function(){
+    if (settings.scriptUrl) cloudCall({ action: 'saveSettings', data: settings }).catch(function(){});
+  }, 1200);
+}
+function setThemePreset(id) {
+  var t = (id === 'custom') ? resolveTheme(currentThemeRaw()) : { preset: id };
+  if (id === 'custom') t.preset = 'custom';
+  applyTheme(t);
+  saveThemeSetting(t);
+  renderAppearanceCard();
+  if (id !== 'custom') showToast('✓ Theme set: ' + (THEME_PRESETS.find(function(p){ return p.id === id; }) || THEME_PRESETS[0]).name);
+}
+function onThemeColorInput(key, value) {
+  var v = String(value || '').trim();
+  if (v && v.charAt(0) !== '#') v = '#' + v;
+  if (!_thHex(v)) { renderAppearanceCard(); return; }
+  var t = resolveTheme(currentThemeRaw());
+  t.preset = 'custom';
+  t[key] = _thToHex(_thHex(v));
+  var applied = applyTheme(t);
+  saveThemeSetting(t);
+  renderAppearanceCard();
+  var note = document.getElementById('tha_' + key);
+  if (note) note.textContent = applied[key] !== t[key] ? 'Darkened to ' + applied[key] + ' so text stays readable' : '';
+  if (note && key === 'bg' && applied.bg !== t.bg) note.textContent = 'Lightened to ' + applied.bg + ' so text stays readable';
+}
+function renderAppearanceCard() {
+  var grid = document.getElementById('themeGrid');
+  if (!grid) return;
+  var cur = resolveTheme(currentThemeRaw());
+  var tiles = THEME_PRESETS.concat([{ id:'custom', name:'Custom', header:cur.header, panel:cur.panel, accent:cur.accent, bg:cur.bg }]);
+  grid.innerHTML = tiles.map(function(p){
+    return '<button type="button" class="theme-tile' + (cur.preset === p.id ? ' selected' : '') + '" onclick="setThemePreset(\'' + p.id + '\')">' +
+      '<div class="theme-tile-hdr" style="background:' + p.header + '"><span class="theme-tile-dot" style="background:' + p.accent + '"></span></div>' +
+      '<div class="theme-tile-body" style="background:' + p.bg + '"><span class="theme-tile-panel" style="background:' + p.panel + '"></span></div>' +
+      '<div class="theme-tile-name">' + (p.id === 'custom' ? '✏️ ' : '') + p.name + '</div></button>';
+  }).join('');
+  var wrap = document.getElementById('themeCustomWrap');
+  if (wrap) wrap.style.display = cur.preset === 'custom' ? '' : 'none';
+  ['header','panel','accent','bg'].forEach(function(k){
+    var c = document.getElementById('thc_' + k), x = document.getElementById('tht_' + k);
+    if (c) c.value = cur[k].toLowerCase();
+    if (x && document.activeElement !== x) x.value = cur[k];
+  });
+}
+// Called after cloud settings are merged in, so a theme picked on
+// another device shows up here too.
+function refreshThemeFromSettings() {
+  applyTheme(currentThemeRaw());
+  renderAppearanceCard();
+}
+
+// ════════════════════════════════════════════════
 // SETTINGS
 // ════════════════════════════════════════════════
 function saveSettings() {
@@ -9881,6 +10154,8 @@ async function loadCloudSettings() {
     }
     // Restore apiKey from cloud if missing locally
     if (s.apiKey) settings.apiKey = s.apiKey;
+    // v3.25.0 - theme picked on another device
+    if (s.theme) { settings.theme = typeof s.theme === 'string' ? s.theme : JSON.stringify(s.theme); refreshThemeFromSettings(); }
 
     localStorage.setItem('fp_settings', JSON.stringify(settings));
     loadSettings();
