@@ -1475,7 +1475,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.25.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.25.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -8198,7 +8198,63 @@ function collectData() {
   };
 }
 
-async function saveJob() {
+// ════════════════════════════════════════════════
+// v3.25.1 - ONE SAVE AT A TIME
+// A brand-new estimate goes to the cloud with a blank ID and Code.gs
+// hands back the next free letter. Before this fix, a second save that
+// started while the first was still waiting on the cloud (the sidebar
+// Save button was never disabled, only the toolbar one was) also went
+// out with a blank ID, so the server wrote the same estimate twice as
+// A and B, and the screen kept whichever answer came back last, often
+// B. That is how job 989 ended up showing only B.
+// Now every call to saveJob(), from any button or from inside the app,
+// goes through this gate: while one save is running, a new request is
+// held and run once, right after, so it picks up the real assigned ID
+// and updates that same row. Any further requests during that wait
+// share the one queued save instead of piling up.
+// ════════════════════════════════════════════════
+let _saveJobRunning = null;   // promise of the save currently running
+let _saveJobQueued  = null;   // promise of the single follow-up save, if any
+
+function saveJob() {
+  if (_saveJobQueued) return _saveJobQueued;
+  if (_saveJobRunning) {
+    const waitFor = _saveJobRunning;
+    _saveJobQueued = waitFor.then(() => {
+      _saveJobQueued = null;
+      return _runSaveJob(true);
+    });
+    return _saveJobQueued;
+  }
+  return _runSaveJob(false);
+}
+
+function _runSaveJob(isQueuedRerun) {
+  const run = _saveJobCore(isQueuedRerun)
+    .catch(e => console.error('saveJob error:', e))
+    .finally(() => { if (_saveJobRunning === run) _saveJobRunning = null; });
+  _saveJobRunning = run;
+  return run;
+}
+
+// Every Save button on the page, not just the first one found.
+function _setSaveButtonsBusy(busy) {
+  document.querySelectorAll('button[onclick*="saveJob("]').forEach(btn => {
+    if (busy) {
+      if (btn.dataset.saveLabel === undefined) btn.dataset.saveLabel = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '⏳ Saving...';
+    } else {
+      btn.disabled = false;
+      if (btn.dataset.saveLabel !== undefined) {
+        btn.innerHTML = btn.dataset.saveLabel;
+        delete btn.dataset.saveLabel;
+      }
+    }
+  });
+}
+
+async function _saveJobCore(isQueuedRerun) {
   const data = collectData();
   const validationError = validateRequired();
   if (validationError) {
@@ -8213,7 +8269,9 @@ async function saveJob() {
   // bug Didz reported was this prompt re-firing on every one of those saves
   // at every later stage, not just while still quoting. Always allow
   // override while it does apply.
-  if (['Draft', 'Committed'].includes(data.propStatus)) {
+  // The queued follow-up save skips these prompts: the person already
+  // answered them for the save that was running when they clicked again.
+  if (!isQueuedRerun && ['Draft', 'Committed'].includes(data.propStatus)) {
     if (data.totalLF > 0 && data.demoLF === 0) {
       const proceed = confirm(
         '⚠ DEMO LF IS 0\n\n' +
@@ -8309,10 +8367,10 @@ async function saveJob() {
     return;
   }
 
-  // Disable Save button during cloud sync to prevent race condition
-  // where a second save fires before the server assigns the estimate ID
-  const saveBtn = document.querySelector('button[onclick="saveJob()"]');
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Saving...'; }
+  // Disable every Save button during cloud sync (v3.25.1: previously only
+  // the first one on the page was disabled). The saveJob() gate above is
+  // what actually prevents a duplicate; this is just visual feedback.
+  _setSaveButtonsBusy(true);
 
   setCloud('saving', 'Syncing...');
   try {
@@ -8390,10 +8448,10 @@ async function saveJob() {
     showToast('⚠️ Cloud sync failed: ' + (e.message||'').substring(0, 80));
     console.error('Cloud sync error:', e.message, e);
   } finally {
-    // Always re-enable Save button when cloud sync completes
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Save'; }
+    // Always re-enable the Save buttons when cloud sync completes
+    _setSaveButtonsBusy(false);
   }
-} // end saveJob
+} // end _saveJobCore
 
 
 function renderSiblingPills() {
