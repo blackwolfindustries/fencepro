@@ -1475,7 +1475,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.25.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.26.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1918,10 +1918,15 @@ function applyTheme(raw) {
   <div class="card" style="padding:10px 12px">
     <div class="card-title" style="margin-bottom:8px">Contact & Address</div>
     <div class="contact-addr-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px">
+      <!-- v3.26.0 - property picker: only shown when the linked contact has extra properties (or a new address worth saving) -->
+      <div id="propPickerWrap" style="display:none;grid-column:1/-1;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div class="f" style="gap:3px;flex:1;min-width:220px"><label style="font-size:8px">PROPERTY <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)">this customer has more than one address</span></label><select id="propPicker" onchange="onPropPick()" style="padding:5px 8px;font-size:12px"></select></div>
+        <button type="button" class="btn btn-sm" id="propSaveBtn" style="display:none" onclick="saveAddrToContact()">💾 Save this address to contact</button>
+      </div>
       <div class="f" style="gap:3px"><label style="font-size:8px">PHONE</label><input id="custPhone" placeholder="(631) 555-0000" oninput="formatPhone(this)" style="padding:5px 8px;font-size:12px"></div>
       <div class="f" style="gap:3px"><label style="font-size:8px">EMAIL</label><input type="email" id="custEmail" placeholder="customer@email.com" style="padding:5px 8px;font-size:12px"></div>
-      <div class="f" style="gap:3px;grid-column:span 2"><label style="font-size:8px">STREET ADDRESS</label><input id="jobAddr" placeholder="123 Main St" style="padding:5px 8px;font-size:12px"></div>
-      <div class="f" style="gap:3px"><label style="font-size:8px">UNIT / APT</label><input id="jobAddr2" placeholder="Unit 2B (optional)" style="padding:5px 8px;font-size:12px"></div>
+      <div class="f" style="gap:3px;grid-column:span 2"><label style="font-size:8px">STREET ADDRESS</label><input id="jobAddr" placeholder="123 Main St" oninput="refreshPropPicker()" style="padding:5px 8px;font-size:12px"></div>
+      <div class="f" style="gap:3px"><label style="font-size:8px">UNIT / APT</label><input id="jobAddr2" placeholder="Unit 2B (optional)" oninput="refreshPropPicker()" style="padding:5px 8px;font-size:12px"></div>
       <div class="f" style="gap:3px"><label style="font-size:8px">CITY</label><input id="jobCity" placeholder="Commack" style="padding:5px 8px;font-size:12px"></div>
       <div class="f" style="gap:3px"><label style="font-size:8px">STATE</label><input id="jobState" value="NY" placeholder="NY" style="padding:5px 8px;font-size:12px;max-width:60px"></div>
     </div>
@@ -2334,6 +2339,14 @@ function applyTheme(raw) {
       </div>
       <div class="f"><label>CHANNEL</label><input id="con_channel" placeholder="e.g. Google, Referral"></div>
       <div class="f"><label>CAMPAIGN</label><input id="con_campaign" placeholder="e.g. Spring 2026"></div>
+      <!-- v3.26.0 - additional properties that roll up to this contact -->
+      <div class="f s2" style="gap:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <label style="margin:0">ADDITIONAL PROPERTIES <span style="font-size:9px;color:var(--text3);font-weight:400;text-transform:none">other addresses for this same customer</span></label>
+          <button type="button" class="btn btn-sm" onclick="addConProp()">+ Add property</button>
+        </div>
+        <div id="con_props_list"></div>
+      </div>
     </div>
     <input type="hidden" id="con_uid">
     <div class="mactions">
@@ -7270,6 +7283,7 @@ function importContactsCSV(text, isIncremental) {
       // Update existing contact — preserve createdAt if CSV column AN is blank
       const prev = existingMap[uid];
       if (!contact.createdAt && prev.createdAt) contact.createdAt = prev.createdAt;
+      if (prev.properties) contact.properties = prev.properties;   // v3.26.0
       existingMap[uid] = contact;
       updated++;
     } else {
@@ -7455,6 +7469,7 @@ function selectContact(idx) {
   }
   dd.style.display = 'none';
   assembleId();
+  refreshPropPicker();   // v3.26.0
 }
 
 function onCustNameKey(e) {
@@ -7523,6 +7538,7 @@ function assembleId() {
         });
         if (latest.custZip) onZip();
         if (latest.contactUID) document.getElementById('estContactUID').value = latest.contactUID;
+        refreshPropPicker();   // v3.26.0
         // NOTE: do NOT set propStatus here — assembleId() only builds the ID string,
         // status is set by newEst() for new estimates and loadJobLocal() for existing ones
   const dpEl = document.getElementById('depositPct');
@@ -8728,6 +8744,7 @@ function loadJobLocal(idx) {
   updateBadge();
   renderSiblingPills();
   refreshAudit();   // load proposal activity for this estimate
+  refreshPropPicker();   // v3.26.0
   show('est');
 }
 
@@ -8783,6 +8800,7 @@ function newEst() {
   document.getElementById('idAssembled').textContent = '';
   document.getElementById('jobNo').value = '';  // blank = new estimate, server assigns ID
   document.getElementById('estContactUID').value = '';
+  refreshPropPicker();   // v3.26.0
   recalc();
   clearAudit();  // hide audit panel when starting a fresh estimate
 }
@@ -11893,7 +11911,8 @@ function renderCRM() {
 
     // Global search bar
     if (q) {
-      const hay = [c.name, c.phone, c.email, c.city, c.zip, c.channel, c.campaign].join(' ').toLowerCase();
+      const propHay = getContactProps(c).map(p => [p.label, p.addr1, p.city, p.zip].join(' ')).join(' ');   // v3.26.0
+      const hay = [c.name, c.phone, c.email, c.city, c.zip, c.channel, c.campaign, propHay].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
 
@@ -11968,6 +11987,7 @@ function renderCRM() {
     ).length;
 
     const createdDisplay = fmtCreatedDate(c.createdAt);
+    const propCount = getContactProps(c).length;   // v3.26.0 - additional properties
 
     // v3.21.0 — small badge showing a booked estimate visit, if one exists
     let apptBadge = '';
@@ -11983,6 +12003,7 @@ function renderCRM() {
       <td>
         <div style="font-weight:700;font-size:13px;color:var(--navy)">${escHtml(c.name || '—')}</div>
         ${estCount > 0 ? `<div style="font-size:10px;color:var(--text3)">${estCount} estimate${estCount>1?'s':''}</div>` : ''}
+        ${propCount > 0 ? `<div style="font-size:10px;color:var(--blue);font-weight:600">🏢 ${propCount + 1} properties</div>` : ''}
         ${apptBadge}
       </td>
       <td style="font-family:var(--mono);font-size:12px">${escHtml(c.phone || '—')}</td>
@@ -12048,6 +12069,8 @@ function openAddContact() {
   document.getElementById('con_category').value = 'Prospect';
   document.getElementById('con_channel').value   = '';
   document.getElementById('con_campaign').value  = '';
+  conPropsDraft = [];
+  renderConProps();
   const banner = document.getElementById('con_zip_unknown');
   if (banner) banner.style.display = 'none';
   document.getElementById('mContact').classList.remove('hidden');
@@ -12069,6 +12092,8 @@ function openEditContact(uid) {
   document.getElementById('con_category').value = c.category || 'Prospect';
   document.getElementById('con_channel').value   = c.channel  || '';
   document.getElementById('con_campaign').value  = c.campaign || '';
+  conPropsDraft = getContactProps(c).map(p => ({ ...p }));
+  renderConProps();
   const banner = document.getElementById('con_zip_unknown');
   if (banner) banner.style.display = (c.zip && c.zip.length === 5 && !lookupZip(c.zip)) ? '' : 'none';
   document.getElementById('mContact').classList.remove('hidden');
@@ -12078,10 +12103,27 @@ function saveContactForm() {
   const name = document.getElementById('con_name').value.trim();
   if (!name) { alert('Name is required'); return; }
 
+  // v3.26.0 - read the Additional Properties rows. A row needs a street
+  // address; a fully blank row is simply dropped.
+  syncConPropsFromDom();
+  const propRows = conPropsDraft.filter(p => p.label || p.addr1 || p.addr2 || p.city || p.zip);
+  if (propRows.some(p => !p.addr1)) {
+    alert('Each additional property needs a street address. Fill it in or remove that row.');
+    return;
+  }
+  propRows.forEach(p => { if (!p.id) p.id = 'P-' + Date.now() + '-' + Math.floor(Math.random() * 9000 + 1000); });
+
   const uid = document.getElementById('con_uid').value.trim()
     || 'FP-' + Date.now() + '-' + Math.floor(Math.random() * 9000 + 1000);
 
+  const idx  = contacts.findIndex(c => c.uid === uid);
+  const prev = idx >= 0 ? contacts[idx] : null;
+
+  // v3.26.0 - start from the existing record so fields this form does not
+  // show (booked estimate appointment, state, billing address, etc.) are
+  // kept on edit instead of being wiped by a save.
   const updated = {
+    ...(prev || {}),
     uid,
     name,
     phone:    document.getElementById('con_phone').value.trim(),
@@ -12094,18 +12136,14 @@ function saveContactForm() {
     category: document.getElementById('con_category')?.value || 'Prospect',
     channel:  document.getElementById('con_channel').value.trim(),
     campaign: document.getElementById('con_campaign').value.trim(),
+    properties: propRows.length ? JSON.stringify(propRows) : '',
     source:   'FencePro',
-    createdAt: new Date().toISOString(),
-    inactive: false,
+    // Preserve existing createdAt only if it's a real non-empty value
+    createdAt: (prev && prev.createdAt && String(prev.createdAt).trim()) ? prev.createdAt : new Date().toISOString(),
+    inactive: prev ? (prev.inactive || false) : false,
   };
 
-  const idx = contacts.findIndex(c => c.uid === uid);
   if (idx >= 0) {
-    // Preserve inactive status and createdAt on edit
-    updated.inactive  = contacts[idx].inactive  || false;
-    // Preserve existing createdAt only if it's a real non-empty value
-    const prevCreated = contacts[idx].createdAt;
-    updated.createdAt = (prevCreated && prevCreated.trim()) ? prevCreated : updated.createdAt;
     contacts[idx] = updated;
   } else {
     contacts.push(updated);
@@ -12170,6 +12208,204 @@ function deleteContact(uid, name) {
   status('Contact deleted: ' + name);
 }
 
+// ════════════════════════════════════════════════
+// v3.26.0 — ADDITIONAL PROPERTIES
+// A contact can carry extra service addresses (e.g. an owner of several
+// complexes). Stored on the contact as c.properties = JSON text of
+// [{id,label,addr1,addr2,city,state,zip,county}] (one Contacts-sheet
+// column, so it syncs with the contact like every other field). The
+// contact's own address stays the "main" property; jobs keep their own
+// address fields and link back by contactUID, so estimate counts already
+// roll up with no change.
+// ════════════════════════════════════════════════
+function getContactProps(c) {
+  if (!c || !c.properties) return [];
+  try {
+    const arr = typeof c.properties === 'string' ? JSON.parse(c.properties) : c.properties;
+    return Array.isArray(arr) ? arr.filter(p => p && (p.addr1 || p.label)) : [];
+  } catch (e) { return []; }
+}
+function propAddrKey(a1, a2) {
+  return ((a1 || '') + '|' + (a2 || '')).toLowerCase().replace(/\s+/g, ' ').trim();
+}
+function propLine(p) { return [p.addr1, p.city].filter(Boolean).join(', '); }
+function propEsc(x) { return escHtml(x == null ? '' : x).replace(/"/g, '&quot;'); }
+
+// ── Contact modal: Additional Properties rows ──
+let conPropsDraft = [];
+
+function syncConPropsFromDom() {
+  const rows = document.querySelectorAll('#con_props_list .cp-row');
+  conPropsDraft = Array.from(rows).map(r => ({
+    id:     r.dataset.pid || '',
+    label:  r.querySelector('.cp-label').value.trim(),
+    addr1:  r.querySelector('.cp-addr1').value.trim(),
+    addr2:  r.querySelector('.cp-addr2').value.trim(),
+    city:   r.querySelector('.cp-city').value.trim(),
+    state:  r.dataset.state || 'NY',
+    zip:    r.querySelector('.cp-zip').value.trim(),
+    county: r.dataset.county || ''
+  }));
+}
+
+function renderConProps() {
+  const box = document.getElementById('con_props_list');
+  if (!box) return;
+  if (!conPropsDraft.length) {
+    box.innerHTML = '<div style="font-size:11px;color:var(--text3)">None. The address above is the only one for this contact.</div>';
+    return;
+  }
+  box.innerHTML = conPropsDraft.map((p, i) => `
+    <div class="cp-row" data-pid="${propEsc(p.id)}" data-county="${propEsc(p.county)}" data-state="${propEsc(p.state || 'NY')}"
+      style="border:1px solid var(--border);border-radius:var(--r);padding:8px;margin-bottom:6px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px">
+      <div class="f" style="grid-column:span 3;gap:3px"><label style="font-size:8px">PROPERTY NAME</label><input class="cp-label" value="${propEsc(p.label)}" placeholder="e.g. Maple Gardens"></div>
+      <div class="f" style="grid-column:span 3;gap:3px"><label style="font-size:8px">STREET ADDRESS</label><input class="cp-addr1" value="${propEsc(p.addr1)}" placeholder="123 Main St"></div>
+      <div class="f" style="grid-column:span 2;gap:3px"><label style="font-size:8px">UNIT / APT</label><input class="cp-addr2" value="${propEsc(p.addr2)}" placeholder="optional"></div>
+      <div class="f" style="grid-column:span 2;gap:3px"><label style="font-size:8px">CITY</label><input class="cp-city" value="${propEsc(p.city)}" placeholder="Huntington"></div>
+      <div class="f" style="gap:3px"><label style="font-size:8px">ZIP</label><input class="cp-zip" value="${propEsc(p.zip)}" maxlength="5" placeholder="11743" oninput="onConPropZip(this)"></div>
+      <div style="display:flex;align-items:flex-end"><button type="button" class="btn btn-sm" style="color:var(--red)" onclick="removeConProp(${i})">🗑</button></div>
+    </div>`).join('');
+}
+
+function addConProp() {
+  syncConPropsFromDom();
+  conPropsDraft.push({ id: 'P-' + Date.now() + '-' + Math.floor(Math.random() * 9000 + 1000),
+    label: '', addr1: '', addr2: '', city: '', state: 'NY', zip: '', county: '' });
+  renderConProps();
+}
+
+function removeConProp(i) {
+  syncConPropsFromDom();
+  conPropsDraft.splice(i, 1);
+  renderConProps();
+}
+
+// Zip -> city/county for a property row (same lookup the main contact form uses)
+function onConPropZip(el) {
+  const row = el.closest('.cp-row');
+  if (!row) return;
+  const zip = el.value.trim();
+  if (zip.length !== 5) return;
+  const r = lookupZip(zip);
+  if (r) {
+    const cityEl = row.querySelector('.cp-city');
+    if (cityEl) cityEl.value = r.city || cityEl.value;
+    row.dataset.county = r.county || '';
+  }
+}
+
+// ── Estimator: property picker ──
+function estLinkedContact() {
+  const uid = val('estContactUID');
+  return uid ? (contacts.find(x => x.uid === uid) || null) : null;
+}
+
+function currentEstAddr() {
+  return { addr1: val('jobAddr').trim(), addr2: val('jobAddr2').trim(), city: val('jobCity').trim(),
+           state: val('jobState').trim() || 'NY', zip: val('custZip').trim(), county: val('custCounty').trim() };
+}
+
+// Rebuilds the Property dropdown from the linked contact. Never changes the
+// address fields itself; only a user pick (onPropPick) does that.
+function refreshPropPicker() {
+  const wrap = document.getElementById('propPickerWrap');
+  const sel  = document.getElementById('propPicker');
+  const btn  = document.getElementById('propSaveBtn');
+  if (!wrap || !sel) return;
+
+  const c = estLinkedContact();
+  if (!c) { wrap.style.display = 'none'; return; }
+
+  const props   = getContactProps(c);
+  const cur     = currentEstAddr();
+  const curKey  = propAddrKey(cur.addr1, cur.addr2);
+  const hasMain = !!(c.addr1 && String(c.addr1).trim());
+  const matchesMain = hasMain && curKey === propAddrKey(c.addr1, c.addr2);
+  const matchIdx    = props.findIndex(p => propAddrKey(p.addr1, p.addr2) === curKey);
+  const isCustom    = !!cur.addr1 && !matchesMain && matchIdx < 0;
+  const canSave     = isCustom && hasMain;
+
+  // Nothing to pick from and nothing worth saving: stay out of the way
+  if (!props.length && !canSave) { wrap.style.display = 'none'; return; }
+
+  const opts = [];
+  if (hasMain) opts.push({ v: 'main', t: 'Main: ' + propLine(c) });
+  props.forEach((p, i) => opts.push({ v: 'p' + i, t: (p.label || p.addr1) + ': ' + propLine(p) }));
+  if (isCustom) opts.push({ v: 'custom', t: 'Custom address (not saved)' });
+  let selected = matchesMain ? 'main' : (matchIdx >= 0 ? 'p' + matchIdx : (isCustom ? 'custom' : ''));
+  if (!selected) opts.unshift({ v: '', t: 'Select a property...' });
+
+  sel.innerHTML = opts.map(o => `<option value="${propEsc(o.v)}">${propEsc(o.t)}</option>`).join('');
+  sel.value = selected;
+  if (btn) btn.style.display = canSave ? '' : 'none';
+  wrap.style.display = 'flex';
+}
+
+function applyAddrToEstimator(p) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  set('jobAddr',  p.addr1);
+  set('jobAddr2', p.addr2);
+  set('jobCity',  p.city);
+  set('jobState', p.state || 'NY');
+  set('custCity', p.city);
+  set('custCounty', p.county);
+  set('custZip',  (p.zip || '').toString().substring(0, 5));
+  onZip();   // fills city/county from the zip table; recalcs
+  // Note: assembleId() is deliberately NOT called here. The estimate ID is
+  // built from job # and customer name only, and assembleId() can re-fill
+  // the address from an older estimate with the same job #, which would
+  // undo the property the user just picked.
+}
+
+function onPropPick() {
+  const c = estLinkedContact();
+  if (!c) return;
+  const v = document.getElementById('propPicker').value;
+  let p = null;
+  if (v === 'main') {
+    p = { addr1: c.addr1, addr2: c.addr2, city: c.city, state: c.state || 'NY', zip: c.zip, county: c.county };
+  } else if (/^p\d+$/.test(v)) {
+    p = getContactProps(c)[parseInt(v.slice(1), 10)];
+  }
+  if (!p) return;
+  applyAddrToEstimator(p);
+  refreshPropPicker();
+  status('Property set: ' + propLine(p));
+}
+
+function saveAddrToContact() {
+  const idx = contacts.findIndex(x => x.uid === val('estContactUID'));
+  if (idx < 0) return;
+  const c   = contacts[idx];
+  const cur = currentEstAddr();
+  if (!cur.addr1) { alert('Enter a street address first'); return; }
+
+  const props = getContactProps(c);
+  const key   = propAddrKey(cur.addr1, cur.addr2);
+  if (key === propAddrKey(c.addr1, c.addr2) || props.some(p => propAddrKey(p.addr1, p.addr2) === key)) {
+    status('That address is already saved for ' + c.name);
+    refreshPropPicker();
+    return;
+  }
+
+  const label = prompt('Name for this property (optional, e.g. Maple Gardens):', '');
+  if (label === null) return;
+
+  props.push({
+    id: 'P-' + Date.now() + '-' + Math.floor(Math.random() * 9000 + 1000),
+    label: label.trim(), addr1: cur.addr1, addr2: cur.addr2, city: cur.city,
+    state: cur.state || 'NY', zip: (cur.zip || '').substring(0, 5), county: cur.county
+  });
+  contacts[idx] = { ...c, properties: JSON.stringify(props) };
+  localStorage.setItem('fp_contacts', JSON.stringify(contacts));
+  if (settings.scriptUrl) {
+    cloudCall({ action: 'saveContact', data: contacts[idx] }).catch(() => {});
+  }
+  refreshPropPicker();
+  renderCRM();
+  status('Property saved to ' + c.name + (label.trim() ? ': ' + label.trim() : ''));
+}
+
 function crmStartEstimate(uid) {
   const c = contacts.find(x => x.uid === uid);
   if (!c) return;
@@ -12203,6 +12439,7 @@ function crmStartEstimate(uid) {
   }
 
   assembleId();
+  refreshPropPicker();   // v3.26.0
   status('Pre-filled from CRM: ' + c.name + ' — enter job # to begin');
 }
 
