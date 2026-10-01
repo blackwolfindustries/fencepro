@@ -1475,7 +1475,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.26.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.27.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1923,8 +1923,8 @@ function applyTheme(raw) {
         <div class="f" style="gap:3px;flex:1;min-width:220px"><label style="font-size:8px">PROPERTY <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)">this customer has more than one address</span></label><select id="propPicker" onchange="onPropPick()" style="padding:5px 8px;font-size:12px"></select></div>
         <button type="button" class="btn btn-sm" id="propSaveBtn" style="display:none" onclick="saveAddrToContact()">💾 Save this address to contact</button>
       </div>
-      <div class="f" style="gap:3px"><label style="font-size:8px">PHONE</label><input id="custPhone" placeholder="(631) 555-0000" oninput="formatPhone(this)" style="padding:5px 8px;font-size:12px"></div>
-      <div class="f" style="gap:3px"><label style="font-size:8px">EMAIL</label><input type="email" id="custEmail" placeholder="customer@email.com" style="padding:5px 8px;font-size:12px"></div>
+      <div class="f" style="gap:3px"><label style="font-size:8px">PHONE</label><input id="custPhone" placeholder="(631) 555-0000" oninput="formatPhone(this);markEstContactDirty('phone')" style="padding:5px 8px;font-size:12px"></div>
+      <div class="f" style="gap:3px"><label style="font-size:8px">EMAIL</label><input type="email" id="custEmail" placeholder="customer@email.com" oninput="markEstContactDirty('email')" style="padding:5px 8px;font-size:12px"></div>
       <div class="f" style="gap:3px;grid-column:span 2"><label style="font-size:8px">STREET ADDRESS</label><input id="jobAddr" placeholder="123 Main St" oninput="refreshPropPicker()" style="padding:5px 8px;font-size:12px"></div>
       <div class="f" style="gap:3px"><label style="font-size:8px">UNIT / APT</label><input id="jobAddr2" placeholder="Unit 2B (optional)" oninput="refreshPropPicker()" style="padding:5px 8px;font-size:12px"></div>
       <div class="f" style="gap:3px"><label style="font-size:8px">CITY</label><input id="jobCity" placeholder="Commack" style="padding:5px 8px;font-size:12px"></div>
@@ -7454,6 +7454,7 @@ function selectContact(idx) {
   document.getElementById('custChannel').value    = c.channel  || '';
   document.getElementById('custCampaign').value   = c.campaign || '';
   document.getElementById('estContactUID').value  = c.uid      || '';
+  resetEstContactDirty();   // v3.27.0 - values just came from the contact
   // Auto-fill address fields from contact record
   if (c.addr1)  document.getElementById('jobAddr').value    = c.addr1;
   if (c.addr2)  document.getElementById('jobAddr2').value   = c.addr2;
@@ -7510,6 +7511,13 @@ function onFranchChange() {
 // ════════════════════════════════════════════════
 // ID GENERATION
 // ════════════════════════════════════════════════
+// v3.26.2 - assembleId() copies the latest sibling estimate's customer/address
+// fields into a brand-new estimate. It used to do that EVERY time it ran, and it
+// runs on every click or keystroke in Customer Name and after background syncs,
+// so it kept putting the sibling's address back over an address the user had
+// just picked (the "Option C shows the Arcadia address" bug). Now it copies once
+// per job number; changing the job number copies again. Reset by newEst().
+var _autoFillPrefix = '';
 function assembleId() {
   const prefix = document.getElementById('jobPrefix').value.trim();
   const name   = (val('custName') || '[Name]').split(' ')[0];
@@ -7530,15 +7538,18 @@ function assembleId() {
 
       // Only auto-fill if this is a brand new estimate (not recalling an existing one)
       if (curIdx < 0) {
-        const fields = ['custName','custPhone','custEmail','jobAddr','custZip',
-                        'custCity','custCounty','custChannel','custCampaign'];
-        fields.forEach(f => {
-          const el = document.getElementById(f);
-          if (el && latest[f]) el.value = latest[f];
-        });
-        if (latest.custZip) onZip();
-        if (latest.contactUID) document.getElementById('estContactUID').value = latest.contactUID;
-        refreshPropPicker();   // v3.26.0
+        if (_autoFillPrefix !== prefix) {   // v3.26.2 - once per job number, not on every call
+          _autoFillPrefix = prefix;
+          const fields = ['custName','custPhone','custEmail','jobAddr','custZip',
+                          'custCity','custCounty','custChannel','custCampaign'];
+          fields.forEach(f => {
+            const el = document.getElementById(f);
+            if (el && latest[f]) el.value = latest[f];
+          });
+          if (latest.custZip) onZip();
+          if (latest.contactUID) document.getElementById('estContactUID').value = latest.contactUID;
+          refreshPropPicker();   // v3.26.0
+        }
         // NOTE: do NOT set propStatus here — assembleId() only builds the ID string,
         // status is set by newEst() for new estimates and loadJobLocal() for existing ones
   const dpEl = document.getElementById('depositPct');
@@ -7565,6 +7576,7 @@ function assembleId() {
     // of updating the one being edited.
     if (curIdx < 0) document.getElementById('jobNo').value = '';
   } else {
+    _autoFillPrefix = '';   // v3.26.2
     document.getElementById('estId').textContent       = 'Enter job # to begin';
     document.getElementById('idAssembled').textContent = '';
     if (curIdx < 0) document.getElementById('jobNo').value = '';
@@ -8375,6 +8387,7 @@ async function _saveJobCore(isQueuedRerun) {
   renderJobsList();
   updateBadge();
   renderSiblingPills();
+  syncEstimateToContact(data);   // v3.27.0 - typed email/phone also updates the contact
   showToast('✓ Saved locally');
 
   // ── STEP 2: SYNC TO CLOUD IN BACKGROUND ───────────────────
@@ -8620,6 +8633,7 @@ function loadJobLocal(idx) {
 
   const d = jobs[idx];
   curIdx  = idx;
+  resetEstContactDirty();   // v3.27.0 - a freshly loaded estimate has nothing typed yet
   // Load photos — use in-memory array first, fall back to photoUrls/Photo URLs field
   const rawPhotos   = d.photos || [];
   const fallbackUrls = (
@@ -8767,6 +8781,7 @@ function setVal(id, val) {
 
 function newEst() {
   curIdx = -1;
+  resetEstContactDirty();   // v3.27.0
   photos = [];
   docs   = [];
   renderPhotos();
@@ -8800,6 +8815,7 @@ function newEst() {
   document.getElementById('idAssembled').textContent = '';
   document.getElementById('jobNo').value = '';  // blank = new estimate, server assigns ID
   document.getElementById('estContactUID').value = '';
+  _autoFillPrefix = '';   // v3.26.2
   refreshPropPicker();   // v3.26.0
   recalc();
   clearAudit();  // hide audit panel when starting a fresh estimate
@@ -12163,10 +12179,109 @@ function saveContactForm() {
     );
   }
 
+  // v3.27.0 - apply the email and phone to every estimate for this customer
+  const emailCount = propagateContactInfoToEstimates(updated);
+
   closeM('mContact');
   renderCRM();
   updateContactsStatus();
-  status('Contact saved: ' + name);
+  status('Contact saved: ' + name + (emailCount ? ' · email/phone applied to ' + emailCount + ' estimate' + (emailCount > 1 ? 's' : '') : ''));
+}
+
+// v3.27.0 - keep a customer's email and phone the same everywhere.
+// Each estimate stores its own copy (proposals, deposit receipts and the ST-124
+// send to it), so a change made in one place never reached the others. Two
+// directions are handled:
+//   1. Contact edited on the Contacts tab  -> copied onto every estimate for that customer
+//   2. Email or phone typed on an estimate -> becomes the contact's, then copied onto
+//      that customer's other estimates (syncEstimateToContact, below)
+// A blank value never wipes anything.
+function _digitsOnly(x) { return String(x == null ? '' : x).replace(/\D/g, ''); }
+
+// "Did the user type in this box on the estimate screen?" Programmatic fills
+// (opening an estimate, picking a contact) do not fire input events, so they
+// never set these. Without this, any internal save of an estimate that still
+// holds an old email (recording a deposit, scheduling, etc.) would push that
+// old email over a newer one on the contact.
+var _estContactDirty = { email: false, phone: false };
+function markEstContactDirty(kind) { if (kind in _estContactDirty) _estContactDirty[kind] = true; }
+function resetEstContactDirty() { _estContactDirty.email = false; _estContactDirty.phone = false; }
+
+// Copies the contact's email/phone onto every estimate for that customer.
+// Matches estimates the way the Contacts list counts them: by contact ID, or by
+// exact name for older estimates with no contact ID. Returns how many estimates changed.
+function propagateContactInfoToEstimates(c) {
+  const email = ((c && c.email) || '').trim();
+  const phone = ((c && c.phone) || '').trim();
+  if (!email && !phone) return 0;
+  const nameKey = ((c.name) || '').trim().toLowerCase();
+  const changed = [];
+  const changedIds = [];
+  jobs.forEach(j => {
+    const linked = (c.uid && j.contactUID === c.uid) ||
+                   (!j.contactUID && nameKey && (j.custName || '').trim().toLowerCase() === nameKey);
+    if (!linked) return;
+    let touched = false;
+    if (email && (j.custEmail || '').trim().toLowerCase() !== email.toLowerCase()) { j.custEmail = email; touched = true; }
+    if (phone && _digitsOnly(j.custPhone) !== _digitsOnly(phone))                   { j.custPhone = phone; touched = true; }
+    if (!touched) return;
+    changed.push(j);
+    if (j.id) changedIds.push(j.id);
+  });
+  if (!changed.length) return 0;
+  persistJobs();
+  // If one of these is the estimate open in the form, refresh the form too, or the
+  // next Save would write the old value straight back over the new one.
+  if (curIdx >= 0 && changed.includes(jobs[curIdx])) {
+    const ee = document.getElementById('custEmail'), pe = document.getElementById('custPhone');
+    if (ee && email) ee.value = email;
+    if (pe && phone) pe.value = phone;
+  }
+  if (settings.scriptUrl && changedIds.length) {
+    const payload = { estimateIds: changedIds };
+    if (email) payload.email = email;
+    if (phone) payload.phone = phone;
+    cloudCall({ action: 'updateEstimateContactInfo', data: payload }).catch(() => {});
+  }
+  return changed.length;
+}
+
+// Direction 2: an email or phone typed on the estimate becomes the contact's.
+// Runs from saveJob after the estimate is saved locally. Only acts on a box the
+// user actually typed in, and only if the value looks real (an @ for email, at
+// least 7 digits for phone) and differs from what the contact already has.
+function syncEstimateToContact(data) {
+  if (!_estContactDirty.email && !_estContactDirty.phone) return;
+  let ci = data.contactUID ? contacts.findIndex(c => c.uid === data.contactUID) : -1;
+  if (ci < 0) {
+    const nk = (data.custName || '').trim().toLowerCase();
+    if (nk) ci = contacts.findIndex(c => (c.name || '').trim().toLowerCase() === nk);
+  }
+  const typedEmail = (data.custEmail || '').trim();
+  const typedPhone = (data.custPhone || '').trim();
+  const wantEmail = _estContactDirty.email, wantPhone = _estContactDirty.phone;
+  resetEstContactDirty();
+  if (ci < 0) return;
+  const c = contacts[ci];
+  const next = { ...c };
+  const changes = [];
+  if (wantEmail && /\S+@\S+/.test(typedEmail) && typedEmail.toLowerCase() !== (c.email || '').trim().toLowerCase()) {
+    next.email = typedEmail; changes.push('email');
+  }
+  if (wantPhone && _digitsOnly(typedPhone).length >= 7 && _digitsOnly(typedPhone) !== _digitsOnly(c.phone)) {
+    next.phone = typedPhone; changes.push('phone');
+  }
+  if (!changes.length) return;
+  contacts[ci] = next;
+  localStorage.setItem('fp_contacts', JSON.stringify(contacts));
+  localStorage.setItem('fp_contacts_meta', JSON.stringify({ lastUpdated: new Date().toISOString(), total: contacts.length }));
+  if (settings.scriptUrl) {
+    cloudCall({ action: 'saveContact', data: next }).catch(() => {});
+  }
+  const n = propagateContactInfoToEstimates(next);
+  renderCRM();
+  status('Contact updated from this estimate: ' + changes.join(' and ') +
+    (n ? ' · applied to ' + n + ' other estimate' + (n > 1 ? 's' : '') : ''));
 }
 
 function toggleContactActive(uid) {
@@ -12430,6 +12545,7 @@ function crmStartEstimate(uid) {
   }
 
   document.getElementById('estContactUID').value = c.uid || '';
+  resetEstContactDirty();   // v3.27.0
 
   // v3.21.1 — carry over any notes taken when the estimate visit was booked
   // (what they want quoted, access details, etc.) so they aren't stranded
