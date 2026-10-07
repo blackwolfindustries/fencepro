@@ -616,6 +616,20 @@
   /* ── MODAL ────────────────────────────────────── */
   .moverlay{position:fixed;inset:0;background:var(--modal-scrim);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
   .mbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--rx);padding:24px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:var(--modal-shadow)}
+  /* v3.28.0 - manual invoice form */
+  .mi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+  .mi-grid>.c1{grid-column:span 1}.mi-grid>.c2{grid-column:span 2}.mi-grid>.c3{grid-column:span 3}.mi-grid>.c4{grid-column:span 4}.mi-grid>.c6{grid-column:1/-1}
+  @media(max-width:640px){.mi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mi-grid>.c1,.mi-grid>.c2,.mi-grid>.c3,.mi-grid>.c4{grid-column:span 1}.mi-grid>.c6{grid-column:1/-1}}
+  .mi-tbl{width:100%;border-collapse:collapse}
+  .mi-tbl th{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;text-align:left;padding:4px 4px}
+  .mi-tbl td{padding:3px 3px;vertical-align:top}
+  .mi-tbl input:not([type=checkbox]),.mi-tbl select{width:100%;box-sizing:border-box;padding:6px 8px;font-size:12px}
+  /* the app's .tog switch is styled for the dark header; give it a visible off state on a white form */
+  .mi-tbl .tog{width:34px;height:18px}
+  .mi-tbl .tog .tog-slider{background:var(--border2,#cbd2dc)}
+  .mi-tbl .tog .tog-slider:before{width:12px;height:12px;left:3px;top:3px;background:#fff;opacity:1;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .mi-tbl .tog input:checked+.tog-slider{background:var(--chrome-accent,#F26522)}
+  .mi-tbl .tog input:checked+.tog-slider:before{transform:translateX(16px)}
   .mtitle{font-size:16px;font-weight:800;color:var(--navy);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
   .mactions{display:flex;gap:8px;margin-top:20px;justify-content:flex-end}
 
@@ -1475,7 +1489,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.27.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.28.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2386,6 +2400,7 @@ function applyTheme(raw) {
         <option>Paid in Full</option>
         <option>Overdue</option>
       </select>
+      <button class="btn btn-a" style="padding:7px 14px;font-size:13px;font-weight:700" onclick="openManualInvoice()" title="Create an invoice that is not tied to a job">＋ Manual Invoice</button>
     </div>
   </div>
   <!-- Stats bar -->
@@ -4401,6 +4416,89 @@ function applyTheme(raw) {
   </div>
 </div>
 <!-- ══ END EDIT INVOICE MODAL ════════════════════════════════ -->
+
+<!-- ══ MANUAL INVOICE MODAL (v3.28.0) ═══════════════════════ -->
+<div class="moverlay hidden" id="mManualInvoice">
+  <div class="mbox" style="max-width:820px;width:100%">
+    <div class="mtitle">🧾 <span id="mi_title">Manual Invoice</span> <span id="mi_numLabel" style="font-size:12px;font-weight:600;color:var(--text3);font-family:var(--mono)"></span></div>
+
+    <div class="mi-grid">
+      <div class="f c3"><label>COMPANY (LETTERHEAD)</label><select id="mi_company" onchange="miCompanyChanged()"></select></div>
+      <div class="f c3" style="position:relative">
+        <label>CUSTOMER <span style="font-size:9px;color:var(--text3);font-weight:400;text-transform:none">type to search your contacts</span></label>
+        <input id="mi_custName" autocomplete="off" placeholder="Start typing a name..." oninput="miCustInput()" onfocus="miCustInput()" onblur="setTimeout(miHideDrop,200)">
+        <div id="mi_custDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);max-height:230px;overflow-y:auto;box-shadow:var(--modal-shadow)"></div>
+        <input type="hidden" id="mi_contactUID">
+      </div>
+      <div class="f c6" id="mi_propWrap" style="display:none"><label>PROPERTY <span style="font-size:9px;color:var(--text3);font-weight:400;text-transform:none">this customer has more than one address</span></label><select id="mi_propPick" onchange="miPropPick()"></select></div>
+      <div class="f c3"><label>PHONE</label><input id="mi_phone" placeholder="(631) 555-0000" oninput="formatPhone(this)"></div>
+      <div class="f c3"><label>EMAIL</label><input type="email" id="mi_email" placeholder="customer@email.com"></div>
+      <div class="f c4"><label>ADDRESS</label><input id="mi_addr1" placeholder="123 Main St" oninput="miUpdateTaxHint()"></div>
+      <div class="f c2"><label>UNIT / ADDRESS 2</label><input id="mi_addr2" placeholder="optional"></div>
+      <div class="f c3"><label>CITY</label><input id="mi_city" placeholder="Huntington"></div>
+      <div class="f c1"><label>STATE</label><input id="mi_state" value="NY" maxlength="2"></div>
+      <div class="f c2"><label>ZIP</label><input id="mi_zip" maxlength="5" placeholder="11743" oninput="miZipChanged()"></div>
+      <div class="f c2"><label>INVOICE DATE</label><input type="date" id="mi_date" onchange="miOnInvoiceDate()"></div>
+      <div class="f c2"><label>DUE DATE <span style="font-size:9px;color:var(--text3);font-weight:400;text-transform:none">5 days after</span></label><input type="date" id="mi_due" onchange="miDueEdited()"></div>
+      <div class="f c2"><label>INVOICE #</label><div id="mi_numShow" style="padding:8px 10px;font-size:13px;color:var(--text2);border:1px solid var(--border);border-radius:var(--r);background:var(--bg)">Assigned when saved</div></div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <label style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.08em">ITEMS</label>
+        <button type="button" class="btn btn-sm" onclick="miAddItem()">+ Add item</button>
+      </div>
+      <table class="mi-tbl">
+        <thead><tr><th style="width:24%">Item</th><th>Description</th><th style="width:112px;text-align:right">Amount</th><th style="width:46px;text-align:center" title="Charge sales tax on this line">Tax</th><th style="width:34px"></th></tr></thead>
+        <tbody id="mi_items"></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;align-items:start">
+      <div class="f">
+        <label>SALES TAX</label>
+        <select id="mi_taxSel" onchange="miTaxChanged()"></select>
+        <input id="mi_taxOther" type="number" step="0.001" min="0" max="15" placeholder="Rate in percent, e.g. 8.875" oninput="miOnEdit()" style="display:none;margin-top:6px">
+        <div id="mi_taxHint" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;background:var(--bg)">
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:var(--text3)">Subtotal</span><span id="mi_sumSub" style="font-family:var(--mono)">$0.00</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:var(--text3)" id="mi_sumTaxLbl">Sales tax</span><span id="mi_sumTax" style="font-family:var(--mono)">$0.00</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-top:1px solid var(--border);margin-top:4px;font-weight:700"><span>Total</span><span id="mi_sumTotal" style="font-family:var(--mono)">$0.00</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span style="color:var(--text3)">Payments received</span><span id="mi_sumPaid" style="font-family:var(--mono);color:var(--green)">-$0.00</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:15px;padding:6px 0 2px;border-top:2px solid var(--text);margin-top:4px;font-weight:800"><span>Balance Due</span><span id="mi_sumBal" style="font-family:var(--mono)">$0.00</span></div>
+        <div style="text-align:right;margin-top:2px"><span id="mi_sumStatus" style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase"></span></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:8px;flex-wrap:wrap">
+        <label style="font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.08em">DEPOSITS / PAYMENTS RECEIVED</label>
+        <span>
+          <button type="button" class="btn btn-sm" onclick="miAddPay()">+ Add deposit / payment</button>
+          <button type="button" class="btn btn-sm btn-a" onclick="miMarkPaid()">✓ Mark paid in full</button>
+        </span>
+      </div>
+      <table class="mi-tbl">
+        <thead><tr><th style="width:136px">Date</th><th style="width:130px">Type</th><th style="width:120px">Method</th><th style="text-align:right">Amount</th><th style="width:34px"></th></tr></thead>
+        <tbody id="mi_pays"></tbody>
+      </table>
+      <div id="mi_noPays" style="font-size:11px;color:var(--text3);padding:4px 6px">None recorded.</div>
+    </div>
+
+    <div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px">
+      <div class="f"><label>PAYMENT INSTRUCTIONS</label><textarea id="mi_payNote" rows="2" style="resize:vertical" oninput="_miNoteTouched=true"></textarea></div>
+      <div class="f"><label>NOTE ON INVOICE <span style="font-size:9px;color:var(--text3);font-weight:400;text-transform:none">optional</span></label><textarea id="mi_note" rows="2" style="resize:vertical"></textarea></div>
+    </div>
+
+    <div class="mactions">
+      <button class="btn" onclick="closeM('mManualInvoice')">Cancel</button>
+      <button class="btn btn-a" id="mi_saveBtn" onclick="saveManualInvoiceForm()">💾 Save Invoice</button>
+    </div>
+  </div>
+</div>
+<!-- ══ END MANUAL INVOICE MODAL ═════════════════════════════ -->
+
 
 <!-- ══ CI FORM MODAL ════════════════════════════════════════ -->
 <div class="moverlay hidden" id="mCIForm" style="align-items:flex-start;padding:0">
@@ -15679,6 +15777,7 @@ function renderInvoicesTab() {
     return jobs.find(j => String(j.jobId || (j.id||'').split('-')[0]) === jobId) || null;
   };
   const safeContract = i => {
+    if (isManualInvoice(i)) return Number(i['Invoice Total'] ?? i['Cash Price'] ?? 0) || 0;   // v3.28.0
     // Contract price: stored on invoice first, then matching job record
     let cp = Number(i['Contract Price'] ?? i.contractPrice ?? NaN);
     if (!isNaN(cp) && cp > 0) return cp;
@@ -15702,6 +15801,7 @@ function renderInvoicesTab() {
   // totalPaid against the contract price first, and only falls back to the
   // stored fields when there's no matching job to calculate from.
   const getStatus = i => {
+    if (isManualInvoice(i)) { const ms = i['Payment Status'] || ''; return VALID_STATUSES.includes(ms) ? ms : 'Unpaid'; }   // v3.28.0
     const match = getLiveJob(i);
     const cp    = safeContract(i);
     if (match && cp > 0) {
@@ -15713,6 +15813,7 @@ function renderInvoicesTab() {
     return VALID_STATUSES.includes(s) ? s : 'Unpaid';
   };
   const safeAmt = i => {
+    if (isManualInvoice(i)) return Number(i['Amount Due']) || 0;   // v3.28.0
     const match = getLiveJob(i);
     const cp    = safeContract(i);
     if (match && cp > 0) {
@@ -15825,6 +15926,7 @@ async function viewInvoiceFromTab(invId) {
     (i['Job ID'] || i.jobId || '') === invId
   );
   if (!inv) { showToast('⚠ Invoice not found — try refreshing'); return; }
+  if (isManualInvoice(inv)) { renderManualInvoiceDoc(inv); return; }   // v3.28.0
 
   // Fetch fresh job data so payments array is populated
   const jobNum = String(inv['Job ID'] || inv.jobId || '').split('-')[0];
@@ -15853,6 +15955,7 @@ async function viewInvoiceFromTab(invId) {
 }
 
 function renderInvoiceFromRecord(inv) {
+  _miResetDoc();   // v3.28.0 - clear any extra rows left by a manual invoice
   // Pull all data from the invoice record snapshot
   const co          = inv.companyName  || settings.companyName || ((COMPANIES[activeCompany] || COMPANIES.BWI));
   const coAddr      = inv.companyAddr  || settings.companyAddr  || '169 Commack Rd #1009, Commack, NY 11725';
@@ -16576,6 +16679,556 @@ async function printInvoice() {
   openM('mInvoiceDoc');
 }
 
+// ════════════════════════════════════════════════
+// MANUAL INVOICE (v3.28.0)
+// An invoice that belongs to no job: its own line items, payments and sales
+// tax, all stored on the invoice row itself, so it never reads or writes the
+// Jobs or Payments sheets. Numbers start at 5000 and are assigned by the
+// backend. Sales tax rates come from CFG, so they live in one place; the
+// rate used is saved on each invoice so a later rate change never alters it.
+// Job ID is the fixed marker 'MANUAL' so it can never match a real job.
+// ════════════════════════════════════════════════
+function isManualInvoice(i) {
+  return !!i && (String(i['Invoice Type'] || i.invoiceType || '') === 'Manual' ||
+                 String(i['Job ID'] || i.jobId || '') === 'MANUAL');
+}
+
+var MI_METHODS   = ['Check', 'Cash', 'Zelle', 'Credit Card', 'ACH', 'Other'];
+var MI_PAY_TYPES = ['Deposit', 'Payment', 'Final Payment'];
+var _miEditId = '';          // invoice being edited ('' = a new one)
+var _miItems = [];           // [{item, desc, amount (text), taxable}]
+var _miPays  = [];           // [{date, label, method, amount (text)}]
+var _miDueTouched = false;   // true once the user sets the due date by hand
+var _miNoteTouched = false;  // true once the user edits the payment instructions
+var _miContact = null;       // contact picked from the search, if any
+var _miHits = [];            // current search results
+
+function miEl(id) { return document.getElementById(id); }
+function miYmd(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function miAddDays(ymd, n) {
+  const m = String(ymd || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return '';
+  return miYmd(new Date(+m[1], +m[2] - 1, +m[3] + n));
+}
+function miNum(v) {
+  const n = parseFloat(String(v == null ? '' : v).replace(/[$,\s]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+function miFmt2(n) {
+  return '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function miPct(rate) {
+  return (rate * 100).toFixed(3).replace(/0+$/, '').replace(/\.$/, '') + '%';
+}
+function miDefaultPayNote(code) {
+  const co = (typeof COMPANIES !== 'undefined' && COMPANIES[code]) || '';
+  return 'Check payable to Cash or ' + co + ' · Zelle: blackwolfindustries';
+}
+
+// Pure money math, all in whole cents. Same rules as the backend.
+function miComputeFrom(items, county, rate, pays) {
+  let subC = 0, taxableC = 0;
+  (items || []).forEach(it => {
+    const c = Math.round(miNum(it.amount) * 100);
+    subC += c;
+    if (it.taxable !== false) taxableC += c;
+  });
+  rate = Number(rate) || 0;
+  if (!(rate >= 0 && rate <= 0.15) || county === 'None') rate = 0;
+  const taxC   = Math.max(0, Math.round(taxableC * rate + 1e-9));
+  const totalC = subC + taxC;
+  let paidC = 0;
+  (pays || []).forEach(p => { const a = miNum(p.amount); if (a > 0) paidC += Math.round(a * 100); });
+  const balC   = Math.max(0, totalC - paidC);
+  const status = (totalC > 0 && balC === 0) ? 'Paid in Full' : (paidC > 0 ? 'Partial' : 'Unpaid');
+  return { subtotal: subC / 100, tax: taxC / 100, total: totalC / 100, paid: paidC / 100,
+           balance: balC / 100, status, rate };
+}
+
+function miTaxState() {
+  const sel = miEl('mi_taxSel').value;
+  if (sel === 'Suffolk') return { county: 'Suffolk', rate: CFG.TAX_SUFFOLK };
+  if (sel === 'Nassau')  return { county: 'Nassau',  rate: CFG.TAX_NASSAU };
+  if (sel === 'Other')   return { county: 'Other',   rate: miNum(miEl('mi_taxOther').value) / 100 };
+  return { county: 'None', rate: 0 };
+}
+function miCompute() {
+  const t = miTaxState();
+  return miComputeFrom(_miItems, t.county, t.rate, _miPays);
+}
+
+// ── open / fill ──
+function openManualInvoice(invId) {
+  // The company list is normally built at startup; build it now if it is somehow empty.
+  if (!Object.keys(COMPANIES || {}).length) buildCompanyMaps();
+  _miEditId = ''; _miItems = []; _miPays = []; _miContact = null; _miHits = [];
+  _miDueTouched = false; _miNoteTouched = false;
+
+  const codes = Object.keys(COMPANIES || {});
+  miEl('mi_company').innerHTML = codes.map(c => `<option value="${escHtml(c)}">${escHtml(COMPANIES[c])}</option>`).join('');
+  miEl('mi_taxSel').innerHTML =
+    `<option value="None">No sales tax</option>` +
+    `<option value="Suffolk">Suffolk County ${miPct(CFG.TAX_SUFFOLK)}</option>` +
+    `<option value="Nassau">Nassau County ${miPct(CFG.TAX_NASSAU)}</option>` +
+    `<option value="Other">Other rate...</option>`;
+
+  let inv = null;
+  if (invId) {
+    inv = invoices.find(i => (i['Invoice ID'] || i.invoiceId) === invId);
+    if (!inv || !isManualInvoice(inv)) { alert('Manual invoice not found'); return; }
+  }
+  const parseJ = v => { if (Array.isArray(v)) return v; try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+  const toYmd = d => {
+    if (!d) return '';
+    const dt = String(d).includes('T') ? new Date(d) : new Date(String(d).slice(0, 10) + 'T12:00:00');
+    return isNaN(dt.getTime()) ? '' : miYmd(dt);
+  };
+
+  if (inv) {
+    _miEditId = inv['Invoice ID'] || inv.invoiceId;
+    miEl('mi_title').textContent = 'Edit Manual Invoice';
+    miEl('mi_numLabel').textContent = '# ' + (inv['Invoice Number'] || _miEditId);
+    miEl('mi_numShow').textContent = String(inv['Invoice Number'] || _miEditId);
+    let code = inv['Company'] || '';
+    if (!COMPANIES[code]) code = codes.find(c => COMPANIES[c] === inv['Company Name']) || codes[0] || '';
+    miEl('mi_company').value = code;
+    miEl('mi_custName').value = inv['Customer Name'] || '';
+    miEl('mi_contactUID').value = inv['Contact UID'] || '';
+    _miContact = contacts.find(c => c.uid === (inv['Contact UID'] || '')) || null;
+    miEl('mi_phone').value = inv['Customer Phone'] || '';
+    miEl('mi_email').value = inv['Email'] || '';
+    miEl('mi_addr1').value = inv['Job Address'] || '';
+    miEl('mi_addr2').value = inv['Job Address 2'] || '';
+    miEl('mi_city').value  = inv['Job City'] || '';
+    miEl('mi_state').value = inv['Job State'] || 'NY';
+    miEl('mi_zip').value   = inv['Job Zip'] || '';
+    const d = toYmd(inv['Invoice Date']), due = toYmd(inv['Due Date']);
+    miEl('mi_date').value = d;
+    miEl('mi_due').value  = due;
+    _miDueTouched = !!due && due !== miAddDays(d, 5);
+    _miItems = parseJ(inv['Line Items']).map(it => ({ item: it.item || '', desc: it.desc || '',
+      amount: (it.amount === 0 || it.amount) ? String(it.amount) : '', taxable: it.taxable !== false }));
+    _miPays = parseJ(inv['Payments']).map(p => ({ date: toYmd(p.date), label: p.label || 'Payment',
+      method: p.method || 'Check', amount: String(p.amount) }));
+    const tc = inv['Tax County'] || 'None';
+    miEl('mi_taxSel').value = ['Suffolk', 'Nassau', 'Other'].includes(tc) ? tc : 'None';
+    miEl('mi_taxOther').value = tc === 'Other' ? String(+(Number(inv['Tax Rate']) * 100).toFixed(4)) : '';
+    miEl('mi_payNote').value = inv['Payment Instructions'] || '';
+    miEl('mi_note').value    = inv['Customer Note'] || '';
+    _miNoteTouched = true;
+  } else {
+    miEl('mi_title').textContent = 'Manual Invoice';
+    miEl('mi_numLabel').textContent = '';
+    miEl('mi_numShow').textContent = 'Assigned when saved';
+    const code = COMPANIES.BWI ? 'BWI' : (codes[0] || '');
+    miEl('mi_company').value = code;
+    ['mi_custName', 'mi_contactUID', 'mi_phone', 'mi_email', 'mi_addr1', 'mi_addr2', 'mi_city', 'mi_zip', 'mi_taxOther', 'mi_note']
+      .forEach(id => { miEl(id).value = ''; });
+    miEl('mi_state').value = 'NY';
+    const today = miYmd(new Date());
+    miEl('mi_date').value = today;
+    miEl('mi_due').value  = miAddDays(today, 5);
+    miEl('mi_taxSel').value = 'None';
+    miEl('mi_payNote').value = miDefaultPayNote(code);
+    _miItems = [{ item: '', desc: '', amount: '', taxable: true }];
+    _miPays  = [];
+  }
+  if (!_miItems.length) _miItems = [{ item: '', desc: '', amount: '', taxable: true }];
+  miEl('mi_taxOther').style.display = miEl('mi_taxSel').value === 'Other' ? '' : 'none';
+  miEl('mi_propWrap').style.display = 'none';
+  miHideDrop();
+  miRefreshProps();
+  miRender();
+  miUpdateTaxHint();
+  openM('mManualInvoice');
+}
+
+// ── customer search (your contacts) ──
+function miHideDrop() { const d = miEl('mi_custDrop'); if (d) d.style.display = 'none'; }
+
+function miCustInput() {
+  const typed = miEl('mi_custName').value;
+  // Typing over a picked customer unlinks it until another one is picked.
+  if (_miContact && _miContact.name !== typed) {
+    _miContact = null; miEl('mi_contactUID').value = ''; miRefreshProps(); miUpdateTaxHint();
+  }
+  const q = typed.trim().toLowerCase();
+  const drop = miEl('mi_custDrop');
+  if (q.length < 2) { drop.style.display = 'none'; return; }
+  const qd = q.replace(/\D/g, '');
+  _miHits = contacts.filter(c =>
+    (c.name || '').toLowerCase().includes(q) ||
+    (qd.length >= 4 && (c.phone || '').replace(/\D/g, '').includes(qd)) ||
+    (c.email || '').toLowerCase().includes(q)
+  ).slice(0, 8);
+  if (!_miHits.length) { drop.style.display = 'none'; return; }
+  drop.innerHTML = _miHits.map((c, i) => {
+    const line = [c.addr1, c.city].filter(Boolean).join(', ');
+    const np = getContactProps(c).length;
+    return `<div onmousedown="miPickCust(${i})" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:600">${escHtml(c.name || '')}${np ? ` <span style="font-size:10px;color:var(--blue)">🏢 ${np + 1} properties</span>` : ''}</div>
+      <div style="font-size:11px;color:var(--text3)">${escHtml(line)}${c.phone ? ' · ' + escHtml(c.phone) : ''}</div></div>`;
+  }).join('');
+  drop.style.display = 'block';
+}
+
+function miFillAddress(p) {
+  miEl('mi_addr1').value = p.addr1 || '';
+  miEl('mi_addr2').value = p.addr2 || '';
+  miEl('mi_city').value  = p.city || '';
+  miEl('mi_state').value = p.state || 'NY';
+  miEl('mi_zip').value   = (p.zip || '').toString().substring(0, 5);
+}
+
+function miPickCust(i) {
+  const c = _miHits[i];
+  if (!c) return;
+  _miContact = c;
+  miEl('mi_custName').value   = c.name || '';
+  miEl('mi_contactUID').value = c.uid || '';
+  miEl('mi_phone').value      = c.phone || '';
+  miEl('mi_email').value      = c.email || '';
+  miFillAddress({ addr1: c.addr1, addr2: c.addr2, city: c.city, state: c.state || 'NY', zip: c.zip });
+  miHideDrop();
+  miRefreshProps();
+  miUpdateTaxHint();
+}
+
+// Property dropdown, only when the picked customer has extra properties.
+function miRefreshProps() {
+  const wrap = miEl('mi_propWrap'), sel = miEl('mi_propPick');
+  const c = _miContact, props = c ? getContactProps(c) : [];
+  if (!c || !props.length) { wrap.style.display = 'none'; return; }
+  const key = (a1, a2) => ((a1 || '') + '|' + (a2 || '')).toLowerCase().replace(/\s+/g, ' ').trim();
+  const cur = key(miEl('mi_addr1').value, miEl('mi_addr2').value);
+  const opts = [];
+  if (c.addr1) opts.push({ v: 'main', t: 'Main: ' + [c.addr1, c.city].filter(Boolean).join(', ') });
+  props.forEach((p, i) => opts.push({ v: 'p' + i, t: (p.label || p.addr1) + ': ' + [p.addr1, p.city].filter(Boolean).join(', ') }));
+  let selected = '';
+  if (c.addr1 && cur === key(c.addr1, c.addr2)) selected = 'main';
+  props.forEach((p, i) => { if (cur === key(p.addr1, p.addr2)) selected = 'p' + i; });
+  if (!selected) opts.push({ v: 'custom', t: 'Custom address (typed below)' });
+  sel.innerHTML = opts.map(o => `<option value="${escHtml(o.v)}">${escHtml(o.t)}</option>`).join('');
+  sel.value = selected || 'custom';
+  wrap.style.display = '';
+}
+
+function miPropPick() {
+  const c = _miContact; if (!c) return;
+  const v = miEl('mi_propPick').value;
+  if (v === 'main') miFillAddress({ addr1: c.addr1, addr2: c.addr2, city: c.city, state: c.state || 'NY', zip: c.zip });
+  else if (/^p\d+$/.test(v)) { const p = getContactProps(c)[parseInt(v.slice(1), 10)]; if (p) miFillAddress(p); }
+  miUpdateTaxHint();
+}
+
+function miZipChanged() {
+  const z = miEl('mi_zip').value.trim();
+  if (z.length === 5) {
+    const r = lookupZip(z);
+    if (r && !miEl('mi_city').value.trim()) miEl('mi_city').value = r.city || '';
+  }
+  miUpdateTaxHint();
+}
+
+// Shows which county the address is in. It only informs: tax is never applied
+// unless you pick it in the dropdown.
+function miCountyGuess() {
+  const z = miEl('mi_zip').value.trim();
+  if (z.length === 5) { const r = lookupZip(z); if (r && r.county) return r.county; }
+  if (_miContact && _miContact.county) return _miContact.county;
+  return '';
+}
+function miUpdateTaxHint() {
+  const el = miEl('mi_taxHint'); if (!el) return;
+  const c = miCountyGuess();
+  el.textContent = c ? `This address is in ${c} County.` : '';
+}
+
+// ── items and payments ──
+function miSync() {
+  _miItems = Array.from(document.querySelectorAll('#mi_items tr')).map(r => ({
+    item: r.querySelector('.mi-item').value,
+    desc: r.querySelector('.mi-desc').value,
+    amount: r.querySelector('.mi-amt').value,
+    taxable: r.querySelector('.mi-tax').checked
+  }));
+  _miPays = Array.from(document.querySelectorAll('#mi_pays tr')).map(r => ({
+    date: r.querySelector('.mi-pdate').value,
+    label: r.querySelector('.mi-ptype').value,
+    method: r.querySelector('.mi-pmethod').value,
+    amount: r.querySelector('.mi-pamt').value
+  }));
+}
+
+function miRender() {
+  miEl('mi_items').innerHTML = _miItems.map((it, i) => `<tr>
+    <td><input class="mi-item" value="${escHtml(it.item)}" placeholder="e.g. Gate repair" oninput="miOnEdit()"></td>
+    <td><input class="mi-desc" value="${escHtml(it.desc)}" placeholder="Description" oninput="miOnEdit()"></td>
+    <td style="width:112px"><input class="mi-amt" inputmode="decimal" value="${escHtml(it.amount)}" placeholder="0.00" oninput="miOnEdit()" style="text-align:right"></td>
+    <td style="width:46px;text-align:center;padding-top:8px"><label class="tog" style="display:inline-block" title="Charge sales tax on this line"><input type="checkbox" class="mi-tax" ${it.taxable !== false ? 'checked' : ''} onchange="miOnEdit()"><span class="tog-slider"></span></label></td>
+    <td style="width:34px"><button type="button" class="btn btn-sm" onclick="miRemoveItem(${i})" title="Remove">🗑</button></td></tr>`).join('');
+  miEl('mi_pays').innerHTML = _miPays.map((p, i) => `<tr>
+    <td style="width:136px"><input type="date" class="mi-pdate" value="${escHtml(p.date)}" onchange="miOnEdit()"></td>
+    <td style="width:130px"><select class="mi-ptype" onchange="miOnEdit()">${MI_PAY_TYPES.map(t => `<option ${t === p.label ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
+    <td style="width:120px"><select class="mi-pmethod" onchange="miOnEdit()">${MI_METHODS.map(t => `<option ${t === p.method ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
+    <td><input class="mi-pamt" inputmode="decimal" value="${escHtml(p.amount)}" placeholder="0.00" oninput="miOnEdit()" style="text-align:right"></td>
+    <td style="width:34px"><button type="button" class="btn btn-sm" onclick="miRemovePay(${i})" title="Remove">🗑</button></td></tr>`).join('');
+  miEl('mi_noPays').style.display = _miPays.length ? 'none' : '';
+  miRecalc();
+}
+
+function miOnEdit() { miSync(); miRecalc(); }
+
+function miAddItem()      { miSync(); _miItems.push({ item: '', desc: '', amount: '', taxable: true }); miRender(); }
+function miRemoveItem(i)  { miSync(); _miItems.splice(i, 1); if (!_miItems.length) _miItems.push({ item: '', desc: '', amount: '', taxable: true }); miRender(); }
+function miAddPay() {
+  miSync();
+  const last = _miPays.length ? _miPays[_miPays.length - 1].method : 'Check';
+  _miPays.push({ date: miYmd(new Date()), label: _miPays.length ? 'Payment' : 'Deposit', method: last, amount: '' });
+  miRender();
+}
+function miRemovePay(i)   { miSync(); _miPays.splice(i, 1); miRender(); }
+
+// Adds a payment for whatever is still owed, so the balance becomes $0.
+function miMarkPaid() {
+  miSync();
+  const c = miCompute();
+  if (!(c.total > 0)) { showToast('Add an item first'); return; }
+  if (c.balance <= 0) { showToast('Already paid in full'); return; }
+  const last = _miPays.length ? _miPays[_miPays.length - 1].method : 'Check';
+  _miPays.push({ date: miYmd(new Date()), label: _miPays.length ? 'Final Payment' : 'Payment', method: last, amount: c.balance.toFixed(2) });
+  miRender();
+}
+
+function miRecalc() {
+  const c = miCompute(), t = miTaxState();
+  miEl('mi_sumSub').textContent   = miFmt2(c.subtotal);
+  miEl('mi_sumTax').textContent   = miFmt2(c.tax);
+  miEl('mi_sumTaxLbl').textContent = t.county === 'None' ? 'Sales tax' : `Sales tax (${t.county === 'Other' ? '' : t.county + ' '}${miPct(c.rate)})`;
+  miEl('mi_sumTotal').textContent = miFmt2(c.total);
+  miEl('mi_sumPaid').textContent  = '-' + miFmt2(c.paid);
+  miEl('mi_sumBal').textContent   = miFmt2(c.balance);
+  const st = miEl('mi_sumStatus');
+  st.textContent = c.total > 0 ? c.status : '';
+  const col = c.status === 'Paid in Full' ? 'var(--green)' : c.status === 'Partial' ? 'var(--blue)' : 'var(--orange)';
+  st.style.color = col;
+  miEl('mi_sumBal').style.color = c.status === 'Paid in Full' ? 'var(--green)' : '';
+}
+
+function miOnInvoiceDate() {
+  if (!_miDueTouched) miEl('mi_due').value = miAddDays(miEl('mi_date').value, 5);
+}
+function miDueEdited() { _miDueTouched = true; }
+function miTaxChanged() {
+  miEl('mi_taxOther').style.display = miEl('mi_taxSel').value === 'Other' ? '' : 'none';
+  miOnEdit();
+}
+function miCompanyChanged() {
+  if (!_miNoteTouched) miEl('mi_payNote').value = miDefaultPayNote(miEl('mi_company').value);
+}
+
+// ── save ──
+function miBuildRecord(p, invoiceId, invNum) {
+  const m = miComputeFrom(p.items, p.taxCounty, p.taxRate, p.payments);
+  const last = p.payments.length ? p.payments[p.payments.length - 1] : null;
+  return {
+    'Invoice ID': invoiceId, 'Invoice Number': invNum, 'Job ID': 'MANUAL', 'Job Prefix': '',
+    'Contact UID': p.contactUID || '', 'Customer Name': p.custName, 'Email': p.custEmail,
+    'Customer Phone': p.custPhone, 'Job Address': p.jobAddr, 'Job Address 2': p.jobAddr2,
+    'Job City': p.jobCity, 'Job State': p.jobState, 'Job Zip': p.jobZip,
+    'Invoice Date': p.invoiceDate, 'Due Date': p.dueDate,
+    'Fence Type': (p.items[0] && p.items[0].item) || 'Manual Invoice',
+    'Final Price CC': m.total, 'Cash Price': m.total, 'Customer Tax': m.tax, 'Amount Due': m.balance,
+    'Payment Status': m.status, 'Payment Date': last ? last.date : '', 'Payment Method': last ? last.method : '',
+    'Payment Instructions': p.payNote, 'Customer Note': p.customerNote,
+    'Company Name': p.companyName, 'Company Address': p.companyAddr, 'Company Phone': p.companyPhone,
+    'Company': p.company, 'Invoice Type': 'Manual',
+    'Line Items': JSON.stringify(p.items), 'Payments': JSON.stringify(p.payments),
+    'Subtotal': m.subtotal, 'Tax County': p.taxCounty, 'Tax Rate': m.rate,
+    'Invoice Total': m.total
+  };
+}
+
+async function saveManualInvoiceForm() {
+  miSync();
+  const name = miEl('mi_custName').value.trim();
+  if (!name) { alert('Customer name is required'); return; }
+  const rows = _miItems.filter(it => it.item.trim() || it.desc.trim() || miNum(it.amount));
+  if (!rows.length) { alert('Add at least one item'); return; }
+  const c = miCompute(), t = miTaxState();
+  if (!(c.total > 0)) { alert('The invoice total must be greater than $0'); return; }
+  if (!miEl('mi_date').value) { alert('Choose an invoice date'); return; }
+  if (t.county === 'Other' && !(t.rate > 0 && t.rate <= 0.15)) { alert('Enter the other tax rate as a percent, for example 8.875'); return; }
+  if (c.paid > c.total + 0.004) { alert('Payments received are more than the invoice total. Check the amounts.'); return; }
+  const badPay = _miPays.find(p => miNum(p.amount) > 0 && !p.date);
+  if (badPay) { alert('Each payment needs a date'); return; }
+
+  const code = miEl('mi_company').value;
+  const payload = {
+    invoiceId: _miEditId || '',
+    company: code, companyName: COMPANIES[code] || '', companyAddr: companyAddrLine(code), companyPhone: companyPhoneFor(code),
+    contactUID: miEl('mi_contactUID').value, custName: name,
+    custPhone: miEl('mi_phone').value.trim(), custEmail: miEl('mi_email').value.trim(),
+    jobAddr: miEl('mi_addr1').value.trim(), jobAddr2: miEl('mi_addr2').value.trim(),
+    jobCity: miEl('mi_city').value.trim(), jobState: miEl('mi_state').value.trim() || 'NY', jobZip: miEl('mi_zip').value.trim(),
+    invoiceDate: miEl('mi_date').value, dueDate: miEl('mi_due').value || miAddDays(miEl('mi_date').value, 5),
+    items: rows.map(it => ({ item: it.item.trim(), desc: it.desc.trim(), amount: Math.round(miNum(it.amount) * 100) / 100, taxable: it.taxable !== false })),
+    taxCounty: t.county, taxRate: t.rate,
+    payments: _miPays.filter(p => miNum(p.amount) > 0).map(p => ({ date: p.date, label: p.label, method: p.method, amount: Math.round(miNum(p.amount) * 100) / 100 })),
+    payNote: miEl('mi_payNote').value, customerNote: miEl('mi_note').value
+  };
+
+  let record;
+  const btn = miEl('mi_saveBtn'); btn.disabled = true;
+  try {
+    if (settings.scriptUrl) {
+      let res;
+      try { res = await cloudCall({ action: 'saveManualInvoice', data: payload }); }
+      catch (e) { alert('Could not reach the server, so the invoice was NOT saved. Check your connection and try again.'); return; }
+      if (!res || res.error || !res.invoice) { alert('The invoice was not saved: ' + ((res && res.error) || 'no response from the server')); return; }
+      record = res.invoice;
+    } else {
+      // Local-only mode: no server to assign numbers, so continue from the highest local manual number.
+      let invNum, invoiceId = payload.invoiceId;
+      if (invoiceId) {
+        const ex = invoices.find(i => (i['Invoice ID'] || i.invoiceId) === invoiceId);
+        invNum = ex ? String(ex['Invoice Number']) : invoiceId.replace(/^INV-/, '');
+      } else {
+        let max = 4999;
+        invoices.forEach(i => { if (isManualInvoice(i)) { const n = parseInt(i['Invoice Number'], 10); if (n > max) max = n; } });
+        invNum = String(max + 1); invoiceId = 'INV-' + invNum;
+      }
+      record = miBuildRecord(payload, invoiceId, invNum);
+    }
+  } finally { btn.disabled = false; }
+
+  invoices = invoices.filter(i => (i['Invoice ID'] || i.invoiceId) !== record['Invoice ID']);
+  invoices.unshift(record);
+  localStorage.setItem('fp_invoices', JSON.stringify(invoices));
+  closeM('mManualInvoice');
+  renderInvoicesTab();
+  renderManualInvoiceDoc(record);
+  showToast('✓ Invoice ' + record['Invoice Number'] + ' saved');
+}
+
+// ── the invoice document ──
+// Uses the same on-screen invoice (and the same Save PDF button) as every
+// other invoice. Extra rows are tagged so renderInvoiceFromRecord can clear
+// them again; see _miResetDoc.
+function _miResetDoc() {
+  document.querySelectorAll('#invoiceDoc .mi-extra').forEach(n => n.remove());
+  document.querySelectorAll('#invoiceDoc [data-mi-hidden]').forEach(n => { n.style.display = ''; n.removeAttribute('data-mi-hidden'); });
+  const b = document.getElementById('inv_balDue'); if (b) b.style.color = '#F26522';
+}
+
+function renderManualInvoiceDoc(inv) {
+  _miResetDoc();
+  const g = id => document.getElementById(id);
+  const parseJ = v => { if (Array.isArray(v)) return v; try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+  const items = parseJ(inv['Line Items']), pays = parseJ(inv['Payments']);
+  const county = inv['Tax County'] || 'None', rate = Number(inv['Tax Rate']) || 0;
+  const m = miComputeFrom(items, county, rate, pays);   // always recomputed, never trusted from the stored totals alone
+  const fmtDate = d => {
+    if (!d) return '-';
+    const dt = String(d).includes('T') ? new Date(d) : new Date(String(d).slice(0, 10) + 'T12:00:00');
+    return isNaN(dt.getTime()) ? '-' : dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  };
+  const fmtShort = d => {
+    const dt = new Date(String(d || '').slice(0, 10) + 'T12:00:00');
+    return isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  // Letterhead and Bill To
+  g('inv_companyName').textContent = inv['Company Name'] || COMPANIES[inv['Company']] || COMPANIES.BWI || '';
+  g('inv_companyAddr').textContent = inv['Company Address'] || '';
+  g('inv_companyPhone').textContent = inv['Company Phone'] || '';
+  g('inv_custName').textContent = inv['Customer Name'] || '-';
+  g('inv_custAddr').textContent = inv['Job Address'] || '';
+  g('inv_custAddr2').textContent = inv['Job Address 2'] || '';
+  g('inv_custCityLine').textContent = [inv['Job City'], inv['Job State'], inv['Job Zip']].filter(Boolean).join(', ');
+  g('inv_custPhone').textContent = inv['Customer Phone'] || '';
+  g('inv_custEmail').textContent = inv['Email'] || '';
+
+  // Meta (no job number on a manual invoice)
+  g('inv_num').textContent  = inv['Invoice Number'] || inv['Invoice ID'] || '';
+  g('inv_date').textContent = fmtDate(inv['Invoice Date']);
+  g('inv_due').textContent  = fmtDate(inv['Due Date']);
+  const jobRow = g('inv_jobId').closest('tr');
+  if (jobRow) { jobRow.style.display = 'none'; jobRow.setAttribute('data-mi-hidden', '1'); }
+  const stEl = g('inv_status');
+  stEl.textContent = m.status;
+  stEl.style.color = m.status === 'Paid in Full' ? '#16A34A' : m.status === 'Unpaid' ? '#F26522' : '#2563EB';
+
+  // Items: first row uses the existing cells, the rest are copies of that row
+  const firstTr = g('inv_item').closest('tr'), tbody = firstTr.parentNode;
+  const list = items.length ? items : [{ item: 'Manual Invoice', desc: '', amount: m.total }];
+  g('inv_item').textContent = list[0].item || '';
+  g('inv_desc').textContent = list[0].desc || '';
+  g('inv_lineamt').textContent = miFmt2(list[0].amount);
+  for (let k = 1; k < list.length; k++) {
+    const tr = firstTr.cloneNode(true);
+    tr.classList.add('mi-extra');
+    tr.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+    tr.children[0].textContent = list[k].item || '';
+    tr.children[1].textContent = list[k].desc || '';
+    tr.children[2].textContent = miFmt2(list[k].amount);
+    tbody.appendChild(tr);
+  }
+
+  // Summary: hide the two fixed job rows, add ours above Balance Due
+  const cpRow = g('inv_contractAmt').closest('tr'), depRow = g('inv_depositRow'), balRow = g('inv_balDue').closest('tr');
+  [cpRow, depRow].forEach(r => { if (r) { r.style.display = 'none'; r.setAttribute('data-mi-hidden', '1'); } });
+  const addRow = (tpl, label, amt, o) => {
+    const tr = tpl.cloneNode(true);
+    tr.classList.add('mi-extra'); tr.removeAttribute('id'); tr.style.display = '';
+    tr.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+    tr.children[0].textContent = label;
+    tr.children[1].textContent = amt;
+    if (o && o.bold) { tr.children[0].style.fontWeight = '700'; tr.children[0].style.color = '#333'; tr.children[1].style.fontWeight = '800'; tr.children[1].style.fontSize = '13px'; }
+    balRow.parentNode.insertBefore(tr, balRow);
+  };
+  if (m.tax > 0) {
+    addRow(cpRow, 'Subtotal', miFmt2(m.subtotal));
+    const lbl = county === 'Other' ? `Sales Tax (${miPct(m.rate)})` : `Sales Tax (${county} ${miPct(m.rate)})`;
+    addRow(cpRow, lbl, miFmt2(m.tax));
+  }
+  addRow(cpRow, 'Total', miFmt2(m.total), { bold: true });
+  // Payments use the same look as the regular invoice's payment history:
+  // label on the left, green amount on the right, a rule underneath.
+  const payRows = pays.filter(p => (Number(p.amount) || 0) > 0);
+  if (payRows.length) {
+    const escH = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const ptr = document.createElement('tr');
+    ptr.className = 'mi-extra';
+    ptr.innerHTML = '<td colspan="2" style="padding:6px 0 0">' + payRows.map(p => {
+      const sub = [fmtShort(p.date), p.method].filter(Boolean).join(' · ');
+      return `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border2)">
+        <span style="color:var(--text2)">${escH(p.label || 'Payment')}${sub ? ' <span style="opacity:.6;font-size:11px">(' + escH(sub) + ')</span>' : ''}</span>
+        <span style="color:var(--green);font-weight:700;font-family:var(--mono)">-${escH(miFmt2(p.amount))}</span></div>`;
+    }).join('') + '</td>';
+    balRow.parentNode.insertBefore(ptr, balRow);
+  }
+  g('inv_balDue').textContent = miFmt2(m.balance);
+  g('inv_balDue').style.color = '#F26522';   // same as the regular invoice, even at $0
+  if (m.status === 'Paid in Full') {
+    const tr = document.createElement('tr');
+    tr.className = 'mi-extra';
+    tr.innerHTML = '<td colspan="2" style="padding:6px 0 0;text-align:right;font-size:11px;font-weight:800;letter-spacing:.14em;color:#16A34A">PAID IN FULL</td>';
+    balRow.parentNode.insertBefore(tr, balRow.nextSibling);
+  }
+  const ph = g('inv_payHistoryRows'); if (ph) { ph.innerHTML = ''; ph.style.display = 'none'; }
+
+  // Payment instructions and note
+  g('inv_payNote').textContent = inv['Payment Instructions'] || '';
+  const note = inv['Customer Note'] || '';
+  const ns = g('inv_noteSection'); if (ns) ns.style.display = note ? '' : 'none';
+  const ne = g('inv_customerNote'); if (ne) ne.textContent = note;
+
+  openM('mInvoiceDoc');
+}
+
 function printInvoiceDoc() {
   // Same textarea→div swap technique as proposal for reliable PDF output
   const swaps = [];
@@ -16608,6 +17261,7 @@ let _editInvId = null; // Invoice ID currently being edited
 function openEditInvoice(invId) {
   const inv = invoices.find(i => (i['Invoice ID']||i.invoiceId) === invId);
   if (!inv) { alert('Invoice not found'); return; }
+  if (isManualInvoice(inv)) { openManualInvoice(invId); return; }   // v3.28.0
   _editInvId = invId;
 
   document.getElementById('editInvIdLabel').textContent = '# ' + invId;
@@ -16719,6 +17373,8 @@ async function deleteInvoice(invId) {
   // Find the job this invoice belongs to so we can reset its status
   const inv = invoices.find(i => (i['Invoice ID']||i.invoiceId) === invId);
   const invJobId = inv ? (inv['Job ID'] || inv.jobId || '') : '';
+  // v3.28.0 - a manual invoice has no job, so the 'status reset' wording does not apply to it
+  const _delMsg = m => isManualInvoice(inv) ? m.replace(/\s*\S+\s*status reset to Ready for Invoice/, '') : m;
 
   // Remove locally
   invoices = invoices.filter(i => (i['Invoice ID']||i.invoiceId) !== invId);
@@ -16779,12 +17435,12 @@ async function deleteInvoice(invId) {
   if (settings.scriptUrl) {
     try {
       await cloudCall({ action: 'deleteInvoice', data: { invoiceId: invId } });
-      showToast('✓ Invoice ' + invId + ' deleted — status reset to Ready for Invoice');
+      showToast(_delMsg('✓ Invoice ' + invId + ' deleted — status reset to Ready for Invoice'));
     } catch(e) {
       showToast('✓ Invoice ' + invId + ' deleted locally — cloud sync pending');
     }
   } else {
-    showToast('✓ Invoice ' + invId + ' deleted — status reset to Ready for Invoice');
+    showToast(_delMsg('✓ Invoice ' + invId + ' deleted — status reset to Ready for Invoice'));
   }
 }
 // ════ END INVOICE EDIT & DELETE ════════════════════════════
