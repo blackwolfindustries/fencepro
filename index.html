@@ -1198,7 +1198,18 @@
     body.printing-invoice .statusbar,
     body.printing-invoice .hdr-right,
     body.printing-invoice #mProposal,
-    body.printing-invoice #mCIForm{display:none!important}
+    body.printing-invoice #mCIForm,
+    body.printing-invoice .toast,
+    body.printing-invoice #auth_screen,
+    body.printing-invoice #lockScreen{display:none!important}
+    /* v3.28.1 - The app shell (.app) stays in the page flow when printing, at
+       calc(100vh - 88px) tall, even though its contents are hidden. It pushed
+       every printed document down by almost a full page, so page 1 came out
+       blank with the header stranded at the bottom. Hide it for every print
+       mode. The invoice also carried an inline min-height of 1100px, which
+       alone forced a second page. */
+    body[class*="printing-"] .app{display:none!important}
+    body.printing-invoice #invoiceDoc{min-height:0!important}
     body.printing-invoice #mInvoiceDoc{
       display:block!important;position:static!important;
       overflow:visible!important;background:#fff!important;padding:0!important
@@ -1489,7 +1500,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.28.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.28.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
