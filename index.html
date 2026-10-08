@@ -1057,193 +1057,41 @@
   .atab:hover { color: var(--navy); background: var(--tab-hover-bg); }
   .atab.atab-active { color: var(--orange); border-bottom-color: var(--orange); background: var(--tab-active-bg); }
 
-  /* ── PROPOSAL PRINT ── */
-    body.printing-proposal .screen,
-    body.printing-proposal .header,
-    body.printing-proposal .nav-tabs,
-    body.printing-proposal .statusbar,
-    body.printing-proposal .hdr-right,
-    body.printing-proposal #mCIForm,
-    body.printing-proposal #lockScreen,
-    body.printing-proposal #prop_tabs_bar,
-    body.printing-proposal #prop_toolbar,
-    body.printing-proposal .toast{display:none!important}
-
-    /* Make the modal fill the page naturally */
-    body.printing-proposal #mProposal{
-      display:block!important;position:static!important;
-      overflow:visible!important;background:#fff!important;
-      padding:0!important;height:auto!important;width:100%!important;
-    }
-    body.printing-proposal #prop_modal_inner{
-      display:block!important;height:auto!important;
-      overflow:visible!important;background:#fff!important;
-      flex-direction:unset!important;
-    }
-    /* Remove scroll constraint from the scroll area */
-    body.printing-proposal #proposalScrollArea{
-      display:block!important;
-      overflow:visible!important;
-      background:#fff!important;
-      padding:0!important;
-      height:auto!important;
-      max-height:none!important;
-      flex:none!important;
-    }
-    /* The actual doc — override inline min-height which causes cutoff */
-    body.printing-proposal #proposalDoc{
-      display:block!important;
-      box-shadow:none!important;
-      margin:0 auto!important;
-      padding:0!important;
-      max-width:100%!important;
-      min-height:0!important;
-      height:auto!important;
-      overflow:visible!important;
-      -webkit-print-color-adjust:exact;
-      print-color-adjust:exact;
-    }
-    /* Force every child open — nothing can clip */
-    body.printing-proposal #proposalDoc *{
-      overflow:visible!important;
-      height:auto!important;
-      max-height:none!important;
-    }
-    body.printing-proposal textarea{display:none!important}
-    body.printing-proposal select{
-      border:none!important;background:transparent!important;
-      font-weight:600!important;padding:0!important;
-      -webkit-appearance:none!important;appearance:none!important
-    }
-    body.printing-proposal [contenteditable]{
-      border:none!important;outline:none!important;
-      overflow:visible!important;height:auto!important;
-    }
-    [contenteditable][data-placeholder]:empty:before{
-      content:attr(data-placeholder);color:#aaa;pointer-events:none;
-    }
-    [contenteditable][data-placeholder]:empty:before{
-      content:attr(data-placeholder);color:#aaa;pointer-events:none;
-    }
-    /* Preserve links */
-    body.printing-proposal a{
-      color:#F26522!important;text-decoration:underline!important;
-    }
-    body.printing-proposal #proposalDoc > *{page-break-inside:auto;break-inside:auto}
-    body.printing-proposal table{page-break-inside:avoid;break-inside:avoid}
-    /* Images section — always start on new page, never clip */
-    body.printing-proposal #prop_photosSection{
-      break-before:page!important;
-      page-break-before:always!important;
-      break-inside:avoid!important;
-      page-break-inside:avoid!important;
-    }
-    body.printing-proposal #prop_photosSection img{
-      max-width:100%!important;
-      height:auto!important;
-      display:block!important;
-      break-inside:avoid!important;
-      page-break-inside:avoid!important;
-    }
-    body.printing-proposal #prop_carousel_track{
-      overflow:visible!important;
-      min-height:auto!important;
-    }
-    /* Carousel outer wrapper — remove overflow:hidden that clips images */
-    body.printing-proposal #prop_photosSection > div{
-      overflow:visible!important;
-      position:static!important;
-      border:none!important;
-      background:transparent!important;
-      border-radius:0!important;
-    }
-    /* Hide carousel nav buttons on print */
-    body.printing-proposal #prop_carousel_prev,
-    body.printing-proposal #prop_carousel_next,
-    body.printing-proposal #prop_carousel_counter{ display:none!important; }
+    /* -- SHARED PRINT PATH (v3.29.0) --
+       Everything printed from FencePro (proposals, multi-option, combined, invoices)
+       goes through printDocument(), which copies the document into #printRoot and
+       adds body.printing. One rule hides the rest of the page, so there is no
+       per-pop-up print stylesheet to keep in sync, and nothing (app shell, toast,
+       other pop-ups) can push the document down the page. */
     @page{margin:0.5in;size:letter portrait}
-
-    /* ── MULTI-OPTION PROPOSAL PRINT ── */
-    body.printing-multi .screen,
-    body.printing-multi .header,
-    body.printing-multi .nav-tabs,
-    body.printing-multi .statusbar,
-    body.printing-multi .hdr-right,
-    body.printing-multi #mProposal,
-    body.printing-multi #mCIForm,
-    body.printing-multi #mInvoiceDoc{display:none!important}
-    body.printing-multi #mMultiProposal{
-      display:block!important;position:static!important;
-      overflow:visible!important;background:#fff!important;padding:0!important
+    body.printing{display:block!important;background:#fff!important;margin:0!important;padding:0!important;height:auto!important;min-height:0!important;overflow:visible!important}
+    body.printing > *:not(#printRoot){display:none!important}
+    body.printing #printRoot{
+      display:block!important;position:static!important;background:#fff!important;color:#222;margin:0!important;padding:0!important;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;
+      /* paper is always white: pin the colors the documents read from the theme */
+      --bg:#fff;--surface:#fff;--surface2:#F0F3F7;--border:#D1D6DF;--border2:#E2E5EA;
+      --text:#1B2B4B;--text2:#2D3F5F;--text3:#5C6E8A;--navy:#1B2B4B;--orange:#F26522;
+      --green:#16A34A;--blue:#2563EB;--red:#DC2626;
     }
-    body.printing-multi #mMultiProposal > div{height:auto!important;overflow:visible!important;background:#fff!important}
-    body.printing-multi #mMultiProposal > div > div:first-child{display:none!important}
-    body.printing-multi #moScrollArea{overflow:visible!important;background:#fff!important;padding:0!important}
-    body.printing-multi #multiProposalDoc{
-      box-shadow:none!important;margin:0 auto!important;
-      padding:28px 36px!important;max-width:100%!important;
-      -webkit-print-color-adjust:exact;print-color-adjust:exact
+    body.printing #printRoot > *{
+      min-height:0!important;height:auto!important;width:auto!important;max-width:100%!important;
+      margin:0!important;padding:0!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important;
+      transform:none!important;position:static!important
     }
-    body.printing-multi #mo_tabs{display:none!important}
-    /* Don't force all panels — respect inline display:none on inactive panels */
-    body.printing-multi #multiProposalDoc *{
-      overflow:visible!important;
-      max-height:none!important
-    }
-
-    /* ── INVOICE PRINT ── */
-    body.printing-invoice .screen,
-    body.printing-invoice .header,
-    body.printing-invoice .nav-tabs,
-    body.printing-invoice .statusbar,
-    body.printing-invoice .hdr-right,
-    body.printing-invoice #mProposal,
-    body.printing-invoice #mCIForm,
-    body.printing-invoice .toast,
-    body.printing-invoice #auth_screen,
-    body.printing-invoice #lockScreen{display:none!important}
-    /* v3.28.1 - The app shell (.app) stays in the page flow when printing, at
-       calc(100vh - 88px) tall, even though its contents are hidden. It pushed
-       every printed document down by almost a full page, so page 1 came out
-       blank with the header stranded at the bottom. Hide it for every print
-       mode. The invoice also carried an inline min-height of 1100px, which
-       alone forced a second page. */
-    body[class*="printing-"] .app{display:none!important}
-    body.printing-invoice #invoiceDoc{min-height:0!important}
-    body.printing-invoice #mInvoiceDoc{
-      display:block!important;position:static!important;
-      overflow:visible!important;background:#fff!important;padding:0!important
-    }
-    body.printing-invoice #mInvoiceDoc > div{
-      height:auto!important;overflow:visible!important;background:#fff!important
-    }
-    body.printing-invoice #mInvoiceDoc > div > div:first-child{display:none!important}
-    body.printing-invoice #invoiceScrollArea{
-      overflow:visible!important;background:#fff!important;padding:0!important
-    }
-    body.printing-invoice #invoiceDoc{
-      box-shadow:none!important;margin:0 auto!important;
-      padding:28px 36px!important;max-width:100%!important;
-      -webkit-print-color-adjust:exact;print-color-adjust:exact
-    }
-
-    /* ── CI FORM PRINT ── */
-    body.printing-ci .screen,
-    body.printing-ci .header,
-    body.printing-ci .nav-tabs,
-    body.printing-ci .statusbar,
-    body.printing-ci #mProposal{display:none!important}
-    body.printing-ci #mCIForm{
-      display:block!important;position:static!important;
-      background:#fff!important;padding:0!important
-    }
-    body.printing-ci #mCIForm > div{height:auto!important;box-shadow:none!important}
-    body.printing-ci #mCIForm > div > div:first-child{display:none!important}
-    body.printing-ci #ciFormDoc{
-      box-shadow:none!important;margin:0 auto!important;padding:20px!important;
-      -webkit-print-color-adjust:exact;print-color-adjust:exact
-    }
+    body.printing #printRoot *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body.printing #printRoot table,
+    body.printing #printRoot tr,
+    body.printing #printRoot img{break-inside:avoid;page-break-inside:avoid}
+    body.printing #printRoot thead{display:table-header-group}
+    body.printing #printRoot img{max-width:100%}
+    body.printing #printRoot #prop_terms_box,
+    body.printing #printRoot #prop_combined_terms_box{break-inside:avoid;page-break-inside:avoid}
+    body.printing #printRoot #prop_photosSection{break-before:page;page-break-before:always}
+    body.printing #printRoot a{color:#F26522;text-decoration:underline}
+    body.printing #printRoot [data-placeholder]:empty:before{content:none}
   }
+  #printRoot{display:none}
   /* v3.25.0 - Setup ▸ Appearance (theme picker) */
   .theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px}
   .theme-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:0;overflow:hidden;cursor:pointer;text-align:left;font-family:var(--sans);box-shadow:var(--shadow-sm);transition:border-color .15s,box-shadow .15s}
@@ -1500,7 +1348,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.28.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.29.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2095,7 +1943,7 @@ function applyTheme(raw) {
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;flex-shrink:0">
-    <button class="btn btn-sm" style="justify-content:center;color:var(--text3)" onclick="window.print()">🖨 Print</button>
+    <button class="btn btn-sm" style="justify-content:center;color:var(--text3)" onclick="printEstimateProposal()" title="Print or save the customer proposal for this estimate">🖨 Print Proposal</button>
     <button class="btn btn-sm" style="justify-content:center;color:var(--red);border-color:var(--red)" onclick="deleteCurrentEstimate()">🗑 Delete</button>
     <button class="btn btn-sm" style="justify-content:center;grid-column:span 2;color:var(--blue);border-color:var(--blue)" onclick="duplicateEstimate()" title="Copy this estimate as a new one — gets next letter (A→B→C)">📋 Duplicate Estimate</button>
     <button class="btn btn-sm" style="justify-content:center" onclick="openCIForm()">📋 CI Form</button>
@@ -3900,7 +3748,7 @@ function applyTheme(raw) {
         </div>
 
         <!-- ── FOOTER ── -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:16px;border-top:1px solid #E2E5EA">
+        <div data-noprint style="display:flex;align-items:center;justify-content:space-between;padding-top:16px;border-top:1px solid #E2E5EA">
           <div style="font-size:10px;color:#ddd;font-style:italic">Generated by FencePro</div>
         </div>
 
@@ -4376,7 +4224,7 @@ function applyTheme(raw) {
         </div>
 
         <!-- Footer -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:16px;border-top:1px solid #E2E5EA">
+        <div data-noprint style="display:flex;align-items:center;justify-content:space-between;padding-top:16px;border-top:1px solid #E2E5EA">
           <div style="font-size:10px;color:#ddd;font-style:italic">Generated by FencePro</div>
         </div>
       </div>
@@ -9285,278 +9133,127 @@ function openProposal() {
 }
 
 // ════════════════════════════════════════════════
-// SMART PDF PAGINATION
-// Used by saveProposalPDF() and saveMultiProposalPDF().
-// Slices a full-page html2canvas screenshot into PDF pages,
-// but instead of cutting at the raw pixel-height boundary
-// (which can slice straight through a line of text or a
-// colored box), each cut line is nudged up to the nearest
-// row of solid white pixels — a natural gap between sections.
-// If a forced break point is supplied (e.g. the top of the
-// "Terms & Obligations" box), that point is treated as a
-// hard page boundary regardless of how much room is left.
+// SHARED PRINT PATH (v3.29.0)
+// One way to print or save any document. It used to be a screenshot-to-PDF
+// routine for proposals (two libraries fetched from the internet at click
+// time, text turned into a picture, page cuts through boxes) plus a separate
+// print stylesheet for each pop-up. printDocument() instead copies the
+// document into #printRoot, hides everything else on the page, and hands it
+// to the browser's own print engine: real text, correct page breaks, nothing
+// loaded from the internet, and photos print straight from their addresses.
+// In the print window, choose "Save as PDF" as the destination.
 // ════════════════════════════════════════════════
+var _prState = null;
 
-// Scans a horizontal band of the canvas just above `idealY` and
-// returns the y-coordinate of the nearest fully-white row, so a
-// page cut never lands mid-line. Falls back to idealY untouched
-// if no clean white row is found within the search window.
-function findNearestWhiteRow(ctx, canvasWidth, idealY, searchUpPx) {
-  const minY = Math.max(0, Math.floor(idealY - searchUpPx));
-  for (let y = Math.floor(idealY); y >= minY; y--) {
-    const row = ctx.getImageData(0, y, canvasWidth, 1).data;
-    let isWhite = true;
-    // Sample every 4th pixel for speed — a genuine blank gap is
-    // uniformly white across its full width, so sparse sampling
-    // is reliable and much faster than checking every pixel.
-    for (let x = 0; x < row.length; x += 16) {
-      if (row[x] < 250 || row[x+1] < 250 || row[x+2] < 250) { isWhite = false; break; }
-    }
-    if (isWhite) return y;
-  }
-  return idealY; // no clean gap found — fall back to the raw boundary
+function _prCleanup() {
+  if (!_prState) return;
+  const s = _prState; _prState = null;
+  clearTimeout(s.timer);
+  window.removeEventListener('afterprint', s.onAfter);
+  document.body.classList.remove('printing');
+  if (s.root && s.root.parentNode) s.root.parentNode.removeChild(s.root);
+  document.title = s.prevTitle;
 }
 
-// Returns the canvas-space Y offset (matching html2canvas's `scale`)
-// of an element's top edge, relative to captureEl. Used to force a
-// hard page break immediately before that element.
-function getCanvasOffsetY(captureEl, targetEl, scale) {
-  if (!targetEl || !captureEl) return null;
-  let y = 0, node = targetEl;
-  while (node && node !== captureEl) {
-    y += node.offsetTop;
-    node = node.offsetParent;
-    if (!node || !captureEl.contains(node)) break;
-  }
-  return y * scale;
+function _prSafeName(t) {
+  return String(t || 'Document').replace(/[\\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() || 'Document';
 }
 
-function paginateCanvasToPdf(pdf, canvas, forcedBreakCanvasY) {
-  const pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
-  const margin = 36, imgW = pageW - margin*2, imgH = (canvas.height * imgW) / canvas.width;
-  const availH = pageH - margin*2;
-  // availSrcPx — how many canvas-source pixels fit in one page at current scale
-  const availSrcPx = (availH / imgH) * canvas.height;
-  const ctx = canvas.getContext('2d');
-  // Search up to ~80 canvas px (≈40 logical px at the standard scale:2
-  // capture) above the ideal cut for a clean white gap — enough to skip
-  // past a typical line of text or box padding, without risking a search
-  // so wide it drags an entire section onto the wrong page.
-  const searchBandPx = 80;
+// Copies srcEl, turns its controls into plain text, and prints only that copy.
+// opts.title   - the suggested file name (browsers use the page title)
+// opts.prepare - optional (clone, srcEl) hook for document-specific changes
+async function printDocument(srcEl, opts) {
+  opts = opts || {};
+  if (!srcEl) { alert('Nothing to print'); return false; }
+  _prCleanup();
 
-  // If the WHOLE document already fits on a single page, never force a
-  // break — doing so would split a short proposal into two mostly-empty
-  // pages instead of just rendering it on one, which is worse than the
-  // problem we're trying to solve.
-  const fitsOnOnePage = canvas.height <= availSrcPx;
-  const effectiveForcedBreakY = fitsOnOnePage ? null : forcedBreakCanvasY;
+  const clone = srcEl.cloneNode(true);
 
-  let yPos = margin, srcY = 0;
+  // Inputs, dropdowns and text boxes print as plain text. Values are read from
+  // the ORIGINAL controls: cloneNode does not copy what was typed or selected.
+  const srcCtl = srcEl.querySelectorAll('input,select,textarea');
+  const cloCtl = clone.querySelectorAll('input,select,textarea');
+  cloCtl.forEach((c, i) => {
+    const o = srcCtl[i];
+    const type = (c.type || '').toLowerCase();
+    if (!o || type === 'hidden' || type === 'checkbox' || type === 'radio' || type === 'file') { c.remove(); return; }
+    const tag = c.tagName.toLowerCase();
+    const text = tag === 'select' ? (o.options[o.selectedIndex] ? o.options[o.selectedIndex].text : '') : o.value;
+    const el = document.createElement(tag === 'textarea' ? 'div' : 'span');
+    el.style.cssText = c.style.cssText;
+    el.style.border = 'none'; el.style.background = 'transparent'; el.style.boxShadow = 'none';
+    el.style.height = 'auto'; el.style.minHeight = '0'; el.style.maxHeight = 'none';
+    el.style.overflow = 'visible'; el.style.whiteSpace = 'pre-wrap';
+    el.style.display = tag === 'textarea' ? 'block' : 'inline-block';
+    el.textContent = text;
+    c.replaceWith(el);
+  });
+  clone.querySelectorAll('button,[data-noprint]').forEach(b => b.remove());
+  clone.querySelectorAll('[contenteditable]').forEach(e => { e.removeAttribute('contenteditable'); e.style.outline = 'none'; });
 
-  while (srcY < canvas.height - 1) {
-    let idealSrcEnd = Math.min(srcY + availSrcPx, canvas.height);
+  if (typeof opts.prepare === 'function') opts.prepare(clone, srcEl);
 
-    // If a forced break point falls within this page's range, cut there
-    // instead — guarantees that section always starts a fresh page.
-    if (effectiveForcedBreakY && effectiveForcedBreakY > srcY + 1 && effectiveForcedBreakY < idealSrcEnd) {
-      idealSrcEnd = effectiveForcedBreakY;
-    } else if (idealSrcEnd < canvas.height) {
-      // Not the last page — nudge to the nearest clean white row so
-      // we never slice through a line of text or a colored box.
-      idealSrcEnd = findNearestWhiteRow(ctx, canvas.width, idealSrcEnd, searchBandPx);
-      if (idealSrcEnd <= srcY) idealSrcEnd = Math.min(srcY + availSrcPx, canvas.height); // safety: never go backwards
-    }
+  const old = document.getElementById('printRoot'); if (old) old.remove();
+  const root = document.createElement('div');
+  root.id = 'printRoot';
+  root.appendChild(clone);
+  document.body.appendChild(root);
 
-    const srcH = idealSrcEnd - srcY;
-    if (srcH <= 0) break;
-    const sliceH = (srcH / canvas.height) * imgH;
+  // Let photos finish loading, or the page prints with empty boxes.
+  const imgs = Array.from(root.querySelectorAll('img'));
+  await Promise.all(imgs.map(img => img.complete ? null : new Promise(res => {
+    img.onload = img.onerror = res; setTimeout(res, 10000);
+  })));
 
-    const sc = document.createElement('canvas');
-    sc.width = canvas.width; sc.height = Math.ceil(srcH);
-    sc.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
-    pdf.addImage(sc.toDataURL('image/jpeg', 0.92), 'JPEG', margin, yPos, imgW, sliceH);
+  const state = { root, prevTitle: document.title, timer: null, onAfter: null };
+  state.onAfter = () => _prCleanup();
+  state.timer = setTimeout(_prCleanup, 120000);   // safety net for browsers that never fire afterprint
+  window.addEventListener('afterprint', state.onAfter);
+  _prState = state;
 
-    srcY = idealSrcEnd;
-    if (srcY < canvas.height - 1) { pdf.addPage(); yPos = margin; }
-  }
+  document.title = _prSafeName(opts.title || document.title);
+  document.body.classList.add('printing');
+
+  try { if (!localStorage.getItem('fp_printHintSeen')) { localStorage.setItem('fp_printHintSeen', '1'); showToast('In the print window, choose "Save as PDF" as the destination'); } } catch (e) {}
+  window.print();
+  return true;
 }
 
+// Proposal (single option or the Combined view)
 async function saveProposalPDF() {
   saveProposalEdits();
-  const btn = document.querySelector('[onclick="saveProposalPDF()"]');
-  if (btn) { btn.textContent = '⏳ Generating...'; btn.disabled = true; }
-  try {
-    if (!window.jspdf)       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  const combinedEl = document.getElementById('prop_combined_view');
+  const regularEl  = document.getElementById('proposalDoc');
+  const isCombined = !!(combinedEl && combinedEl.isConnected && combinedEl.offsetParent !== null);
+  const srcEl      = isCombined ? combinedEl : regularEl;
+  if (!srcEl) { alert('No proposal visible to save.'); return; }
 
-    const combinedEl = document.getElementById('prop_combined_view');
-    const regularEl  = document.getElementById('proposalDoc');
-    const isCombined = !!(combinedEl && combinedEl.isConnected && combinedEl.offsetParent !== null);
-    const captureEl  = isCombined ? combinedEl : regularEl;
-    if (!captureEl) { alert('No proposal visible to save.'); return; }
+  const job    = curIdx >= 0 ? jobs[curIdx] : null;
+  const first  = propTabEstimates?.[0] || job;
+  const jobId  = first?.id || job?.id || val('jobNo') || 'Proposal';
+  const name   = (first?.custName || job?.custName || val('custName') || 'Customer').split(' ')[0];
+  const prefix = jobId.split('-')[0] || jobId;
+  const title  = isCombined ? `${prefix}-${name}-Combined-Proposal` : `${prefix}-${name}-Proposal`;
 
-    const job    = curIdx >= 0 ? jobs[curIdx] : null;
-    const first  = propTabEstimates?.[0] || job;
-    const jobId  = first?.id || job?.id || val('jobNo') || 'Proposal';
-    const name   = (first?.custName || job?.custName || val('custName') || 'Customer').split(' ')[0];
-    const prefix = jobId.split('-')[0] || jobId;
-    const fileName = isCombined ? `${prefix}-${name}-Combined-Proposal.pdf` : `${prefix}-${name}-Proposal.pdf`;
-
-    const origStyle = captureEl.getAttribute('style') || '';
-    captureEl.style.height = 'auto'; captureEl.style.minHeight = 'auto';
-    captureEl.style.overflow = 'visible'; captureEl.style.boxShadow = 'none';
-
-    // ── RESOLVE DRIVE PHOTOS TO BASE64 BEFORE CAPTURE ──────
-    // html2canvas can't load Drive thumbnail URLs due to CORS.
-    // Fetch each one through the Apps Script proxy first so the
-    // onclone grid uses base64 dataUrls that canvas can draw.
-    if (propCarouselPhotos.length > 0) {
-      if (btn) btn.textContent = '⏳ Loading photos...';
-      propCarouselPhotos = await resolvePhotosToDataUrls(propCarouselPhotos);
-    }
-    if (btn) btn.textContent = '⏳ Generating...';
-
-    const canvas = await html2canvas(captureEl, {
-      scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff',
-      scrollX: 0, scrollY: 0,
-      // Do NOT pass explicit height/width — let html2canvas measure the clone
-      // after onclone has expanded the image grid. Passing captureEl.scrollHeight
-      // here clips to the live-DOM height which doesn't include the fully-loaded
-      // grid images in the clone.
-      windowWidth: captureEl.scrollWidth,
-      onclone: async clonedDoc => {
-        const el = clonedDoc.getElementById(isCombined ? 'prop_combined_view' : 'proposalDoc');
-        if (el) { el.style.height='auto'; el.style.minHeight='auto'; el.style.overflow='visible'; el.style.boxShadow='none'; }
-        const terms = clonedDoc.getElementById('prop_terms');
-        if (terms) {
-          terms.style.height    = 'auto';
-          terms.style.minHeight = '0';
-          terms.style.maxHeight = 'none';
-          terms.style.overflow  = 'visible';
-          terms.style.whiteSpace = 'pre-wrap';
-          // Also expand every ancestor up to the proposal doc so nothing clips
-          let node = terms.parentElement;
-          while (node && node !== el) {
-            node.style.height    = 'auto';
-            node.style.minHeight = '0';
-            node.style.maxHeight = 'none';
-            node.style.overflow  = 'visible';
-            node = node.parentElement;
-          }
-        }
-        // Expand ALL contenteditable elements and their parents
-        clonedDoc.querySelectorAll('[contenteditable]').forEach(e => {
-          e.style.height    = 'auto';
-          e.style.minHeight = '0';
-          e.style.maxHeight = 'none';
-          e.style.overflow  = 'visible';
-          e.style.whiteSpace = 'pre-wrap';
-          // Parent too
-          if (e.parentElement) {
-            e.parentElement.style.height    = 'auto';
-            e.parentElement.style.maxHeight = 'none';
-            e.parentElement.style.overflow  = 'visible';
-          }
-        });
-        // Catch-all: any element with overflow:hidden or a fixed height
-        clonedDoc.querySelectorAll('*').forEach(e => {
-          const cs = window.getComputedStyle ? null : null; // can't use in clone
-          if (e.style.overflow === 'hidden')   e.style.overflow = 'visible';
-          if (e.style.maxHeight && e.style.maxHeight !== 'none') e.style.maxHeight = 'none';
-        });
-        if (!isCombined && propCarouselPhotos.length > 0) {
-          // Hide all carousel chrome
-          ['prop_carousel_prev','prop_carousel_next','prop_carousel_counter','prop_carousel_dots'].forEach(id => {
-            const e = clonedDoc.getElementById(id); if (e) e.style.display = 'none';
-          });
-          const sec   = clonedDoc.getElementById('prop_photosSection');
-          const track = clonedDoc.getElementById('prop_carousel_track');
-          if (sec) {
-            sec.style.display      = 'block';
-            sec.style.overflow     = 'visible';
-            sec.style.height       = 'auto';
-            sec.style.marginBottom = '24px';
-          }
-          if (track) {
-            const count = propCarouselPhotos.length;
-            // 1 photo: full width. 2: side by side. 3+: 2-column grid
-            const cols = count === 1 ? '1fr' : 'repeat(2, 1fr)';
-            // Use a natural aspect-ratio so the container sizes to the images,
-            // not a fixed pixel height that collapses before images load.
-            track.style.cssText = `
-              display: grid !important;
-              grid-template-columns: ${cols};
-              gap: 12px;
-              padding: 0;
-              background: transparent;
-              min-height: 0;
-              height: auto;
-              overflow: visible;
-              position: static;
-            `;
-            // Build img tags — prefer dataUrl (already loaded in memory) over
-            // remote Drive URLs which require a network round-trip inside the clone.
-            track.innerHTML = propCarouselPhotos.map(p => {
-              const src = p.dataUrl || getDriveThumbUrl(p.driveUrl, 800);
-              return `<img src="${src}" style="
-                width: 100%;
-                height: auto;
-                aspect-ratio: 4/3;
-                object-fit: cover;
-                border-radius: 6px;
-                border: 1px solid #E2E5EA;
-                display: block;
-              ">`;
-            }).join('');
-
-            // ── CRITICAL: wait for every image in the clone to fully load
-            // before returning control to html2canvas. Without this, the
-            // canvas is captured before images paint and the section collapses.
-            const imgs = Array.from(track.querySelectorAll('img'));
-            await Promise.all(imgs.map(img =>
-              img.complete
-                ? Promise.resolve()
-                : new Promise(resolve => {
-                    img.onload  = resolve;
-                    img.onerror = resolve; // resolve on error so we don't hang
-                  })
-            ));
-
-            // Force the track and its parent to re-measure after images load
-            track.style.height = track.scrollHeight + 'px';
-            if (sec) sec.style.height = sec.scrollHeight + 'px';
-          }
-        }
-      }
+  await printDocument(srcEl, { title, prepare: clone => {
+    if (isCombined) return;
+    // The on-screen photo carousel prints as a plain grid of every photo.
+    ['prop_carousel_prev', 'prop_carousel_next', 'prop_carousel_counter', 'prop_carousel_dots'].forEach(id => {
+      const e = clone.querySelector('#' + id); if (e) e.remove();
     });
-
-    // Compute the Terms & Obligations box's offset BEFORE restoring the
-    // original (collapsed) style — captureEl is still in its expanded,
-    // full-height capture state here, matching the canvas we just got.
-    const termsBoxEl = isCombined
-      ? document.getElementById('prop_combined_terms_box')
-      : document.getElementById('prop_terms_box');
-    let termsForcedBreakY = getCanvasOffsetY(captureEl, termsBoxEl, 2); // scale:2 matches html2canvas call above
-    // Small safety margin — the live DOM measured here and the cloned DOM
-    // html2canvas actually rendered can differ by a pixel or two; breaking
-    // slightly early guarantees the Terms box header is never clipped.
-    if (termsForcedBreakY) termsForcedBreakY = Math.max(0, termsForcedBreakY - 4);
-
-    captureEl.setAttribute('style', origStyle);
-
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit:'pt', format:'letter', orientation:'portrait' });
-    paginateCanvasToPdf(pdf, canvas, termsForcedBreakY);
-
-    pdf.save(fileName);
-    showToast('✓ PDF saved — ' + fileName);
-  } catch(e) {
-    console.error('PDF error:', e);
-    alert('PDF generation failed: ' + e.message + '\n\nTry using the browser Print dialog instead.');
-  } finally {
-    if (btn) { btn.textContent = '📄 Save PDF'; btn.disabled = false; }
-  }
+    const sec   = clone.querySelector('#prop_photosSection');
+    const track = clone.querySelector('#prop_carousel_track');
+    if (!sec) return;
+    if (!propCarouselPhotos.length || !track) { sec.remove(); return; }
+    sec.style.display = 'block';
+    track.style.cssText = `display:grid;grid-template-columns:${propCarouselPhotos.length === 1 ? '1fr' : 'repeat(2,1fr)'};gap:12px;padding:0;background:transparent;min-height:0;height:auto;overflow:visible;position:static`;
+    track.innerHTML = propCarouselPhotos.map(p => {
+      const src = p.dataUrl || getDriveThumbUrl(p.driveUrl, 1000);
+      return `<img src="${escHtml(src)}" style="width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;border-radius:6px;border:1px solid #E2E5EA;display:block">`;
+    }).join('');
+  } });
 }
+
 
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -16494,65 +16191,28 @@ function switchMultiTab(activeIdx) {
   if (combPanel) combPanel.style.display = activeIdx==='combined' ? 'block' : 'none';
 }
 
+// Multi-option proposal: prints the option (or the Combined tab) that is showing
 async function saveMultiProposalPDF() {
-  const btns = document.querySelectorAll('[onclick="saveMultiProposalPDF()"]');
-  btns.forEach(b => { b.textContent = '⏳ Generating...'; b.disabled = true; });
-  try {
-    if (!window.jspdf)       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  const srcEl = document.getElementById('multiProposalDoc');
+  if (!srcEl) { alert('No proposal visible to save.'); return; }
+  const first = moEstimates?.[0] || {};
+  const jobId = (first.id || '').split('-')[0] || 'Proposal';
+  const name  = (first.custName || 'Customer').split(' ')[0];
+  const combPanel  = document.getElementById('mo_panel_combined');
+  const isCombined = !!(combPanel && combPanel.style.display !== 'none');
+  const title = isCombined ? `${jobId}-${name}-Combined-Proposal` : `${jobId}-${name}-Multi-Option-Proposal`;
+  await printDocument(srcEl, { title, prepare: clone => {
+    const tabs = clone.querySelector('#mo_tabs'); if (tabs) tabs.remove();
+  } });
+}
 
-    const captureEl = document.getElementById('multiProposalDoc');
-    if (!captureEl) { alert('No proposal visible to save.'); return; }
-
-    // Build filename from first estimate in the set
-    const first    = moEstimates?.[0] || {};
-    const jobId    = (first.id || '').split('-')[0] || 'Proposal';
-    const name     = (first.custName || 'Customer').split(' ')[0];
-    // Detect whether Combined tab is active
-    const combPanel = document.getElementById('mo_panel_combined');
-    const isCombined = !!(combPanel && combPanel.style.display !== 'none');
-    const fileName = isCombined
-      ? `${jobId}-${name}-Combined-Proposal.pdf`
-      : `${jobId}-${name}-Multi-Option-Proposal.pdf`;
-
-    // Temporarily expand for full-height capture
-    const origStyle = captureEl.getAttribute('style') || '';
-    captureEl.style.height = 'auto';
-    captureEl.style.minHeight = 'auto';
-    captureEl.style.overflow = 'visible';
-    captureEl.style.boxShadow = 'none';
-
-    const canvas = await html2canvas(captureEl, {
-      scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff',
-      scrollX: 0, scrollY: 0,
-      windowWidth: captureEl.scrollWidth, windowHeight: captureEl.scrollHeight,
-      height: captureEl.scrollHeight, width: captureEl.scrollWidth,
-      onclone: clonedDoc => {
-        const el = clonedDoc.getElementById('multiProposalDoc');
-        if (el) { el.style.height='auto'; el.style.minHeight='auto'; el.style.overflow='visible'; el.style.boxShadow='none'; }
-        // Ensure all panels are fully visible in clone so nothing clips
-        clonedDoc.querySelectorAll('[contenteditable]').forEach(e => {
-          e.style.height='auto'; e.style.overflow='visible'; e.style.maxHeight='none';
-        });
-      }
-    });
-    captureEl.setAttribute('style', origStyle);
-
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit:'pt', format:'letter', orientation:'portrait' });
-    // No forced break — this document (multiProposalDoc) has no Terms &
-    // Obligations box, just "How to Proceed" + a T&C link. Smart-nudge
-    // still applies so no line/box is ever sliced mid-content.
-    paginateCanvasToPdf(pdf, canvas, null);
-
-    pdf.save(fileName);
-    showToast('✓ PDF saved — ' + fileName);
-  } catch(e) {
-    console.error('PDF error:', e);
-    alert('PDF generation failed: ' + e.message + '\n\nTry using the browser Print dialog instead.');
-  } finally {
-    btns.forEach(b => { b.textContent = '📄 Save PDF'; b.disabled = false; });
-  }
+// The estimator screen's Print button. It used to print the internal working
+// screen (margins, costs, gross margin) clipped to one page. It now prints the
+// customer proposal for the estimate that is open.
+function printEstimateProposal() {
+  if (curIdx < 0) { alert('Open or save an estimate first'); return; }
+  openProposal();
+  setTimeout(() => saveProposalPDF(), 200);
 }
 
 async function printInvoice() {
@@ -17241,28 +16901,9 @@ function renderManualInvoiceDoc(inv) {
 }
 
 function printInvoiceDoc() {
-  // Same textarea→div swap technique as proposal for reliable PDF output
-  const swaps = [];
-  document.querySelectorAll('#invoiceDoc textarea').forEach(ta => {
-    const div = document.createElement('div');
-    div.style.cssText    = ta.style.cssText;
-    div.style.height     = 'auto';
-    div.style.overflow   = 'visible';
-    div.style.whiteSpace = 'pre-wrap';
-    div.style.fontFamily = 'inherit';
-    div.style.fontSize   = window.getComputedStyle(ta).fontSize;
-    div.style.color      = window.getComputedStyle(ta).color;
-    div.textContent      = ta.value;
-    ta.parentNode.insertBefore(div, ta);
-    ta.style.display = 'none';
-    swaps.push({ ta, div });
-  });
-
-  document.body.classList.add('printing-invoice');
-  window.print();
-  document.body.classList.remove('printing-invoice');
-
-  swaps.forEach(({ ta, div }) => { ta.style.display = ''; div.remove(); });
+  const num = (document.getElementById('inv_num')?.textContent || '').trim();
+  const who = (document.getElementById('inv_custName')?.textContent || '').trim().split(' ')[0];
+  printDocument(document.getElementById('invoiceDoc'), { title: 'Invoice-' + (num || 'Draft') + (who && who !== '-' ? '-' + who : '') });
 }
 // ════════════════════════════════════════════════
 // INVOICE EDIT & DELETE
