@@ -1348,7 +1348,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:9px;font-weight:600;opacity:0.5;letter-spacing:.04em;vertical-align:middle;margin-left:4px">v3.29.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.30.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1455,6 +1455,7 @@ function applyTheme(raw) {
           <div>
             <div style="font-size:13px;font-weight:600;color:var(--panel-ink);font-family:var(--mono)" id="estId">Enter job #</div>
             <div style="font-size:10px;color:var(--panel-ink-50);font-family:var(--mono);margin-top:1px" id="idAssembled"></div>
+            <div id="estStamps" style="font-size:11px;color:var(--panel-ink-50);font-family:var(--mono);margin-top:3px;line-height:1.5"></div>
             <input type="hidden" id="jobNo">
             <input type="hidden" id="estContactUID">
           </div>
@@ -5579,6 +5580,7 @@ function normalizeJob(j) {
     jobNo:            s(j.jobNo,       j['Job No'],      ''),
     contactUID:       String(s(j.contactUID,  j['Contact UID'], '') || ''),
     savedAt:          s(j.savedAt,     j['Saved At'],    ''),
+    createdAt:        s(j.createdAt,   j['Created At'],  ''),   // v3.30.0
     driveFolder:      s(j.driveFolder, j['Drive Folder'],''),
     proposalLinkSent: bool(j.proposalLinkSent, j['Proposal Link Sent'], false),
     // ── Customer ────────────────────────────────
@@ -8071,6 +8073,22 @@ function calcCashMarkup() {
 // ════════════════════════════════════════════════
 // SAVE / LOAD
 // ════════════════════════════════════════════════
+// v3.30.0 - Created / Last saved timestamps under the estimate ID
+function _fmtStamp(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' +
+         d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+function updateEstStamps(job) {
+  const el = document.getElementById('estStamps');
+  if (!el) return;
+  if (!job || !job.id) { el.innerHTML = ''; return; }
+  const c = _fmtStamp(job.createdAt), s = _fmtStamp(job.savedAt);
+  el.innerHTML = (c ? 'Created: ' + c + '<br>' : '') + (s ? 'Last saved: ' + s : 'Not saved yet');
+}
+
 function collectData() {
   // Use full estimate ID (e.g. '938-Josh-B-2026') — NOT jobNo which is just the numeric prefix
   const fullEstId  = (document.getElementById('estId')?.textContent || '').trim();
@@ -8082,6 +8100,7 @@ function collectData() {
     jobId:       existingId ? existingId.split('-')[0] : '',  // numeric prefix — the parent Job ID
     jobPrefix:   val('jobPrefix'),
     savedAt:     new Date().toISOString(),
+    createdAt:   (existingId && jobs[curIdx] && jobs[curIdx].createdAt) ? jobs[curIdx].createdAt : (existingId ? '' : new Date().toISOString()),   // v3.30.0
     custName:    val('custName'),
     custPhone:   val('custPhone'),
     custEmail:   val('custEmail'),
@@ -8344,6 +8363,7 @@ async function _saveJobCore(isQueuedRerun) {
   renderJobsList();
   updateBadge();
   renderSiblingPills();
+  updateEstStamps(normalized);   // v3.30.0
   syncEstimateToContact(data);   // v3.27.0 - typed email/phone also updates the contact
   showToast('✓ Saved locally');
 
@@ -8407,6 +8427,7 @@ async function _saveJobCore(isQueuedRerun) {
         document.getElementById('estId').textContent       = newEstimateId;
         document.getElementById('idAssembled').textContent = newEstimateId;
         document.getElementById('jobNo').value             = newEstimateId;
+        updateEstStamps(jobs[curIdx]);   // v3.30.0
       } else if (newJobId) {
         jobs[curIdx].jobId = newJobId;
       }
@@ -8695,6 +8716,7 @@ function loadJobLocal(idx) {
 
   document.getElementById('estId').textContent       = d.id || 'Enter job # to begin';  // FULL ID — used by collectData
   document.getElementById('idAssembled').textContent = d.id || '';
+  updateEstStamps(d);   // v3.30.0
   document.getElementById('estContactUID').value     = d.contactUID || d['Contact UID'] || '';
   document.getElementById('jobNo').value             = d.jobNo || '';  // numeric prefix only (938)
   document.getElementById('jobPrefix').value         = (d.id || '').split('-')[0] || '';
@@ -8770,6 +8792,7 @@ function newEst() {
   document.getElementById('jobPrefix').value = '';
   document.getElementById('estId').textContent = 'Enter job # to begin';
   document.getElementById('idAssembled').textContent = '';
+  updateEstStamps(null);   // v3.30.0
   document.getElementById('jobNo').value = '';  // blank = new estimate, server assigns ID
   document.getElementById('estContactUID').value = '';
   _autoFillPrefix = '';   // v3.26.2
@@ -14499,6 +14522,7 @@ function duplicateEstimate() {
   const dupe = JSON.parse(JSON.stringify(original));
   dupe.id = ''; dupe.jobNo = '';
   dupe.savedAt       = new Date().toISOString();
+  dupe.createdAt     = dupe.savedAt;   // v3.30.0
   // Keep same prefix so server assigns next letter automatically
   // e.g. if original was 334-Smith-A-2026, dupe gets 334-Smith-B-2026
 
