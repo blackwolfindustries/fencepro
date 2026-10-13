@@ -1348,7 +1348,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.30.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.30.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2486,7 +2486,7 @@ function applyTheme(raw) {
     <div id="summaryEmpty" style="text-align:center;padding:60px 20px;color:var(--text3)">
       <div style="font-size:40px;margin-bottom:12px">📊</div>
       <div style="font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px">Enter a job number above</div>
-      <div style="font-size:13px">Type a 3-digit job # to see all estimates for that job</div>
+      <div style="font-size:13px">Type a job # to see all estimates for that job</div>
     </div>
 
   </div>
@@ -6582,10 +6582,10 @@ function onDeliveryOverride() {
 function validateRequired() {
   const prefix = val('jobPrefix').trim();
 
-  // Job # must start with exactly 3 numeric digits
+  // Job # must start with 3 or 4 numeric digits (v3.30.1: opened up past 999)
   const digits = prefix.match(/^(\d+)/);
-  if (!digits || digits[1].length !== 3) {
-    return 'Job # must start with exactly 3 numeric digits (e.g. 298).\nYou entered: "' + prefix + '"';
+  if (!digits || digits[1].length < 3 || digits[1].length > 4) {
+    return 'Job # must start with 3 or 4 numeric digits (e.g. 298 or 1000).\nYou entered: "' + prefix + '"';
   }
 
   const required = [
@@ -9054,7 +9054,7 @@ function openProposal() {
   // Populate modal fields
   const s = id => document.getElementById(id);
 
-  // Header — show only 3-digit job prefix
+  // Header — show only the numeric job prefix
   const jobPrefix = val('jobPrefix') || jobId.split('-')[0] || jobId;
   s('prop_jobId').textContent      = jobPrefix;
   s('prop_date').textContent       = fmtDate(today);
@@ -13673,7 +13673,7 @@ function onRecallSearch() {
     const addr     = String(j.jobAddr || '').toLowerCase();
     const fence    = String(j.fenceType || '').toLowerCase();
     const zip      = String(j.custZip || '').toLowerCase();
-    const prefix   = id.split('-')[0]; // just the 3-digit number
+    const prefix   = id.split('-')[0]; // just the job number
     return name.includes(q) || id.includes(q) || prefix.includes(q) ||
            addr.includes(q) || fence.includes(q) || zip.includes(q);
   }).slice(0, 10);
