@@ -1348,7 +1348,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.4</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.5</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -8898,6 +8898,29 @@ function buildCompanyMaps() {
 // address (Proposal, Multi-Option Proposal, Combined view, Invoice, CI
 // Form preview, emailed proposal) now reads through these two instead of
 // each having its own hardcoded BWI/TRF office text.
+// v3.31.5 - Company name, address and phone for the customer email. The old lookup
+// used COMPANIES[code] || COMPANIES.BWI, which comes back empty when the job's
+// company is not a code in the Companies list (and there is no BWI code), and the
+// email header then printed "UNDEFINED". This tries the job's company by code and
+// by name, then the active company, then BWI, then the first company in the list,
+// and finally the built-in defaults, so there is always a real name.
+function fpResolveEmailCompany(v) {
+  const keys = Object.keys(COMPANIES || {});
+  let code = '';
+  if (v && COMPANIES[v]) code = v;
+  if (!code && v) code = keys.find(k => String(COMPANIES[k]).toLowerCase() === String(v).toLowerCase()) || '';
+  if (!code && typeof activeCompany !== 'undefined' && activeCompany && COMPANIES[activeCompany]) code = activeCompany;
+  if (!code && COMPANIES.BWI) code = 'BWI';
+  if (!code && keys.length) code = keys[0];
+  const dflt = getDefaultCompanies();
+  const d = dflt.find(c => c.code === code) || dflt.find(c => c.code === 'BWI') || dflt[0] || {};
+  const name  = (code && COMPANIES[code]) || d.name || '';
+  const addr  = (code && CI_COMPANIES[code] ? companyAddrLine(code) : '') ||
+                [d.addr1, d.addr2, [d.city, d.state, d.zip].filter(Boolean).join(', ')].filter(Boolean).join(', ');
+  const phone = (code && CI_COMPANIES[code] ? companyPhoneFor(code) : '') || d.phone || '';
+  return { code, name, addr, phone };
+}
+
 function companyAddrLine(co) {
   const c = CI_COMPANIES[co] || CI_COMPANIES.BWI || {};
   return [c.addr1, c.addr2, [c.city, c.state, c.zip].filter(Boolean).join(', ')]
@@ -9356,7 +9379,7 @@ Customer Obligations:
 
 // ── New structured email template fields (used by HTML email builder) ──
 const EMAIL_TEMPLATE_DEFAULTS = {
-  email_subject:  `Your Fence Estimate — {{company}}`,
+  email_subject:  `Estimate for Work`,   // v3.31.5 - was 'Your Fence Estimate — {{company}}'
   email_greeting: `Hi {{firstName}},\n\nThank you for the opportunity to earn your business. Please find your estimate details below.`,
   email_closing:  `This link is secure and will expire in 30 days. Once you accept, we will be in touch to collect the deposit and get you scheduled.\n\nPlease don't hesitate to call or text with any questions.`,
   email_signature:`Thank you,\n{{company}}\n{{phone}}`
@@ -9365,6 +9388,10 @@ const EMAIL_TEMPLATE_DEFAULTS = {
 function getEmailTemplates() {
   try {
     const t = JSON.parse(localStorage.getItem('fp_email_templates') || '{}');
+    // v3.31.5 - the old default subject ("Your Fence Estimate — ...") may be saved
+    // in this browser from before. Drop it so the new default applies. A subject
+    // you wrote yourself (anything not starting that way) is kept.
+    if (typeof t.email_subject === 'string' && /^\s*Your Fence Estimate\b/i.test(t.email_subject)) delete t.email_subject;
     return { ...EMAIL_TEMPLATE_DEFAULTS, ...t };
   } catch(e) { return { ...EMAIL_TEMPLATE_DEFAULTS }; }
 }
@@ -15121,11 +15148,12 @@ async function generateProposalLink(mode, estimateIds) {
 
     const custName  = job.custName  || val('custName')  || 'there';
     const custFirst = custName.split(' ')[0];
-    const co        = (COMPANIES[proposalCompany] || COMPANIES.BWI);
+    const emailCo   = fpResolveEmailCompany(proposalCompany);   // v3.31.5
+    const co        = emailCo.name;
     const finalCC   = '$' + Math.round(job.calc_final || lastCalc.final || 0).toLocaleString();
     const finalCash = '$' + Math.round(job.calc_cash  || lastCalc.cash  || 0).toLocaleString();
-    const phone     = companyPhoneFor(proposalCompany);
-    const companyAddr = companyAddrLine(proposalCompany);
+    const phone     = emailCo.phone;
+    const companyAddr = emailCo.addr;
 
     // Build HTML email
     // Resolve logo for active company
