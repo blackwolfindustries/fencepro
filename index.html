@@ -1348,7 +1348,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.2</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.4</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -15268,75 +15268,77 @@ function buildProposalEmailHtml(opts) {
   const signature = resolveTokens(emailTmplVal('email_signature'), tokens).replace(/\n/g,'<br>');
   const scopeLine = opts.scopeNotes ? `<p style="margin:0 0 16px;font-size:13px;color:#555;line-height:1.7;white-space:pre-wrap">${escHtml(opts.scopeNotes)}</p>` : '';
 
+  // v3.31.4 - Customer email, patriotic theme (navy, red, white). No logo image:
+  // the brand shows as the company name, address and phone in the header. The
+  // proposal link is a button on the words "View My Proposal", so the long
+  // address never shows. Table layout with inline styles only, so it holds up in
+  // Gmail and Outlook.
+  const addrPhone = [opts.companyAddr, opts.phone].filter(Boolean).map(escHtml).join(' &nbsp;|&nbsp; ');
+  const projectBlock = opts.fenceType
+    ? `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#0a2342">Project</p>
+    <p style="margin:0 0 22px;font-size:15px;font-weight:700;line-height:1.5;color:#222222">${escHtml(opts.fenceType)}${opts.jobAddr ? ' &nbsp;|&nbsp; ' + escHtml(opts.jobAddr) : ''}</p>`
+    : '';
+  const scopeBlock = opts.scopeNotes
+    ? `<p style="margin:0 0 22px;font-size:14px;line-height:1.6;color:#444444;white-space:pre-wrap">${escHtml(opts.scopeNotes)}</p>`
+    : '';
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Your Fence Estimate</title></head>
-<body style="margin:0;padding:0;background:#f0f0f0;font-family:'Helvetica Neue',Arial,sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f0f0;padding:32px 16px">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.10)">
+<body style="margin:0;padding:0;background:#eceff4;font-family:Arial,Helvetica,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#eceff4;padding:28px 12px"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #c9ced8">
 
-  <!-- Header -->
-  <tr><td style="background:#1B2B4B;padding:24px 40px">
+  <!-- Header: brand as text -->
+  <tr><td style="background:#0a2342;padding:26px 36px">
+    <p style="margin:0;font-size:24px;font-weight:800;color:#ffffff;letter-spacing:1px;text-transform:uppercase">${escHtml(opts.company)}</p>
+    ${addrPhone ? `<p style="margin:6px 0 0;font-size:12px;color:#cfd8e6;letter-spacing:.5px">${addrPhone}</p>` : ''}
+  </td></tr>
+
+  <!-- Red / white / navy stripe -->
+  <tr><td style="font-size:0;line-height:0">
     <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td style="vertical-align:middle">
-          <p style="margin:0;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-.4px">${escHtml(opts.company)}</p>
-          <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,.55)">${escHtml(opts.companyAddr || '')} &nbsp;·&nbsp; ${escHtml(opts.phone)}</p>
-        </td>
-        ${opts.logoSrc ? `<td style="vertical-align:middle;text-align:right;padding-left:20px;width:72px">
-          <img src="${opts.logoSrc}" alt="${escHtml(opts.logoAlt||opts.company)}" width="64" height="64"
-               style="width:64px;height:64px;border-radius:50%;border:2px solid rgba(255,255,255,.25);object-fit:cover;display:block">
-        </td>` : ''}
-      </tr>
+      <tr><td style="background:#b22234;height:5px;line-height:5px;font-size:0">&nbsp;</td></tr>
+      <tr><td style="background:#ffffff;height:3px;line-height:3px;font-size:0">&nbsp;</td></tr>
+      <tr><td style="background:#0a2342;height:2px;line-height:2px;font-size:0">&nbsp;</td></tr>
     </table>
   </td></tr>
 
   <!-- Body -->
-  <tr><td style="padding:36px 40px 24px">
-    <p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.7">${greeting}</p>
+  <tr><td style="padding:32px 36px 12px">
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#222222">${greeting}</p>
 
-    ${opts.fenceType ? `<p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:.08em">Project</p>
-    <p style="margin:0 0 20px;font-size:14px;font-weight:600;color:#333">${escHtml(opts.fenceType)}${opts.jobAddr ? ' &nbsp;·&nbsp; ' + escHtml(opts.jobAddr) : ''}</p>` : ''}
+    ${projectBlock}
+    ${scopeBlock}
 
-    ${scopeLine}
-
-    <!-- Price box -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f8fa;border:1px solid #e2e5ea;border-radius:8px;overflow:hidden;margin-bottom:28px">
+    <!-- Prices -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;background:#f6f7fa;border:1px solid #c9ced8">
       <tr>
-        <td width="50%" style="padding:18px 20px;border-right:1px solid #e2e5ea">
-          <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.08em">CC / Finance Price</p>
-          <p style="margin:0;font-size:24px;font-weight:900;color:#F26522;font-family:monospace">${escHtml(opts.ccPrice)}</p>
+        <td width="50%" style="padding:16px 20px;border-right:1px solid #c9ced8">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0a2342">CC / Finance</p>
+          <p style="margin:0;font-size:22px;font-weight:800;color:#0a2342">${escHtml(opts.ccPrice)}</p>
         </td>
-        <td width="50%" style="padding:18px 20px">
-          <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.08em">Cash / Check Price</p>
-          <p style="margin:0;font-size:20px;font-weight:800;color:#16A34A;font-family:monospace">${escHtml(opts.cashPrice)}</p>
+        <td width="50%" style="padding:16px 20px">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0a2342">Cash / Check</p>
+          <p style="margin:0;font-size:22px;font-weight:800;color:#b22234">${escHtml(opts.cashPrice)}</p>
         </td>
       </tr>
     </table>
 
-    <!-- CTA Button -->
-    <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px">
-      <tr><td align="center" style="background:#F26522;border-radius:8px;padding:0">
+    <!-- Button -->
+    <table cellpadding="0" cellspacing="0" style="margin:0 0 26px">
+      <tr><td style="background:#b22234;border:2px solid #b22234">
         <a href="${opts.proposalUrl}" target="_blank"
-           style="display:inline-block;padding:16px 40px;font-size:16px;font-weight:800;color:#ffffff;text-decoration:none;letter-spacing:-.2px;font-family:'Helvetica Neue',Arial,sans-serif">
-          View My Proposal &rarr;
-        </a>
+           style="display:inline-block;padding:15px 38px;font-size:15px;font-weight:800;color:#ffffff;text-decoration:none;letter-spacing:.5px;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif">View My Proposal</a>
       </td></tr>
     </table>
 
-    <!-- Fallback URL -->
-    <p style="margin:0 0 24px;font-size:11px;color:#aaa;text-align:center;word-break:break-all">
-      Or copy this link: <a href="${opts.proposalUrl}" style="color:#F26522">${opts.proposalUrl}</a>
-    </p>
-
-    <p style="margin:0 0 24px;font-size:13px;color:#555;line-height:1.7">${closing}</p>
-    <p style="margin:0;font-size:13px;color:#333;line-height:1.8">${signature}</p>
+    <p style="margin:0 0 20px;font-size:13px;line-height:1.6;color:#555555">${closing}</p>
+    <p style="margin:0 0 8px;font-size:14px;line-height:1.7;color:#222222">${signature}</p>
   </td></tr>
 
   <!-- Footer -->
-  <tr><td style="background:#f7f8fa;border-top:1px solid #e2e5ea;padding:16px 40px;text-align:center">
-    <p style="margin:0;font-size:11px;color:#aaa">© ${new Date().getFullYear()} ${escHtml(opts.company)} &nbsp;·&nbsp; This estimate expires in 30 days</p>
+  <tr><td style="background:#0a2342;padding:14px 36px;text-align:center">
+    <p style="margin:0;font-size:11px;letter-spacing:.5px;color:#cfd8e6">&copy; ${new Date().getFullYear()} ${escHtml(opts.company)} &nbsp;|&nbsp; This estimate expires in 30 days</p>
   </td></tr>
 
 </table>
