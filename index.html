@@ -1348,7 +1348,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -4644,11 +4644,12 @@ function applyTheme(raw) {
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-sm" style="flex:1;justify-content:center" onclick="copyEmailDraft()">📄 Copy Plain Text</button>
-          <button class="btn btn-sm" style="flex:1;justify-content:center" onclick="openMailto()">📬 Open in Mail App</button>
+          <button class="btn btn-sm" style="flex:1;justify-content:center" id="plink_btn_draft" onclick="reviewInGmail()">📝 Review in Gmail</button>
         </div>
         <div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.6;text-align:center">
           <strong>Copy HTML</strong> → paste into Gmail/Outlook compose window to preserve formatting &amp; button<br>
-          <strong>Send via Gmail</strong> → fires directly from your connected Google account
+          <strong>Send via Gmail</strong> → sends right away from your connected Google account<br>
+          <strong>Review in Gmail</strong> → saves the formatted email as a draft in that same account and opens it so you can check it, then send
         </div>
         <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
           <button class="btn btn-sm" style="width:100%;justify-content:center;background:var(--btn-navy-bg);color:var(--btn-navy-text);border-color:var(--btn-navy-bg);font-weight:800" onclick="openProposalPdf()">⬇ Download PDF</button>
@@ -15451,13 +15452,63 @@ function copyEmailDraft() {
   navigator.clipboard.writeText(_proposalEmailText).then(() => showToast('✓ Plain text email copied'));
 }
 
+// v3.31.1 - Review in Gmail. Saves the same formatted HTML email that Send via
+// Gmail would send as a DRAFT in the connected Google account (the script's
+// account), then opens that draft in Gmail for review. Nothing is sent from
+// here, and it does not mark the proposal as sent.
+async function reviewInGmail() {
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  const email = resolveJobEmail(job);
+  if (!email) { alert('No email address found for this customer.\n\nPlease add their email before creating the draft.'); return; }
+  if (!settings.scriptUrl) { alert('Cloud not connected — configure in Setup first'); return; }
+  if (!_proposalEmailHtml) { alert('The email is not ready yet. Close this window and generate the link again.'); return; }
+
+  const btn = document.getElementById('plink_btn_draft');
+  const btnLabel = '📝 Review in Gmail';
+  if (btn) { btn.textContent = '⏳ Saving draft...'; btn.disabled = true; }
+  // Open the tab now, while the click is still fresh, so the browser's popup
+  // blocker does not stop it after the server call finishes.
+  let win = null;
+  try { win = window.open('', '_blank'); } catch(e) { win = null; }
+
+  try {
+    const subject = resolveTokens(emailTmplVal('email_subject'), {
+      firstName: _proposalEmailOpts?.custFirst||'', company: _proposalEmailOpts?.company||'', phone: _proposalEmailOpts?.phone||''
+    });
+    const res = await cloudCall({
+      action: 'createProposalDraft',
+      data: {
+        to:       email,
+        subject:  subject,
+        htmlBody: _proposalEmailHtml,
+        textBody: _proposalEmailText,
+        custName: job?.custName || val('custName') || ''
+      }
+    });
+    if (!res || !res.success) throw new Error((res && res.error) || 'Could not create the draft');
+    const acct = res.account ? 'u/' + encodeURIComponent(res.account) + '/' : '';
+    const url  = 'https://mail.google.com/mail/' + acct + '#drafts' + (res.messageId ? '/' + res.messageId : '');
+    if (win) { win.location.href = url; }
+    else {
+      try { await navigator.clipboard.writeText(url); } catch(e) {}
+      alert('Draft saved in ' + (res.account || 'Gmail') + '.\n\nYour browser blocked the new tab, so the draft link was copied. Paste it into your browser to open the draft.');
+    }
+    showToast('✅ Draft saved in ' + (res.account || 'Gmail') + ' — review and send from there', 4000);
+  } catch(e) {
+    if (win) { try { win.close(); } catch(_) {} }
+    alert('Could not create the Gmail draft: ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = btnLabel; btn.disabled = false; }
+  }
+}
+
 function openMailto() {
   const job      = curIdx >= 0 ? jobs[curIdx] : null;
-  const email    = job?.custEmail || val('custEmail') || '';
+  const email    = resolveJobEmail(job);   // v3.31.1 - same lookup as the popup
   const custName = job?.custName  || val('custName')  || '';
   const custFirst= custName.split(' ')[0] || 'there';
   const co       = (COMPANIES[activeCompany] || COMPANIES.BWI);
-  const subj     = resolveTokens(tmplVal('email_subject'), {
+  const subj     = resolveTokens(emailTmplVal('email_subject'), {   // v3.31.1 - was tmplVal(), which has no subject, so it came out blank
     company: co, phone: companyPhoneFor(activeCompany || 'BWI'),
     firstName: custFirst, fullName: custName
   });
