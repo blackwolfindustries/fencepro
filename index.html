@@ -1348,7 +1348,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.5</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.7</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -15166,6 +15166,8 @@ async function generateProposalLink(mode, estimateIds) {
       fenceType:  job.fenceType  || val('fenceType')  || '',
       jobAddr:    job.jobAddr    || val('jobAddr')    || '',
       scopeNotes: job.scopeNotes || val('scopeNotes') || '',
+      // v3.31.7 - Cash / Check estimates show only the cash price (no financing price)
+      isCash:     String(job.payMethod || val('payMethod') || 'CASH').toUpperCase() === 'CASH',
       logoSrc:    logoData.src   || '',
       logoAlt:    logoData.alt   || co
     };
@@ -15341,14 +15343,17 @@ function buildProposalEmailHtml(opts) {
     <!-- Prices -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;background:#f6f7fa;border:1px solid #c9ced8">
       <tr>
-        <td width="50%" style="padding:16px 20px;border-right:1px solid #c9ced8">
+        ${opts.isCash ? `<td style="padding:16px 20px">
+          <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0a2342">Cash / Check</p>
+          <p style="margin:0;font-size:22px;font-weight:800;color:#b22234">${escHtml(opts.cashPrice)}</p>
+        </td>` : `<td width="50%" style="padding:16px 20px;border-right:1px solid #c9ced8">
           <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0a2342">CC / Finance</p>
           <p style="margin:0;font-size:22px;font-weight:800;color:#0a2342">${escHtml(opts.ccPrice)}</p>
         </td>
         <td width="50%" style="padding:16px 20px">
           <p style="margin:0 0 4px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0a2342">Cash / Check</p>
           <p style="margin:0;font-size:22px;font-weight:800;color:#b22234">${escHtml(opts.cashPrice)}</p>
-        </td>
+        </td>`}
       </tr>
     </table>
 
@@ -15382,7 +15387,7 @@ function buildProposalEmailText(opts) {
   const signature = resolveTokens(emailTmplVal('email_signature'), tokens);
   return [
     greeting, '',
-    `CC / Finance Price: ${opts.ccPrice}`,
+    ...(opts.isCash ? [] : [`CC / Finance Price: ${opts.ccPrice}`]),
     `Cash / Check Price: ${opts.cashPrice}`, '',
     `View My Proposal:`,
     opts.proposalUrl, '',
@@ -15516,19 +15521,20 @@ async function reviewInGmail() {
       }
     });
     if (!res || !res.success) throw new Error((res && res.error) || 'Could not create the draft');
-    // v3.31.2 - v3.31.1 put the account in the path (/mail/u/<email>/) with the @
-    // encoded as %40, which Gmail rejects with a 404. The account now goes in the
-    // authuser parameter, and the draft opens with #drafts?compose=<id>. If Gmail
-    // does not recognise the id it simply shows the Drafts folder, where the new
-    // draft is at the top.
+    // v3.31.2 - the account goes in the authuser parameter (v3.31.1 put it in the
+    // path with the @ encoded as %40, which Gmail rejects with a 404).
+    // v3.31.6 - open the Drafts folder only. The #drafts?compose=<id> form made
+    // Gmail open a second, blank compose window on top of the folder, because it
+    // does not accept the draft id the script returns. The new draft is the top
+    // row in Drafts; one click opens it.
     const acct = res.account ? '?authuser=' + encodeURIComponent(res.account) : '';
-    const url  = 'https://mail.google.com/mail/' + acct + '#drafts' + (res.messageId ? '?compose=' + res.messageId : '');
+    const url  = 'https://mail.google.com/mail/' + acct + '#drafts';
     if (win) { win.location.href = url; }
     else {
       try { await navigator.clipboard.writeText(url); } catch(e) {}
       alert('Draft saved in ' + (res.account || 'Gmail') + '.\n\nYour browser blocked the new tab, so the draft link was copied. Paste it into your browser to open the draft.');
     }
-    showToast('✅ Draft saved in ' + (res.account || 'Gmail') + ' — review and send from there', 4000);
+    showToast('✅ Draft saved in ' + (res.account || 'Gmail') + ' — open the top draft to review and send', 4500);
   } catch(e) {
     if (win) { try { win.close(); } catch(_) {} }
     alert('Could not create the Gmail draft: ' + e.message);
