@@ -1348,7 +1348,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.30.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -8801,7 +8801,20 @@ function newEst() {
   clearAudit();  // hide audit panel when starting a fresh estimate
 }
 
+// v3.31.0 - The Proposal button now offers the same estimate picker as Send Proposal
+// Link when the job has more than one estimate. Everything here is preview only:
+// nothing in this path calls generateProposalToken, so no customer link key is
+// created until Send Proposal Link is clicked.
 function convertJob() {
+  const job = curIdx >= 0 ? jobs[curIdx] : null;
+  if (job && job.id) {
+    const prefix   = (job.id || '').split('-')[0];
+    const siblings = jobs.filter(j => j.id && (j.id || '').split('-')[0] === prefix);
+    if (siblings.length > 1) {
+      fpOpenProposalLinkPicker(siblings, job.id, 'preview');
+      return;
+    }
+  }
   openProposal();
 }
 
@@ -14850,7 +14863,8 @@ function openSms() {
 }
 
 // ── PROPOSAL LINK PICKER ─────────────────────────────────────────
-function fpOpenProposalLinkPicker(siblings, currentId) {
+function fpOpenProposalLinkPicker(siblings, currentId, purpose) {
+  const isPreview = purpose === 'preview';   // v3.31.0 - preview only, no link key
   document.getElementById('fp_prop_picker')?.remove();
 
   const colors = ['#F26522','#1B6FBF','#16A34A','#6D28D9','#0891B2'];
@@ -14861,6 +14875,7 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
   const overlay = document.createElement('div');
   overlay.id = 'fp_prop_picker';
   overlay.dataset.currentId = currentId; // track which estimate opened the picker
+  overlay.dataset.purpose   = isPreview ? 'preview' : 'link';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
 
   const box = document.createElement('div');
@@ -14869,7 +14884,7 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
   // Title
   const title = document.createElement('div');
   title.style.cssText = 'font-size:17px;font-weight:800;color:#1B2B4B;margin-bottom:4px';
-  title.textContent = '📧 Send Proposal Link';
+  title.textContent = isPreview ? '📄 Proposal' : '📧 Send Proposal Link';
   box.appendChild(title);
 
   const sub = document.createElement('div');
@@ -14925,7 +14940,9 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
 
   const hint = document.createElement('div');
   hint.style.cssText = 'font-size:11px;color:#bbb;margin-bottom:16px;text-align:center';
-  hint.textContent = 'Select 2+ for Options or Combined. Select 1 to send that estimate only.';
+  hint.textContent = isPreview
+    ? 'Select 2+ for Options or Combined. Select 1 to view that estimate only.'
+    : 'Select 2+ for Options or Combined. Select 1 to send that estimate only.';
   box.appendChild(hint);
 
   // Format buttons
@@ -14950,7 +14967,7 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
 
   const bSingle = document.createElement('button');
   bSingle.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1.5px solid #E2E5EA;background:#fff;color:#555;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit';
-  bSingle.textContent = 'Send selected estimate only';
+  bSingle.textContent = isPreview ? 'Show selected estimate only' : 'Send selected estimate only';
   bSingle.onclick = function(){ fpSendPickerLink('single'); };
   botRow.appendChild(bSingle);
 
@@ -14967,6 +14984,7 @@ function fpOpenProposalLinkPicker(siblings, currentId) {
 
 function fpSendPickerLink(mode) {
   const picker = document.getElementById('fp_prop_picker');
+  const isPreview = picker.dataset.purpose === 'preview';   // v3.31.0
   const selectedBtns = [...picker.querySelectorAll('button[data-est-id][data-selected="true"]')];
   const ids = selectedBtns.map(b => b.dataset.estId);
 
@@ -14980,6 +14998,7 @@ function fpSendPickerLink(mode) {
     // respect that — but only if exactly one is selected.
     const id = ids.length === 1 ? ids[0] : currentId;
     picker.remove();
+    if (isPreview) { fpPreviewProposal('single', [id]); return; }
     generateProposalLink('single', [id]);
     return;
   }
@@ -14989,7 +15008,33 @@ function fpSendPickerLink(mode) {
     return;
   }
   picker.remove();
+  if (isPreview) { fpPreviewProposal(mode, ids); return; }
   generateProposalLink(mode, ids);
+}
+
+// v3.31.0 - Preview a proposal from the picker WITHOUT creating a link key.
+// single   -> the normal single-estimate proposal (loads that estimate first if
+//             it is not the one on screen)
+// options  -> multi-option proposal, one tab per estimate, Combined tab hidden
+// combined -> multi-option proposal opened on the Combined tab
+function fpPreviewProposal(mode, ids) {
+  if (mode === 'single') {
+    const id = ids[0];
+    if (!(curIdx >= 0 && jobs[curIdx] && jobs[curIdx].id === id)) {
+      const idx = jobs.findIndex(j => j.id === id);
+      if (idx < 0) { alert('Could not find that estimate. Save it first and try again.'); return; }
+      loadJobLocal(idx);
+    }
+    openProposal();
+    return;
+  }
+  const picked = ids.map(id => jobs.find(j => j.id === id)).filter(Boolean);
+  if (picked.length < 2) { alert('Select at least 2 saved estimates'); return; }
+  picked.sort((a, b) => ((a.id || '').split('-')[2] || '').localeCompare((b.id || '').split('-')[2] || ''));
+  moEstimates = picked;
+  _moCombinedOverride = (mode === 'combined');
+  fpShowMultiProposal();
+  if (mode === 'combined') switchMultiTab('combined');
 }
 
 // Resolve the best available email for a job —
@@ -15965,6 +16010,13 @@ function openMultiOptionProposal() {
   if (checked.length < 2) { alert('Select 2 or more estimates first'); return; }
 
   moEstimates = checked.map(c => matches[parseInt(c.dataset.idx)]);
+  _moCombinedOverride = null;   // v3.31.0 - Job Summary path always follows the Show Combined checkbox
+  fpShowMultiProposal();
+}
+
+// v3.31.0 - body of openMultiOptionProposal(), moved here unchanged so the picker
+// can open the same view. Expects moEstimates to be set already.
+function fpShowMultiProposal() {
   const first = moEstimates[0];
 
   renderMultiCompanyButtons(); // (re)build the toolbar buttons from the current Companies list
@@ -15992,6 +16044,7 @@ function openMultiOptionProposal() {
 }
 
 function onCombinedToggle() {
+  _moCombinedOverride = null;   // v3.31.0 - the checkbox is the user's choice again
   // If proposal is already open, rebuild tabs live
   const modal = document.getElementById('mMultiProposal');
   if (modal && !modal.classList.contains('hidden')) {
@@ -16000,7 +16053,11 @@ function onCombinedToggle() {
   }
 }
 
+// v3.31.0 - null = follow the Show Combined checkbox; true/false = forced by the
+// Proposal picker (Combined Total / Show Options).
+let _moCombinedOverride = null;
 function showCombinedTab() {
+  if (_moCombinedOverride !== null) return _moCombinedOverride;
   const cb = document.getElementById('showCombinedTab');
   return cb ? cb.checked : true;
 }
