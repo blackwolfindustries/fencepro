@@ -1348,7 +1348,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.7</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.8</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -3640,11 +3640,11 @@ function applyTheme(raw) {
                 <td style="font-size:11px;color:#444;padding:2px 0" id="prop_expires"></td>
               </tr>
               <tr><td colspan="2" style="padding:8px 0 0 0;border-top:1px solid #E2E5EA"></td></tr>
-              <tr>
+              <tr id="prop_row_cash">
                 <td style="font-size:11px;font-weight:700;color:#1B2B4B;padding:4px 12px 0 0;text-align:right">Cash / Check</td>
                 <td style="font-size:16px;font-weight:800;color:#16A34A;padding:4px 0 0 0" id="prop_cashprice"></td>
               </tr>
-              <tr>
+              <tr id="prop_row_cc">
                 <td style="font-size:10px;font-weight:600;color:#999;padding:2px 12px 0 0;text-align:right">CC / Finance</td>
                 <td style="font-size:12px;font-weight:600;color:#F26522;padding:2px 0 0 0;opacity:.85" id="prop_ccprice"></td>
               </tr>
@@ -9066,9 +9066,13 @@ function openProposal() {
   const cashPrice  = lastCalc.cash   || 0;
   const custTax    = lastCalc.custTax || 0;
   const totalWithTax  = isRepair ? finalPrice + custTax : finalPrice; // CC total (kept for reference)
-  const cashWithTax   = isRepair ? cashPrice  + custTax : cashPrice;  // Cash total — used for proposal
-  const deposit       = getDepositAmount(cashWithTax);
-  const balance       = Math.max(0, cashWithTax - deposit);
+  const cashWithTax   = isRepair ? cashPrice  + custTax : cashPrice;  // Cash total
+  // v3.31.8 - Credit Card / financing estimates are priced at the CC / Finance total;
+  // Cash / Check estimates stay on the cash total (unchanged).
+  const isCC          = String(payMethod || 'CASH').toUpperCase() !== 'CASH';
+  const contractTotal = isCC ? totalWithTax : cashWithTax;
+  const deposit       = getDepositAmount(contractTotal);
+  const balance       = Math.max(0, contractTotal - deposit);
 
   // Dates
   const today    = new Date();
@@ -9100,6 +9104,22 @@ function openProposal() {
   // Prices below expires
   s('prop_ccprice').textContent    = ccFmt;
   s('prop_cashprice').textContent  = cashFmt;
+  // v3.31.8 - Credit Card estimates lead with CC / Finance; Cash / Check keeps the original order
+  (function () {
+    const rCash = s('prop_row_cash'), rCC = s('prop_row_cc');
+    if (!rCash || !rCC) return;
+    const big   = (c) => ['font-size:11px;font-weight:700;color:#1B2B4B;padding:4px 12px 0 0;text-align:right', 'font-size:16px;font-weight:800;color:' + c + ';padding:4px 0 0 0'];
+    const small = ['font-size:10px;font-weight:600;color:#999;padding:2px 12px 0 0;text-align:right', 'font-size:12px;font-weight:600;color:#F26522;padding:2px 0 0 0;opacity:.85'];
+    const cashSmall = ['font-size:10px;font-weight:600;color:#999;padding:2px 12px 0 0;text-align:right', 'font-size:12px;font-weight:600;color:#16A34A;padding:2px 0 0 0;opacity:.85'];
+    const set = (row, st) => { row.children[0].style.cssText = st[0]; row.children[1].style.cssText = st[1]; };
+    if (isCC) {
+      set(rCC, big('#F26522')); set(rCash, cashSmall);
+      rCash.parentNode.insertBefore(rCC, rCash);
+    } else {
+      set(rCash, big('#16A34A')); set(rCC, small);
+      rCC.parentNode.insertBefore(rCash, rCC);
+    }
+  })();
 
   // Customer
   s('prop_custName').textContent   = custName || '—';
@@ -9136,9 +9156,10 @@ function openProposal() {
     const isDefault = !savedDesc || savedDesc === DEFAULT_DESC || isContaminated;
     descEl.textContent = isDefault ? DEFAULT_DESC : savedDesc;
   }
-  s('prop_amount').textContent     = cashFmt;
-  s('prop_subtotal').textContent   = cashFmt;
-  s('prop_total').textContent      = '$' + Math.round(cashPrice + (isRepair ? custTax : 0)).toLocaleString();
+  const mainFmt = isCC ? ccFmt : cashFmt;   // v3.31.8
+  s('prop_amount').textContent     = mainFmt;
+  s('prop_subtotal').textContent   = mainFmt;
+  s('prop_total').textContent      = '$' + Math.round(contractTotal).toLocaleString();
   s('prop_deposit').textContent    = '$' + Math.round(deposit).toLocaleString();
   s('prop_balance').textContent    = '$' + Math.round(balance).toLocaleString();
 
