@@ -589,6 +589,65 @@
   .jtable tr:hover td{background:var(--orange-bg);cursor:pointer}
   .jtable td:first-child{font-family:var(--mono);font-size:12px;color:var(--orange);font-weight:600}
 
+  /* ── VENDOR PARTS + BILL OF MATERIALS (v3.32.0) ───────────── */
+  .vp-wrap{padding:20px;overflow-y:auto;flex:1;background:var(--bg)}
+  .vp-tabs{display:flex;gap:6px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .vp-tab{background:var(--surface);border:1.5px solid var(--border);color:var(--text3);border-radius:var(--r);padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--sans)}
+  .vp-tab:hover{border-color:var(--orange);color:var(--text)}
+  .vp-tab.active{background:var(--orange-bg);border-color:var(--orange);color:var(--orange)}
+  .vp-sync{margin-left:auto;font-size:11px;color:var(--text3);font-family:var(--mono)}
+  .vp-toolbar{margin-bottom:10px}
+  .vp-toolbar input[type=text],.vp-toolbar input:not([type]),.vp-toolbar select{width:auto;max-width:210px;padding:6px 10px;font-size:12px}
+  .vp-chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);font-weight:600;cursor:pointer}
+  .vp-chk input{width:auto;margin:0}
+  .vp-spacer{flex:1}
+  .vp-count{font-size:11px;color:var(--text3);margin:2px 0 8px;font-weight:600}
+  .vp-tablewrap{overflow-x:auto;border-radius:var(--rl)}
+  .vp-table{overflow:visible}
+  .vp-table td,.vp-table th{white-space:nowrap;padding:8px 10px}
+  .vp-table td:last-child,.vp-table th:last-child{position:sticky;right:0;background:var(--surface);box-shadow:-8px 0 8px -8px rgba(0,0,0,.18)}
+  .vp-table td:last-child,.vp-table th:last-child{width:142px;min-width:142px}
+  .vp-table td:nth-last-child(2),.vp-table th:nth-last-child(2){position:sticky;right:142px;background:var(--surface)}
+  .vp-table th:last-child,.vp-table th:nth-last-child(2){background:var(--surface2)}
+  .vp-table tr:hover td:last-child,.vp-table tr:hover td:nth-last-child(2){background:var(--orange-bg)}
+  #vpSearch{max-width:none!important;flex:1 1 240px;min-width:200px}
+  .vp-table tr:hover td{cursor:default}
+  .vp-table td.vp-desc{max-width:230px;overflow:hidden;text-overflow:ellipsis;font-family:var(--sans);font-size:13px;color:var(--text);font-weight:400}
+  .vp-table td.vp-num,.vp-table th.vp-num{text-align:right}
+  .vp-table td.vp-price{font-family:var(--mono);font-weight:700;color:var(--navy);text-align:right}
+  .vp-table tr.vp-off td{opacity:.5}
+  .vp-pill{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--surface2);color:var(--text3);border:1px solid var(--border);margin-left:6px;text-transform:uppercase;letter-spacing:.04em}
+  .vp-empty{padding:34px 12px;text-align:center;color:var(--text3);font-size:13px;background:var(--surface);border:1px dashed var(--border);border-radius:var(--rl)}
+  .vp-req{color:var(--red)}
+  .vp-hint{font-size:11px;color:var(--text3);line-height:1.4}
+  .vp-bad{border-color:var(--red)!important;background:var(--red-bg)!important}
+  .vp-msg{font-size:12px;color:var(--red);font-weight:600;min-height:0}
+  .vp-err{display:none;background:var(--red-bg);color:var(--red);border:1px solid var(--red);border-radius:var(--r);padding:8px 12px;font-size:12px;font-weight:600;margin-bottom:12px}
+  .vp-sub{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--orange);text-transform:uppercase;margin:16px 0 6px}
+  .vp-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;margin-bottom:10px}
+  .vp-box table{width:100%;border-collapse:collapse;font-size:12px}
+  .vp-box th{text-align:left;font-size:10px;letter-spacing:.05em;color:var(--text3);text-transform:uppercase;padding:4px 6px;border-bottom:1px solid var(--border)}
+  .vp-box td{padding:4px 6px;border-bottom:1px solid var(--border);color:var(--text)}
+  .vp-box input{padding:4px 8px;font-size:12px}
+  .vp-bomgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+  .vp-addbox{position:relative}
+  .vp-results{position:absolute;left:0;right:0;top:100%;z-index:50;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);max-height:300px;overflow-y:auto;display:none}
+  .vp-res{padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;display:flex;gap:10px;align-items:baseline}
+  .vp-res:last-child{border-bottom:none}
+  .vp-res:hover{background:var(--orange-bg)}
+  .vp-res b{font-family:var(--mono);color:var(--orange);white-space:nowrap}
+  .vp-res span.vp-rd{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+  .vp-res span.vp-rv{color:var(--text3);white-space:nowrap}
+  .vp-vhead{display:flex;justify-content:space-between;align-items:baseline;font-weight:800;color:var(--navy);font-size:13px;margin-bottom:6px}
+  .vp-lq{width:78px!important;text-align:right}
+  .vp-warn{display:block;font-size:10px;color:var(--red);font-weight:700;margin-top:2px}
+  .vp-total{font-family:var(--mono);font-weight:800;color:var(--navy)}
+  .vp-bomlist .vp-bi{padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px}
+  .vp-bomlist .vp-bi:hover{background:var(--orange-bg)}
+  .vp-bomlist .vp-bi.cur{background:var(--orange-bg);border-left:3px solid var(--orange);padding-left:8px}
+  @media (max-width:900px){.vp-bomgrid{grid-template-columns:minmax(0,1fr)}}
+  @media (max-width:700px){.vp-wrap{padding:12px}.vp-toolbar input,.vp-toolbar select{max-width:none!important;flex:1 1 140px}}
+
   /* ── PARTS ────────────────────────────────────── */
   .parts-wrap{padding:20px;overflow-y:auto;flex:1;background:var(--bg)}
   .pgrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:14px}
@@ -1348,7 +1407,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.31.9</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.32.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1358,6 +1417,7 @@ function applyTheme(raw) {
     <button class="nav-tab" onclick="show('invoices')">🧾 Invoices</button>
     <button class="nav-tab" onclick="show('calendar')">📅 Calendar</button>
     <button class="nav-tab" onclick="show('parts')">Parts DB</button>
+    <button class="nav-tab" onclick="show('vparts')">📦 Vendor Parts</button>
     <button class="nav-tab" onclick="show('analytics')">📈 Analytics</button>
     <button class="nav-tab" onclick="show('setup')">⚙ Setup</button>
   </nav>
@@ -1408,6 +1468,7 @@ function applyTheme(raw) {
     <button class="mob-nav-btn" onclick="show('invoices');fpToggleDrawer()">🧾 Invoices</button>
     <button class="mob-nav-btn" onclick="show('calendar');fpToggleDrawer()">📅 Calendar</button>
     <button class="mob-nav-btn" onclick="show('parts');fpToggleDrawer()">Parts DB</button>
+    <button class="mob-nav-btn" onclick="show('vparts');fpToggleDrawer()">📦 Vendor Parts</button>
     <button class="mob-nav-btn" onclick="show('analytics');fpToggleDrawer()">📈 Analytics</button>
     <button class="mob-nav-btn" onclick="show('setup');fpToggleDrawer()">⚙ Setup</button>
   </nav>
@@ -2344,6 +2405,74 @@ function applyTheme(raw) {
       </select>
     </div>
     <div class="pgrid2" id="partsGrid"></div>
+  </div>
+</div>
+
+<!-- ══ VENDOR PARTS + BILL OF MATERIALS (v3.32.0) ═════════ -->
+<div id="s-vparts" class="screen">
+  <div class="vp-wrap">
+    <div class="vp-tabs">
+      <button class="vp-tab active" id="vpTabCat" onclick="vpSwitch('cat')">Parts Catalog</button>
+      <button class="vp-tab" id="vpTabBom" onclick="vpSwitch('bom')">Bill of Materials</button>
+      <span class="vp-sync" id="vpSync"></span>
+    </div>
+
+    <!-- CATALOG -->
+    <div id="vpPaneCat">
+      <div class="fr vp-toolbar">
+        <input id="vpSearch" type="text" placeholder="Search part #, description, color..." oninput="vpShown=200;vpRender()">
+        <select id="vpVendorF" onchange="vpShown=200;vpRender()"><option value="">All vendors</option></select>
+        <select id="vpTypeF" onchange="vpShown=200;vpRender()"><option value="">All types</option></select>
+        <label class="vp-chk"><input type="checkbox" id="vpShowInactive" onchange="vpShown=200;vpRender()"> Show inactive</label>
+        <span class="vp-spacer"></span>
+        <button class="btn btn-sm" onclick="vpOpenImport()">Import CSV</button>
+        <button class="btn btn-a btn-sm" onclick="vpOpenAdd()">+ Add Part</button>
+      </div>
+      <div class="vp-count" id="vpCount"></div>
+      <div class="vp-tablewrap">
+        <table class="jtable vp-table">
+          <thead><tr>
+            <th>Part #</th><th>Vendor</th><th>Description</th><th>Type</th><th>Sub Type</th><th>Color</th>
+            <th class="vp-num">Fence Ht</th><th class="vp-num">Height</th><th class="vp-num">Width</th>
+            <th title="Unit, and pack size when a pack holds more than one unit">Unit / Pack</th><th class="vp-num" title="Price per pack (per Unit Divisor units)">Price</th><th></th>
+          </tr></thead>
+          <tbody id="vpBody"></tbody>
+        </table>
+      </div>
+      <div id="vpMore" style="text-align:center;margin-top:10px"></div>
+    </div>
+
+    <!-- BILL OF MATERIALS -->
+    <div id="vpPaneBom" style="display:none">
+      <div class="vp-bomgrid">
+        <div>
+          <div class="fr" style="margin-bottom:10px">
+            <input id="bomLabel" type="text" placeholder="Bill label, e.g. Smith vinyl fence" style="flex:1;min-width:200px" oninput="bomState.label=this.value;bomState.dirty=true">
+            <span id="bomIdTag" class="vp-pill" style="margin-left:0"></span>
+          </div>
+          <div class="vp-addbox" style="margin-bottom:12px">
+            <input id="bomSearch" type="text" placeholder="Type a part number or description, press Enter to add" autocomplete="off" oninput="bomSearchRun()" onkeydown="bomSearchKey(event)" onfocus="bomSearchRun()">
+            <div class="vp-results" id="bomResults"></div>
+          </div>
+          <div id="bomLines"></div>
+          <div class="f" style="margin-top:10px"><label>NOTES FOR VENDOR (OPTIONAL)</label>
+            <textarea id="bomNotes" rows="2" oninput="bomState.notes=this.value;bomState.dirty=true" placeholder="Delivery instructions, will-call, etc."></textarea>
+          </div>
+          <div class="fr" style="margin-top:12px">
+            <button class="btn btn-a" onclick="bomSave()">Save Bill</button>
+            <button class="btn" onclick="bomNew()">New Bill</button>
+            <button class="btn" id="bomRefreshBtn" style="display:none" onclick="bomUpdatePrices()">Update to current catalog prices</button>
+            <span class="vp-spacer"></span>
+            <span style="font-size:12px;color:var(--text3);font-weight:700">Total</span>
+            <span class="vp-total" id="bomGrand" style="font-size:18px">$0.00</span>
+          </div>
+        </div>
+        <div>
+          <div class="vp-sub" style="margin-top:0">Saved bills</div>
+          <div class="vp-box vp-bomlist" id="bomList" style="padding:6px 10px"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4901,6 +5030,67 @@ function applyTheme(raw) {
   </div>
 </div>
 
+<!-- Vendor part: add / edit (v3.32.0) -->
+<div class="moverlay hidden" id="mVPart">
+  <div class="mbox" style="max-width:560px">
+    <div class="mtitle" id="vpModalTitle">Add Part</div>
+    <div class="vp-err" id="vp_err"></div>
+    <div class="fg2" style="gap:10px">
+      <div class="f"><label>PART NUMBER <span class="vp-req">*</span></label><input id="vp_pn" autocomplete="off" oninput="vpCheckDup()"><div class="vp-msg" id="vp_pn_msg"></div></div>
+      <div class="f"><label>VENDOR <span class="vp-req">*</span></label><input id="vp_vendor" list="vpVendorList" autocomplete="off"></div>
+      <div class="f"><label>PRICE ($ PER PACK) <span class="vp-req">*</span></label><input id="vp_price" type="number" step="0.01" min="0" placeholder="0.00"></div>
+      <div class="f"><label>UNIT (UNIT_STD)</label><input id="vp_unit" list="vpUnitList" placeholder="EA" autocomplete="off"></div>
+      <div class="f"><label>TYPE</label><input id="vp_type" list="vpTypeList" autocomplete="off"></div>
+      <div class="f"><label>SUB TYPE</label><input id="vp_sub" list="vpSubList" autocomplete="off"></div>
+      <div class="f s2"><label>DESCRIPTION</label><input id="vp_desc" autocomplete="off"></div>
+      <div class="f"><label>COLOR</label><input id="vp_color" autocomplete="off"></div>
+      <div class="f"><label>FENCE HEIGHT (IN)</label><input id="vp_fh" type="number" step="any" min="0" placeholder="e.g. 72"></div>
+      <div class="f"><label>HEIGHT (IN)</label><input id="vp_h" type="number" step="any" min="0"></div>
+      <div class="f"><label>WIDTH (IN)</label><input id="vp_w" type="number" step="any" min="0"></div>
+      <div class="f"><label>UNIT DIVISOR</label><input id="vp_div" type="number" step="any" min="0" placeholder="1"></div>
+      <div class="f"><label>ROUNDING QTY</label><input id="vp_rnd" type="number" step="any" min="0" placeholder="1"></div>
+      <div class="f s2 vp-hint">Price is per pack. Unit divisor is how many units come in one pack (a 50 ft chain link roll is 50). Rounding qty is the multiple the vendor sells in. Leave both at 1 for ordinary parts.</div>
+    </div>
+    <div class="mactions" style="flex-wrap:wrap">
+      <button class="btn btn-ghost" id="vp_toggle" style="margin-right:auto;display:none" onclick="vpToggleActive()">Deactivate</button>
+      <button class="btn" onclick="closeM('mVPart')">Cancel</button>
+      <button class="btn" id="vp_addAnother" onclick="vpSave(true)">Save &amp; Add Another</button>
+      <button class="btn btn-a" id="vp_saveBtn" onclick="vpSave(false)">Save Part</button>
+    </div>
+  </div>
+</div>
+<datalist id="vpVendorList"></datalist>
+<datalist id="vpTypeList"></datalist>
+<datalist id="vpSubList"></datalist>
+<datalist id="vpUnitList"><option value="EA"></option><option value="FT"></option><option value="BAG"></option><option value="BOX"></option><option value="ROLL"></option></datalist>
+
+<!-- Vendor parts: CSV import (v3.32.0) -->
+<div class="moverlay hidden" id="mVPImport">
+  <div class="mbox" style="max-width:780px">
+    <div class="mtitle">Import Parts from CSV</div>
+    <div class="f"><label>CSV FILE</label><input type="file" id="vpi_file" accept=".csv,text/csv" onchange="vpImportFile(this)"></div>
+    <div class="vp-hint" style="margin-top:6px">Reads these columns by name: part_number, product_line (or vendor), mfg_price (or price), type, sub_type, description, color, fence_height, height, width, unit_std, unit_divisor, rounding_qty. Other columns are ignored.</div>
+    <div id="vpi_preview" style="display:none">
+      <div class="vp-sub">What was found</div>
+      <div id="vpi_summary" style="font-size:13px;font-weight:600;color:var(--text)"></div>
+      <div class="vp-sub">Vendor names</div>
+      <div class="vp-hint" style="margin-bottom:6px">The vendor comes from product_line. Change a name below if a code should be a different vendor.</div>
+      <div class="vp-box" id="vpi_vendors"></div>
+      <div class="vp-sub">If a part number is already in the catalog</div>
+      <select id="vpi_mode" onchange="vpImportRecount()" style="max-width:340px">
+        <option value="skip">Skip it (keep what is in the catalog)</option>
+        <option value="update">Update it with the file's values</option>
+      </select>
+      <div id="vpi_issues" style="margin-top:12px"></div>
+    </div>
+    <div id="vpi_progress" style="margin-top:12px;font-size:13px;font-weight:600;color:var(--text)"></div>
+    <div class="mactions">
+      <button class="btn" onclick="closeM('mVPImport')">Close</button>
+      <button class="btn btn-a" id="vpi_btn" style="display:none" onclick="vpImportRun()">Import</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ════════════════════════════════════════════════
 // CONFIG TABLES (from your Excel workbook)
@@ -6446,7 +6636,7 @@ function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('s-' + id).classList.add('active');
-  const map = {est:0,board:1,jobs:2,summary:3,invoices:4,calendar:5,parts:6,analytics:7,setup:8};
+  const map = {est:0,board:1,jobs:2,summary:3,invoices:4,calendar:5,parts:6,vparts:7,analytics:8,setup:9};
   document.querySelectorAll('.nav-tab')[map[id]].classList.add('active');
   // Sync active state on mobile drawer buttons
   document.querySelectorAll('.mob-nav-btn').forEach((b,i) => b.classList.toggle('active', i === map[id]));
@@ -6456,6 +6646,7 @@ function show(id) {
     if (settings.scriptUrl && _cloudDataAge() > 120000) loadCloud().then(() => { renderBoard(); renderEstList(); }).catch(()=>{});
   }
   if (id === 'jobs')      { updateSortIcons(); renderCRM(); }
+  if (id === 'vparts')    { vpOnShow(); }   // v3.32.0
   if (id === 'summary')   {
     // Restore search input to last searched job
     if (_lastSummaryPrefix) {
@@ -19477,6 +19668,631 @@ function renderPerfTable(months, byMonth) {
   ].join('');
 }
 // ════ END PERFORMANCE MODULE ══════════════════════
+</script>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// VENDOR PARTS CATALOG + BILL OF MATERIALS  (v3.32.0)
+// Separate from the older "Parts DB" tab (small pricing list). The cloud
+// (Vendor_Parts / Bills_Of_Materials sheets) is the source of truth; the
+// browser only keeps a read-only cache so the list paints instantly.
+// Every part has its own unique Part ID; Part Number must be unique.
+// ════════════════════════════════════════════════════════════
+let vParts = [];
+let vpLoaded = false, vpLoading = false, vpLastLoad = 0;
+let vpEditId = '';
+let vpShown = 200;
+let bomList = [], bomListLoaded = false;
+let bomState = { bomId:'', label:'', notes:'', status:'Draft', jobId:'', lines:[], dirty:false };
+
+function vpEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function vpEl(id) { return document.getElementById(id); }
+function vpMoney(n) {
+  n = Number(n) || 0;
+  const two = Math.round(n * 100) / 100;
+  return '$' + (Math.abs(two - n) < 1e-9 ? two.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 }) : n.toFixed(4).replace(/0+$/, ''));
+}
+function vpNormUnit(u) { return String(u == null ? '' : u).trim().toUpperCase().replace(/\.+$/, '') || 'EA'; }
+function vpNumBlank(v) {
+  if (v === '' || v === null || v === undefined) return '';
+  return Number(String(v).replace(/[$,\s]/g, ''));
+}
+function vpKey(pn) { return String(pn == null ? '' : pn).trim().toLowerCase(); }
+function vpHay(p) {
+  return [p.partNumber, p.vendor, p.description, p.type, p.subType, p.color, p.partId].join(' ').toLowerCase();
+}
+function vpSetSync(t) { const e = vpEl('vpSync'); if (e) e.textContent = t; }
+
+async function vpCloud(action, data) {
+  if (!settings.scriptUrl) throw new Error('Cloud is not connected. Connect it in the Setup tab first.');
+  const res = await cloudCall({ action: action, data: data || {} });
+  if (res && res.error) {
+    const msg = /^Unknown action/.test(res.error) ? res.error + ' (is Code.gs v2.17.0 deployed?)' : res.error;
+    const e = new Error(msg); e.res = res; throw e;
+  }
+  return res || {};
+}
+
+// ── loading ────────────────────────────────────────────────
+function vpOnShow() {
+  if (!vParts.length) {
+    try { const c = JSON.parse(localStorage.getItem('fp_vparts_cache') || '[]'); if (Array.isArray(c)) vParts = c; } catch (e) {}
+  }
+  vpRefreshLists(); vpRender(); bomRender();
+  if (!vpLoaded || Date.now() - vpLastLoad > 120000) vpLoad();
+}
+
+async function vpLoad() {
+  if (vpLoading) return;
+  if (!settings.scriptUrl) { vpSetSync('Not connected (see Setup tab)'); return; }
+  vpLoading = true; vpSetSync('Loading...');
+  try {
+    const res = await vpCloud('getVendorParts');
+    if (!Array.isArray(res.parts)) throw new Error('Unexpected response from the cloud. Is Code.gs v2.17.0 deployed?');
+    vParts = res.parts; vpLoaded = true; vpLastLoad = Date.now();
+    vpCache();
+    vpSetSync('Synced ' + new Date().toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }));
+    vpRefreshLists(); vpRender(); bomRender();
+  } catch (e) {
+    vpSetSync('Load failed');
+    showToast('Vendor parts: ' + e.message, 5000);
+  } finally { vpLoading = false; }
+}
+function vpCache() { try { localStorage.setItem('fp_vparts_cache', JSON.stringify(vParts)); } catch (e) {} }
+
+function vpSwitch(tab) {
+  vpEl('vpPaneCat').style.display = tab === 'cat' ? '' : 'none';
+  vpEl('vpPaneBom').style.display = tab === 'bom' ? '' : 'none';
+  vpEl('vpTabCat').classList.toggle('active', tab === 'cat');
+  vpEl('vpTabBom').classList.toggle('active', tab === 'bom');
+  if (tab === 'bom') { bomLoadList(); bomRender(); }
+}
+
+function vpRefreshLists() {
+  const uniq = (k) => Array.from(new Set(vParts.map(p => p[k]).filter(Boolean))).sort((a, b) => a.localeCompare(b, undefined, { numeric:true }));
+  const vendors = uniq('vendor'), types = uniq('type'), subs = uniq('subType');
+  const fill = (id, vals, keep) => {
+    const el = vpEl(id); if (!el) return;
+    el.innerHTML = el.tagName === 'SELECT'
+      ? '<option value="">' + keep + '</option>' + vals.map(v => '<option value="' + vpEsc(v) + '">' + vpEsc(v) + '</option>').join('')
+      : vals.map(v => '<option value="' + vpEsc(v) + '"></option>').join('');
+  };
+  const sv = val('vpVendorF'), st = val('vpTypeF');
+  fill('vpVendorF', vendors, 'All vendors'); fill('vpTypeF', types, 'All types');
+  if (vendors.includes(sv)) vpEl('vpVendorF').value = sv;
+  if (types.includes(st)) vpEl('vpTypeF').value = st;
+  fill('vpVendorList', vendors); fill('vpTypeList', types); fill('vpSubList', subs);
+}
+
+// ── catalog list ───────────────────────────────────────────
+function vpFiltered() {
+  const toks = val('vpSearch').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const ven = val('vpVendorF'), typ = val('vpTypeF');
+  const inactive = vpEl('vpShowInactive') && vpEl('vpShowInactive').checked;
+  return vParts.filter(p =>
+    (inactive || p.active) && (!ven || p.vendor === ven) && (!typ || p.type === typ) &&
+    toks.every(t => vpHay(p).includes(t))
+  ).sort((a, b) => a.vendor.localeCompare(b.vendor) ||
+                   a.partNumber.localeCompare(b.partNumber, undefined, { numeric:true, sensitivity:'base' }));
+}
+
+function vpRender() {
+  const body = vpEl('vpBody'); if (!body) return;
+  const list = vpFiltered();
+  const hidden = vParts.filter(p => !p.active).length;
+  const showing = Math.min(list.length, vpShown);
+  vpEl('vpCount').textContent = vParts.length
+    ? 'Showing ' + showing + ' of ' + list.length + ' parts' + (hidden && !vpEl('vpShowInactive').checked ? ' (' + hidden + ' inactive hidden)' : '')
+    : '';
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="12" style="padding:0;border:none"><div class="vp-empty">' +
+      (vParts.length ? 'No parts match that search.' : (settings.scriptUrl ? 'No parts yet. Use + Add Part or Import CSV.' : 'Connect the cloud in the Setup tab to load the catalog.')) +
+      '</div></td></tr>';
+    vpEl('vpMore').innerHTML = ''; return;
+  }
+  body.innerHTML = list.slice(0, vpShown).map(p => {
+    const dim = (v) => (v === '' || v == null) ? '' : vpEsc(v);
+    return '<tr class="' + (p.active ? '' : 'vp-off') + '">' +
+      '<td>' + vpEsc(p.partNumber) + (p.active ? '' : '<span class="vp-pill">inactive</span>') + '</td>' +
+      '<td>' + vpEsc(p.vendor) + '</td>' +
+      '<td class="vp-desc" title="' + vpEsc(p.description) + '">' + vpEsc(p.description) + '</td>' +
+      '<td>' + vpEsc(p.type) + '</td><td>' + vpEsc(p.subType) + '</td><td>' + vpEsc(p.color) + '</td>' +
+      '<td class="vp-num">' + dim(p.fenceHeight) + '</td><td class="vp-num">' + dim(p.height) + '</td><td class="vp-num">' + dim(p.width) + '</td>' +
+      '<td>' + vpEsc(p.unitStd) + (p.unitDivisor > 1 ? ' <span class="vp-pill" title="One pack holds this many units. Price is per pack.">pack of ' + vpEsc(p.unitDivisor) + '</span>' : '') + (p.roundingQty > 1 ? ' <span class="vp-pill" title="Sold in multiples of this">x' + vpEsc(p.roundingQty) + '</span>' : '') + '</td>' +
+      '<td class="vp-price">' + vpMoney(p.price) + '</td>' +
+      '<td><button class="btn btn-sm" onclick="vpOpenEdit(\'' + vpEsc(p.partId) + '\')">Edit</button> ' +
+      (p.active ? '<button class="btn btn-g btn-sm" onclick="vpToBom(\'' + vpEsc(p.partId) + '\')">+ Bill</button>' : '') + '</td></tr>';
+  }).join('');
+  vpEl('vpMore').innerHTML = list.length > vpShown
+    ? '<button class="btn btn-sm" onclick="vpShown+=200;vpRender()">Show 200 more</button>' : '';
+}
+
+// ── add / edit form ────────────────────────────────────────
+const VP_FORM = { vp_pn:'partNumber', vp_vendor:'vendor', vp_price:'price', vp_unit:'unitStd', vp_type:'type', vp_sub:'subType',
+                  vp_desc:'description', vp_color:'color', vp_fh:'fenceHeight', vp_h:'height', vp_w:'width', vp_div:'unitDivisor', vp_rnd:'roundingQty' };
+
+function vpClearErr() {
+  const e = vpEl('vp_err'); if (e) { e.style.display = 'none'; e.textContent = ''; }
+  Object.keys(VP_FORM).forEach(id => vpEl(id).classList.remove('vp-bad'));
+}
+function vpShowErr(msg, ids) {
+  const e = vpEl('vp_err'); e.textContent = msg; e.style.display = 'block';
+  (ids || []).forEach(id => vpEl(id).classList.add('vp-bad'));
+}
+function vpFillForm(p) {
+  Object.keys(VP_FORM).forEach(id => { vpEl(id).value = (p && p[VP_FORM[id]] !== undefined && p[VP_FORM[id]] !== null) ? p[VP_FORM[id]] : ''; });
+  vpEl('vp_pn_msg').textContent = '';
+}
+function vpReadForm() {
+  const d = {};
+  Object.keys(VP_FORM).forEach(id => { d[VP_FORM[id]] = vpEl(id).value; });
+  d.partNumber = d.partNumber.trim(); d.vendor = d.vendor.trim();
+  return d;
+}
+
+function vpOpenAdd(prefill) {
+  vpEditId = ''; vpClearErr();
+  vpEl('vpModalTitle').textContent = 'Add Part';
+  vpFillForm(prefill || null);
+  vpEl('vp_toggle').style.display = 'none';
+  vpEl('vp_addAnother').style.display = '';
+  vpEl('vp_saveBtn').textContent = 'Save Part';
+  openM('mVPart'); vpEl('vp_pn').focus();
+}
+function vpOpenEdit(id) {
+  const p = vParts.find(x => x.partId === id); if (!p) return;
+  vpEditId = id; vpClearErr();
+  vpEl('vpModalTitle').textContent = 'Edit Part ' + p.partId;
+  vpFillForm(p);
+  const t = vpEl('vp_toggle'); t.style.display = '';
+  t.textContent = p.active ? 'Deactivate' : 'Restore';
+  vpEl('vp_addAnother').style.display = 'none';
+  vpEl('vp_saveBtn').textContent = 'Save Changes';
+  openM('mVPart');
+}
+
+function vpCheckDup() {
+  const key = vpKey(vpEl('vp_pn').value);
+  const msg = vpEl('vp_pn_msg');
+  if (!key) { msg.textContent = ''; return null; }
+  const hit = vParts.find(p => vpKey(p.partNumber) === key && p.partId !== vpEditId);
+  msg.textContent = hit ? 'Already in the catalog: ' + hit.partNumber + ' (' + hit.vendor + ')' + (hit.active ? '' : ', inactive') : '';
+  return hit || null;
+}
+
+function vpValidate(d) {
+  const bad = []; let msg = '';
+  if (!d.partNumber) { bad.push('vp_pn'); msg = 'Part number, vendor and price are required.'; }
+  if (!d.vendor)     { bad.push('vp_vendor'); msg = 'Part number, vendor and price are required.'; }
+  const price = String(d.price).trim() === '' ? NaN : Number(d.price);
+  if (isNaN(price) || price < 0) { bad.push('vp_price'); msg = msg || 'Part number, vendor and price are required.'; }
+  [['vp_fh','fenceHeight'],['vp_h','height'],['vp_w','width']].forEach(f => {
+    const n = vpNumBlank(d[f[1]]); if (typeof n === 'number' && isNaN(n)) { bad.push(f[0]); msg = msg || 'Heights and width must be numbers.'; }
+  });
+  [['vp_div','unitDivisor'],['vp_rnd','roundingQty']].forEach(f => {
+    if (String(d[f[1]]).trim() !== '' && !(Number(d[f[1]]) > 0)) { bad.push(f[0]); msg = msg || 'Unit divisor and rounding qty must be greater than zero.'; }
+  });
+  return bad.length ? { msg: msg, ids: bad } : null;
+}
+
+async function vpSave(addAnother) {
+  vpClearErr();
+  const d = vpReadForm();
+  const bad = vpValidate(d);
+  if (bad) { vpShowErr(bad.msg, bad.ids); return; }
+  const dup = vpCheckDup();
+  if (dup) { vpShowErr('That part number is already in the catalog (' + dup.partId + ', ' + dup.vendor + '). Part numbers cannot be repeated.', ['vp_pn']); return; }
+  const btns = [vpEl('vp_saveBtn'), vpEl('vp_addAnother')];
+  btns.forEach(b => b.disabled = true);
+  try {
+    const res = await vpCloud('saveVendorPart', Object.assign({}, d, { partId: vpEditId }));
+    const i = vParts.findIndex(p => p.partId === res.part.partId);
+    if (i >= 0) vParts[i] = res.part; else vParts.push(res.part);
+    vpCache(); vpRefreshLists(); vpRender(); bomRender();
+    if (addAnother && !vpEditId) {
+      const keep = { vendor:d.vendor, type:d.type, subType:d.subType, color:d.color, fenceHeight:d.fenceHeight, unitStd:d.unitStd, unitDivisor:d.unitDivisor, roundingQty:d.roundingQty };
+      vpFillForm(keep); vpEl('vp_pn').focus();
+      showToast('Saved ' + res.part.partNumber + '. Ready for the next part.');
+    } else {
+      closeM('mVPart'); showToast('Saved ' + res.part.partNumber);
+    }
+  } catch (e) {
+    vpShowErr(e.message, e.res && e.res.duplicate ? ['vp_pn'] : []);
+  } finally { btns.forEach(b => b.disabled = false); }
+}
+
+async function vpToggleActive() {
+  const p = vParts.find(x => x.partId === vpEditId); if (!p) return;
+  if (p.active && !confirm('Deactivate ' + p.partNumber + '? It stays in the catalog list under "Show inactive" and on old bills, but cannot be added to new bills.')) return;
+  try {
+    const res = p.active ? await vpCloud('deleteVendorPart', { partId: p.partId })
+                         : await vpCloud('saveVendorPart', Object.assign({}, p, { active: true }));
+    const i = vParts.findIndex(x => x.partId === p.partId); if (i >= 0) vParts[i] = res.part;
+    vpCache(); vpRefreshLists(); vpRender(); bomRender(); closeM('mVPart');
+    showToast((res.part.active ? 'Restored ' : 'Deactivated ') + res.part.partNumber);
+  } catch (e) { vpShowErr(e.message); }
+}
+
+function vpToBom(id) { vpSwitch('bom'); bomAddPart(id); }
+
+// ── CSV import ─────────────────────────────────────────────
+const VPI_ALIASES = {
+  partNumber:  ['part_number','part number','partnumber','part #','part no'],
+  vendor:      ['product_line','vendor','vendor name'],
+  price:       ['mfg_price','price'],
+  type:        ['type'], subType: ['sub_type','sub type','subtype'], description: ['description','desc'],
+  color:       ['color','colour'], fenceHeight: ['fence_height','fence height'], height: ['height'], width: ['width'],
+  unitStd:     ['unit_std','unit std','unit'], unitDivisor: ['unit_divisor','unit divisor'], roundingQty: ['rounding_qty','rounding qty']
+};
+let vpi = { recs: [], vendors: {} };
+
+function vpParseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(f); f = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); if (row.length > 1 || row[0] !== '') rows.push(row); }
+  return rows;
+}
+
+// Turn parsed CSV rows into cleaned records. Returns { error } or { recs }.
+function vpImportBuild(rows) {
+  if (rows.length < 2) return { error: 'The file has no data rows.' };
+  const hdr = rows[0].map(h => String(h).trim().toLowerCase());
+  const col = {};
+  Object.keys(VPI_ALIASES).forEach(k => {
+    for (const a of VPI_ALIASES[k]) { const i = hdr.indexOf(a); if (i >= 0) { col[k] = i; break; } }
+  });
+  const missing = ['partNumber','vendor','price'].filter(k => col[k] === undefined);
+  if (missing.length) {
+    const names = { partNumber:'part_number', vendor:'product_line (or vendor)', price:'mfg_price (or price)' };
+    return { error: 'These columns were not found in the file: ' + missing.map(k => names[k]).join(', ') };
+  }
+  const get = (r, k) => col[k] === undefined ? '' : String(r[col[k]] == null ? '' : r[col[k]]).trim();
+  const recs = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const rec = {
+      n: i + 1, vendorCode: get(r, 'vendor'),
+      partNumber: get(r, 'partNumber'), price: get(r, 'price'),
+      type: get(r, 'type').toUpperCase(), subType: get(r, 'subType').toUpperCase(),
+      description: get(r, 'description'), color: get(r, 'color').toUpperCase(),
+      fenceHeight: get(r, 'fenceHeight'), height: get(r, 'height'), width: get(r, 'width'),
+      unitStd: vpNormUnit(get(r, 'unitStd')),
+      unitDivisor: get(r, 'unitDivisor') === '' ? 1 : Number(get(r, 'unitDivisor')),
+      roundingQty: get(r, 'roundingQty') === '' ? 1 : Number(get(r, 'roundingQty')),
+      error: '', warn: ''
+    };
+    const price = rec.price === '' ? NaN : Number(String(rec.price).replace(/[$,\s]/g, ''));
+    if (!rec.partNumber) rec.error = 'No part number';
+    else if (!rec.vendorCode) rec.error = 'No vendor (product_line is blank)';
+    else if (isNaN(price) || price < 0) rec.error = 'Price is missing or not a number';
+    else if (['fenceHeight','height','width'].some(k => { const n = vpNumBlank(rec[k]); return typeof n === 'number' && isNaN(n); })) rec.error = 'Height or width is not a number';
+    else if (isNaN(rec.unitDivisor) || rec.unitDivisor <= 0 || isNaN(rec.roundingQty) || rec.roundingQty <= 0) rec.error = 'Unit divisor or rounding qty is not valid';
+    else {
+      rec.price = price;
+      if (price === 0) rec.warn = 'Price is 0';
+      else if (rec.roundingQty > 1) rec.warn = 'Sold in multiples of ' + rec.roundingQty + '. Check that the price is per unit, or set a unit divisor if it is per pack';
+    }
+    recs.push(rec);
+  }
+  return { recs: recs };
+}
+
+function vpOpenImport() {
+  vpi = { recs: [], vendors: {} };
+  vpEl('vpi_file').value = '';
+  vpEl('vpi_preview').style.display = 'none';
+  vpEl('vpi_btn').style.display = 'none';
+  vpEl('vpi_progress').textContent = '';
+  openM('mVPImport');
+}
+
+function vpImportFile(input) {
+  const file = input.files && input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const built = vpImportBuild(vpParseCSV(String(reader.result || '')));
+    vpEl('vpi_progress').textContent = '';
+    if (built.error) {
+      vpEl('vpi_preview').style.display = 'none'; vpEl('vpi_btn').style.display = 'none';
+      vpEl('vpi_progress').innerHTML = '<span style="color:var(--red)">' + vpEsc(built.error) + '</span>';
+      return;
+    }
+    vpi.recs = built.recs; vpi.vendors = {};
+    built.recs.filter(r => !r.error).forEach(r => { vpi.vendors[r.vendorCode] = (vpi.vendors[r.vendorCode] || 0) + 1; });
+    vpEl('vpi_vendors').innerHTML = '<table><thead><tr><th>Code in file</th><th>Rows</th><th>Vendor name to use</th></tr></thead><tbody>' +
+      Object.keys(vpi.vendors).sort().map(c => '<tr><td><b>' + vpEsc(c) + '</b></td><td>' + vpi.vendors[c] + '</td><td><input data-code="' + vpEsc(c) + '" value="' + vpEsc(c) + '"></td></tr>').join('') +
+      '</tbody></table>';
+    vpEl('vpi_preview').style.display = '';
+    vpImportRecount();
+  };
+  reader.readAsText(file);
+}
+
+// Sort every record into new / update / skip / duplicate-in-file / problem.
+function vpImportClassify() {
+  const mode = val('vpi_mode') === 'update' ? 'update' : 'skip';
+  const have = new Set(vParts.map(p => vpKey(p.partNumber)));
+  const seen = new Set();
+  vpi.recs.forEach(r => {
+    if (r.error) { r.status = 'bad'; return; }
+    const k = vpKey(r.partNumber);
+    if (seen.has(k)) { r.status = 'dupfile'; return; }
+    seen.add(k);
+    r.status = have.has(k) ? (mode === 'update' ? 'update' : 'skip') : 'new';
+  });
+  return mode;
+}
+
+function vpImportRecount() {
+  vpImportClassify();
+  const c = { new:0, update:0, skip:0, dupfile:0, bad:0 };
+  vpi.recs.forEach(r => c[r.status]++);
+  vpEl('vpi_summary').innerHTML = vpi.recs.length + ' rows read: <b>' + c.new + '</b> new' +
+    (c.update ? ', <b>' + c.update + '</b> will update existing parts' : '') +
+    (c.skip ? ', <b>' + c.skip + '</b> already in the catalog (skipped)' : '') +
+    (c.dupfile ? ', <b>' + c.dupfile + '</b> repeated part numbers in the file (skipped)' : '') +
+    (c.bad ? ', <b style="color:var(--red)">' + c.bad + '</b> with problems (skipped)' : '') + '.';
+  const lines = [];
+  const add = (title, arr, fmt) => {
+    if (!arr.length) return;
+    lines.push('<div class="vp-sub" style="margin-top:10px">' + title + ' (' + arr.length + ')</div><div class="vp-hint">' +
+      arr.slice(0, 25).map(fmt).join('<br>') + (arr.length > 25 ? '<br>...and ' + (arr.length - 25) + ' more' : '') + '</div>');
+  };
+  add('Problems, not imported', vpi.recs.filter(r => r.status === 'bad'), r => 'Row ' + r.n + ' ' + vpEsc(r.partNumber || '(no part number)') + ': ' + vpEsc(r.error));
+  add('Repeated part numbers in the file, not imported', vpi.recs.filter(r => r.status === 'dupfile'), r => 'Row ' + r.n + ': ' + vpEsc(r.partNumber));
+  add('Worth a look after importing', vpi.recs.filter(r => r.warn && (r.status === 'new' || r.status === 'update')), r => vpEsc(r.partNumber) + ': ' + vpEsc(r.warn));
+  vpEl('vpi_issues').innerHTML = lines.join('');
+  const go = c.new + c.update;
+  const b = vpEl('vpi_btn');
+  b.style.display = go ? '' : 'none'; b.textContent = 'Import ' + go + ' part' + (go === 1 ? '' : 's'); b.disabled = false;
+}
+
+async function vpImportRun() {
+  const mode = vpImportClassify();
+  const nameFor = {};
+  document.querySelectorAll('#vpi_vendors input').forEach(i => { nameFor[i.getAttribute('data-code')] = i.value.trim() || i.getAttribute('data-code'); });
+  const send = vpi.recs.filter(r => r.status === 'new' || r.status === 'update').map(r => ({
+    partNumber: r.partNumber, vendor: nameFor[r.vendorCode] || r.vendorCode, price: r.price,
+    type: r.type, subType: r.subType, description: r.description, color: r.color,
+    fenceHeight: r.fenceHeight, height: r.height, width: r.width,
+    unitStd: r.unitStd, unitDivisor: r.unitDivisor, roundingQty: r.roundingQty
+  }));
+  if (!send.length) return;
+  const btn = vpEl('vpi_btn'); btn.disabled = true;
+  const tot = { added:0, updated:0, skipped:0, rejected:[] };
+  const CH = 50;
+  try {
+    for (let i = 0; i < send.length; i += CH) {
+      vpEl('vpi_progress').textContent = 'Importing ' + Math.min(i + CH, send.length) + ' of ' + send.length + '...';
+      const res = await vpCloud('bulkSaveVendorParts', { parts: send.slice(i, i + CH), onDuplicate: mode });
+      tot.added += res.added || 0; tot.updated += res.updated || 0; tot.skipped += res.skipped || 0;
+      tot.rejected = tot.rejected.concat(res.rejected || []);
+    }
+    vpEl('vpi_progress').innerHTML = 'Done. Added <b>' + tot.added + '</b>' + (tot.updated ? ', updated <b>' + tot.updated + '</b>' : '') +
+      (tot.skipped ? ', skipped <b>' + tot.skipped + '</b>' : '') + (tot.rejected.length ? ', rejected by the server <b>' + tot.rejected.length + '</b>' : '') + '.';
+    btn.style.display = 'none';
+    await vpLoad();
+  } catch (e) {
+    vpEl('vpi_progress').innerHTML = '<span style="color:var(--red)">Import stopped: ' + vpEsc(e.message) + '. Parts already sent were saved. Running the import again is safe, it skips parts that exist.</span>';
+    btn.disabled = false;
+  }
+}
+
+// ── bill of materials ──────────────────────────────────────
+// Same math as the server's _bomCalc_(): round the quantity up to the vendor's
+// sales multiple, convert to packs, and price whole packs.
+function bomCalc(l) {
+  const qty = Number(l.qty) || 0;
+  const div = Number(l.unitDivisor) > 0 ? Number(l.unitDivisor) : 1;
+  const rnd = Number(l.roundingQty) > 0 ? Number(l.roundingQty) : 1;
+  const price = Number(l.price) || 0;
+  const orderUnits = qty > 0 ? Math.ceil(qty / rnd - 1e-9) * rnd : 0;
+  const packs = orderUnits > 0 ? Math.ceil(orderUnits / div - 1e-9) : 0;
+  return { orderUnits: orderUnits, packs: packs, lineTotal: Math.round(packs * price * 100) / 100 };
+}
+function bomOrderText(l) {
+  if (!(Number(l.qty) > 0)) return '-';
+  const c = bomCalc(l), d = Number(l.unitDivisor) || 1, r = Number(l.roundingQty) || 1, u = l.unitStd || 'EA';
+  if (d > 1) return c.packs + ' pack' + (c.packs === 1 ? '' : 's') + ' of ' + d + ' ' + u + ' (' + c.orderUnits + ' ' + u + ')';
+  if (r > 1 && c.orderUnits !== Number(l.qty)) return c.orderUnits + ' ' + u + ' (sold in ' + r + 's)';
+  return c.orderUnits + ' ' + u;
+}
+function bomLineFlag(l) {
+  const p = vParts.find(x => x.partId === l.partId);
+  if (!vParts.length) return '';
+  if (!p) return 'Not in catalog';
+  if (!p.active) return 'Part is inactive';
+  if (Math.abs(p.price - l.price) > 1e-9 || p.unitDivisor !== l.unitDivisor || p.roundingQty !== l.roundingQty) return 'Catalog now ' + vpMoney(p.price);
+  return '';
+}
+
+function bomLineFromPart(p) {
+  return { partId:p.partId, partNumber:p.partNumber, vendor:p.vendor, description:p.description, color:p.color, unitStd:p.unitStd,
+           unitDivisor:p.unitDivisor, roundingQty:p.roundingQty, price:p.price, qty:1 };
+}
+function bomAddPart(partId) {
+  const p = vParts.find(x => x.partId === partId); if (!p || !p.active) return;
+  const have = bomState.lines.findIndex(l => l.partId === partId);
+  if (have >= 0) {
+    showToast(p.partNumber + ' is already on this bill. Change its quantity.');
+    const q = vpEl('bomQty_' + have); if (q) { q.focus(); q.select(); }
+    return;
+  }
+  bomState.lines.push(bomLineFromPart(p)); bomState.dirty = true;
+  vpEl('bomSearch').value = ''; vpEl('bomResults').style.display = 'none';
+  bomRender();
+  const q = vpEl('bomQty_' + (bomState.lines.length - 1)); if (q) { q.focus(); q.select(); }
+}
+
+function bomSearchHits() {
+  const q = val('bomSearch').trim().toLowerCase(); if (!q) return [];
+  const toks = q.split(/\s+/);
+  const rank = (p) => { const pn = p.partNumber.toLowerCase(); return pn === q ? 0 : pn.startsWith(q) ? 1 : 2; };
+  return vParts.filter(p => p.active && toks.every(t => vpHay(p).includes(t)))
+    .sort((a, b) => rank(a) - rank(b) || a.partNumber.localeCompare(b.partNumber, undefined, { numeric:true, sensitivity:'base' }));
+}
+function bomSearchRun() {
+  const box = vpEl('bomResults'); const hits = bomSearchHits();
+  if (!val('bomSearch').trim()) { box.style.display = 'none'; return; }
+  if (!hits.length) { box.innerHTML = '<div class="vp-res" style="cursor:default"><span class="vp-rd">No active parts match.</span></div>'; box.style.display = 'block'; return; }
+  box.innerHTML = hits.slice(0, 8).map(p =>
+    '<div class="vp-res" onclick="bomAddPart(\'' + vpEsc(p.partId) + '\')"><b>' + vpEsc(p.partNumber) + '</b><span class="vp-rd">' + vpEsc(p.description) +
+    (p.color ? ' (' + vpEsc(p.color) + ')' : '') + '</span><span class="vp-rv">' + vpEsc(p.vendor) + ' &middot; ' + vpMoney(p.price) + '</span></div>').join('') +
+    (hits.length > 8 ? '<div class="vp-res" style="cursor:default;color:var(--text3)">' + (hits.length - 8) + ' more. Keep typing to narrow.</div>' : '');
+  box.style.display = 'block';
+}
+function bomSearchKey(e) {
+  if (e.key === 'Escape') { vpEl('bomResults').style.display = 'none'; return; }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const q = val('bomSearch').trim().toLowerCase(); const hits = bomSearchHits();
+  const exact = hits.filter(p => p.partNumber.toLowerCase() === q);
+  if (exact.length === 1) bomAddPart(exact[0].partId);
+  else if (hits.length === 1) bomAddPart(hits[0].partId);
+  else if (!hits.length) showToast('No active part matches that.');
+  else showToast('Several parts match. Click the one you want.');
+}
+document.addEventListener('click', (e) => {
+  const box = vpEl('bomResults'); if (box && !e.target.closest('.vp-addbox')) box.style.display = 'none';
+});
+
+function bomQtyInput(i, v) {
+  const l = bomState.lines[i]; if (!l) return;
+  l.qty = parseFloat(v) || 0; bomState.dirty = true; bomRecalc();
+}
+function bomRemove(i) { bomState.lines.splice(i, 1); bomState.dirty = true; bomRender(); }
+
+function bomGroups() {
+  const g = {};
+  bomState.lines.forEach((l, i) => { (g[l.vendor || '(no vendor)'] = g[l.vendor || '(no vendor)'] || []).push(i); });
+  return Object.keys(g).sort().map(v => ({ vendor: v, idx: g[v] }));
+}
+
+function bomRender() {
+  const wrap = vpEl('bomLines'); if (!wrap) return;
+  vpEl('bomLabel').value = bomState.label; vpEl('bomNotes').value = bomState.notes;
+  vpEl('bomIdTag').textContent = bomState.bomId || 'New bill';
+  if (!bomState.lines.length) {
+    wrap.innerHTML = '<div class="vp-empty">No parts on this bill yet. Search above and add parts. Each vendor gets its own section.</div>';
+  } else {
+    wrap.innerHTML = bomGroups().map((g, gi) =>
+      '<div class="vp-box"><div class="vp-vhead"><span>' + vpEsc(g.vendor) + '</span><span class="vp-total" id="bomSub_' + gi + '"></span></div>' +
+      '<div style="overflow-x:auto"><table><thead><tr><th>Part #</th><th>Description</th><th style="text-align:right">Qty needed</th><th>Order</th><th style="text-align:right">Price</th><th style="text-align:right">Line total</th><th></th></tr></thead><tbody>' +
+      g.idx.map(i => {
+        const l = bomState.lines[i], flag = bomLineFlag(l), d = Number(l.unitDivisor) || 1;
+        return '<tr><td style="font-family:var(--mono);color:var(--orange);font-weight:600">' + vpEsc(l.partNumber) + '</td>' +
+          '<td style="max-width:260px;white-space:normal">' + vpEsc(l.description) + (l.color ? ' <span class="vp-pill">' + vpEsc(l.color) + '</span>' : '') +
+          (flag ? '<span class="vp-warn">' + vpEsc(flag) + '</span>' : '') + '</td>' +
+          '<td style="text-align:right"><input class="vp-lq" id="bomQty_' + i + '" type="number" min="0" step="any" value="' + vpEsc(l.qty) + '" oninput="bomQtyInput(' + i + ',this.value)"> <span style="color:var(--text3)">' + vpEsc(l.unitStd) + '</span></td>' +
+          '<td id="bomOrd_' + i + '" style="white-space:normal"></td>' +
+          '<td style="text-align:right;font-family:var(--mono);white-space:nowrap">' + vpMoney(l.price) + '<div class="vp-hint">' + (d > 1 ? 'per pack of ' + d + ' ' + vpEsc(l.unitStd) : 'per ' + vpEsc(l.unitStd)) + '</div></td>' +
+          '<td id="bomTot_' + i + '" class="vp-total" style="text-align:right"></td>' +
+          '<td><button class="btn btn-ghost" title="Remove" onclick="bomRemove(' + i + ')">&#10005;</button></td></tr>';
+      }).join('') + '</tbody></table></div></div>').join('');
+  }
+  bomRecalc();
+  const anyOff = bomState.lines.some(l => bomLineFlag(l) && bomLineFlag(l) !== 'Not in catalog' && bomLineFlag(l) !== 'Part is inactive');
+  vpEl('bomRefreshBtn').style.display = anyOff ? '' : 'none';
+  bomRenderList();
+}
+
+function bomRecalc() {
+  let grand = 0;
+  bomGroups().forEach((g, gi) => {
+    let sub = 0;
+    g.idx.forEach(i => {
+      const l = bomState.lines[i], c = bomCalc(l); sub += c.lineTotal;
+      const o = vpEl('bomOrd_' + i), t = vpEl('bomTot_' + i);
+      if (o) o.textContent = bomOrderText(l);
+      if (t) t.textContent = vpMoney(c.lineTotal);
+    });
+    const s = vpEl('bomSub_' + gi); if (s) s.textContent = vpMoney(sub);
+    grand += sub;
+  });
+  vpEl('bomGrand').textContent = vpMoney(Math.round(grand * 100) / 100);
+}
+
+function bomUpdatePrices() {
+  let n = 0;
+  bomState.lines.forEach(l => {
+    const p = vParts.find(x => x.partId === l.partId);
+    if (p && p.active && bomLineFlag(l)) { Object.assign(l, bomLineFromPart(p), { qty: l.qty }); n++; }
+  });
+  if (n) { bomState.dirty = true; bomRender(); showToast('Updated ' + n + ' line' + (n === 1 ? '' : 's') + ' to the current catalog. Save the bill to keep it.'); }
+}
+
+function bomNew(silent) {
+  if (!silent && bomState.dirty && bomState.lines.length && !confirm('Discard the unsaved changes on this bill?')) return;
+  bomState = { bomId:'', label:'', notes:'', status:'Draft', jobId:'', lines:[], dirty:false };
+  bomRender();
+}
+
+async function bomSave() {
+  if (!bomState.lines.length) { showToast('Add at least one part first.'); return; }
+  const noQty = bomState.lines.find(l => !(Number(l.qty) > 0));
+  if (noQty) { showToast('Enter a quantity for ' + noQty.partNumber + ' (or remove it).', 4000); return; }
+  try {
+    const res = await vpCloud('saveBOM', { bomId: bomState.bomId, label: bomState.label, jobId: bomState.jobId, status: bomState.status, notes: bomState.notes, lines: bomState.lines });
+    const b = res.bom;
+    bomState.bomId = b.bomId; bomState.label = b.label; bomState.dirty = false;
+    const i = bomList.findIndex(x => x.bomId === b.bomId);
+    if (i >= 0) bomList[i] = b; else bomList.unshift(b);
+    bomList.sort((a, c) => String(c.updatedAt).localeCompare(String(a.updatedAt)));
+    bomRender(); showToast('Saved ' + b.bomId + ' (' + vpMoney(b.total) + ')');
+  } catch (e) { showToast('Save failed: ' + e.message, 6000); }
+}
+
+async function bomLoadList() {
+  if (!settings.scriptUrl) { bomRenderList(); return; }
+  try {
+    const res = await vpCloud('getBOMs');
+    if (!Array.isArray(res.boms)) throw new Error('Unexpected response. Is Code.gs v2.17.0 deployed?');
+    bomList = res.boms.sort((a, c) => String(c.updatedAt).localeCompare(String(a.updatedAt)));
+    bomListLoaded = true; bomRenderList();
+  } catch (e) { showToast('Bills: ' + e.message, 5000); }
+}
+function bomRenderList() {
+  const el = vpEl('bomList'); if (!el) return;
+  el.innerHTML = bomList.length ? bomList.map(b =>
+    '<div class="vp-bi' + (b.bomId === bomState.bomId ? ' cur' : '') + '" onclick="bomOpen(\'' + vpEsc(b.bomId) + '\')">' +
+    '<div style="display:flex;justify-content:space-between;gap:6px"><b>' + vpEsc(b.label) + '</b>' +
+    '<button class="btn btn-ghost" style="padding:0 6px" title="Delete this bill" onclick="event.stopPropagation();bomDelete(\'' + vpEsc(b.bomId) + '\')">&#10005;</button></div>' +
+    '<div class="vp-hint">' + vpEsc(b.bomId) + ' &middot; ' + vpMoney(b.total) + ' &middot; ' + b.lines.length + ' line' + (b.lines.length === 1 ? '' : 's') +
+    (b.updatedAt ? ' &middot; ' + vpEsc(String(b.updatedAt).slice(0, 10)) : '') + '</div></div>').join('')
+    : '<div class="vp-hint" style="padding:8px 4px">No saved bills yet.</div>';
+}
+function bomOpen(id) {
+  const b = bomList.find(x => x.bomId === id); if (!b) return;
+  if (bomState.dirty && bomState.lines.length && !confirm('Discard the unsaved changes on the current bill?')) return;
+  bomState = { bomId:b.bomId, label:b.label, notes:b.notes, status:b.status, jobId:b.jobId, lines:JSON.parse(JSON.stringify(b.lines)), dirty:false };
+  bomRender();
+}
+async function bomDelete(id) {
+  const b = bomList.find(x => x.bomId === id); if (!b) return;
+  if (!confirm('Delete ' + b.label + ' (' + b.bomId + ')? This cannot be undone.')) return;
+  try {
+    await vpCloud('deleteBOM', { bomId: id });
+    bomList = bomList.filter(x => x.bomId !== id);
+    if (bomState.bomId === id) bomNew(true); else bomRenderList();
+    showToast('Deleted ' + b.bomId);
+  } catch (e) { showToast('Delete failed: ' + e.message, 5000); }
+}
 </script>
 </body>
 </html>
