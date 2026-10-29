@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.35.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.36.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2927,6 +2927,26 @@ function applyTheme(raw) {
       </div>
       <div id="supplierList" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto"></div>
 
+      </div></div>
+
+    <!-- ── SUPPLIER CONTACTS (v3.36.0) ─────────────────────── -->
+    <div class="card" style="margin-top:12px;margin-bottom:12px">
+      <div class="collapse-toggle" onclick="toggleSetupCard('sc_supcontacts')">
+        <div class="card-title" style="margin:0">Supplier Contacts</div>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="collapsible-body" id="sc_supcontacts">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+        Who to email when you send a material order. Add one line per person. A supplier can have as many people as you like, and the order email goes to everyone you tick.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1.3fr auto;gap:8px;margin-bottom:6px;align-items:end">
+        <div class="f"><label>SUPPLIER</label><input id="scSupplier" list="scSupplierList" autocomplete="off" placeholder="e.g. WFL"><datalist id="scSupplierList"></datalist></div>
+        <div class="f"><label>CONTACT NAME</label><input id="scName" autocomplete="off" placeholder="e.g. Joe Smith"></div>
+        <div class="f"><label>EMAIL</label><input id="scEmail" type="email" autocomplete="off" placeholder="joe@supplier.com" onkeydown="if(event.key==='Enter')scSave()"></div>
+        <div style="display:flex;gap:6px;align-self:flex-end"><button class="btn btn-a btn-sm" id="scSaveBtn" onclick="scSave()">+ Add</button><button class="btn btn-sm" id="scCancelBtn" style="display:none" onclick="scCancel()">Cancel</button></div>
+      </div>
+      <div id="scMsg" class="vp-hint" style="min-height:16px;margin-bottom:6px"></div>
+      <div id="scList" style="display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto"></div>
       </div></div>
 
     <!-- ── APPEARANCE (v3.25.0) ────────────────────────────── -->
@@ -5061,7 +5081,19 @@ function applyTheme(raw) {
     <iframe id="bomFormFrame" style="width:100%;height:68vh;border:1px solid var(--border);background:#fff;border-radius:6px"></iframe>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button class="btn" onclick="closeM('mBomForm')">Close</button>
+      <button class="btn" onclick="bomEmailOpen()">Email Supplier</button>
       <button class="btn btn-primary" onclick="bomPrintForm()">Print / Save as PDF</button>
+    </div>
+  </div>
+</div>
+<div class="moverlay hidden" id="mBomEmail">
+  <div class="mbox" style="max-width:520px">
+    <div class="mtitle">Email Supplier</div>
+    <div class="vp-hint" style="margin-bottom:8px">Tick who should get this order. Your email program opens with the message filled in. Attach the PDF from Print / Save as PDF before you send.</div>
+    <div id="bomEmailList" style="max-height:46vh;overflow-y:auto"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn" onclick="closeM('mBomEmail')">Cancel</button>
+      <button class="btn btn-primary" onclick="bomEmailGo()">Open Email</button>
     </div>
   </div>
 </div>
@@ -6696,7 +6728,7 @@ function show(id) {
       lookupJobSummary(_lastSummaryPrefix);
     }
   }
-  if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCompanyList(); renderCrewList(); renderContactsSetup(); loadTemplateFields(); lmRender(); renderAccessList(); initSetupCollapse(); }
+  if (id === 'setup')     { renderFenceTypeList(); renderSupplierList(); renderCompanyList(); renderCrewList(); renderContactsSetup(); scOnShow(); loadTemplateFields(); lmRender(); renderAccessList(); initSetupCollapse(); }
   if (id === 'analytics') {
     // Hydrate from localStorage first so cloud is only needed when truly empty
     if (!analyticsData.length) {
@@ -20486,6 +20518,103 @@ function bomOpenForm() {
 function bomPrintForm() {
   const f = vpEl('bomFormFrame');
   try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { showToast('Print failed: ' + e.message, 5000); }
+}
+
+// ---- Supplier contacts (Setup) and order email ----
+let scList = [], scLoaded = false, scEditId = '';
+async function scLoad(force) {
+  if (!settings.scriptUrl) { scRender(); return; }
+  if (scLoaded && !force) { scRender(); return; }
+  try {
+    const res = await vpCloud('getSupplierContacts');
+    if (!Array.isArray(res.contacts)) throw new Error('Unexpected response. Is Code.gs v2.19.0 deployed?');
+    scList = res.contacts.filter(c => c.active); scLoaded = true; scRender();
+  } catch (e) { showToast('Supplier contacts: ' + e.message, 5000); }
+}
+function scOnShow() {
+  scLoad(false);
+  if (typeof vpLoad === 'function' && !vpLoaded && settings.scriptUrl) { vpLoad().then(scRender).catch(() => {}); }
+}
+function scSupplierNames() {
+  const set = {};
+  (typeof vParts !== 'undefined' ? vParts : []).forEach(p => { if (p.vendor) set[p.vendor.toLowerCase()] = p.vendor; });
+  scList.forEach(c => { if (c.supplier) set[c.supplier.toLowerCase()] = set[c.supplier.toLowerCase()] || c.supplier; });
+  return Object.keys(set).map(k => set[k]).sort((a, b) => a.localeCompare(b));
+}
+function scRender() {
+  const dl = vpEl('scSupplierList'); if (dl) dl.innerHTML = scSupplierNames().map(n => '<option value="' + vpEsc(n) + '">').join('');
+  const el = vpEl('scList'); if (!el) return;
+  if (!scList.length) { el.innerHTML = '<div class="vp-hint" style="padding:6px 2px">No supplier contacts yet.</div>'; return; }
+  const groups = {};
+  scList.forEach(c => { (groups[c.supplier.toLowerCase()] = groups[c.supplier.toLowerCase()] || { name: c.supplier, items: [] }).items.push(c); });
+  el.innerHTML = Object.keys(groups).sort().map(k => {
+    const g = groups[k];
+    return '<div class="vp-bh">' + vpEsc(g.name) + '</div>' + g.items.map(c =>
+      '<div class="vp-bi" style="cursor:default"><div style="display:flex;justify-content:space-between;gap:6px;align-items:center"><span><b>' + vpEsc(c.name) + '</b> &middot; ' + vpEsc(c.email) + '</span><span style="white-space:nowrap">' +
+      '<button class="btn btn-ghost" style="padding:0 6px" onclick="scEdit(\'' + vpEsc(c.contactId) + '\')">Edit</button>' +
+      '<button class="btn btn-ghost" style="padding:0 6px" title="Delete" onclick="scDelete(\'' + vpEsc(c.contactId) + '\')">&#10005;</button></span></div></div>').join('');
+  }).join('');
+}
+function scMsg(t, bad) { const m = vpEl('scMsg'); if (m) { m.textContent = t || ''; m.style.color = bad ? 'var(--red, #c0392b)' : ''; } }
+function scCancel() {
+  scEditId = ''; vpEl('scSupplier').value = ''; vpEl('scName').value = ''; vpEl('scEmail').value = '';
+  vpEl('scSaveBtn').textContent = '+ Add'; vpEl('scCancelBtn').style.display = 'none'; scMsg('');
+}
+function scEdit(id) {
+  const c = scList.find(x => x.contactId === id); if (!c) return;
+  scEditId = id; vpEl('scSupplier').value = c.supplier; vpEl('scName').value = c.name; vpEl('scEmail').value = c.email;
+  vpEl('scSaveBtn').textContent = 'Save'; vpEl('scCancelBtn').style.display = ''; scMsg('Editing ' + c.name);
+}
+async function scSave() {
+  const d = { contactId: scEditId, supplier: vpEl('scSupplier').value.trim(), name: vpEl('scName').value.trim(), email: vpEl('scEmail').value.trim() };
+  if (!d.supplier) { scMsg('Supplier is required.', true); return; }
+  if (!d.name) { scMsg('Contact name is required.', true); return; }
+  if (!d.email) { scMsg('Email is required.', true); return; }
+  if (!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(d.email)) { scMsg('That email address does not look right.', true); return; }
+  try {
+    const res = await vpCloud('saveSupplierContact', d);
+    const c = res.contact, i = scList.findIndex(x => x.contactId === c.contactId);
+    if (i >= 0) scList[i] = c; else scList.push(c);
+    scLoaded = true; scCancel(); scRender(); showToast('Saved ' + c.name + ' (' + c.supplier + ')');
+  } catch (e) { scMsg(e.message, true); }
+}
+async function scDelete(id) {
+  const c = scList.find(x => x.contactId === id); if (!c) return;
+  if (!confirm('Remove ' + c.name + ' (' + c.email + ') from ' + c.supplier + '?')) return;
+  try { await vpCloud('deleteSupplierContact', { contactId: id }); scList = scList.filter(x => x.contactId !== id); if (scEditId === id) scCancel(); scRender(); }
+  catch (e) { showToast('Delete failed: ' + e.message, 5000); }
+}
+function bomSuppliersOnBill() {
+  const seen = {}, out = [];
+  bomGroups().forEach(g => { const k = g.vendor.toLowerCase(); if (!seen[k]) { seen[k] = 1; out.push(g.vendor); } });
+  return out;
+}
+async function bomEmailOpen() {
+  await scLoad(true);
+  const box = vpEl('bomEmailList'), sups = bomSuppliersOnBill();
+  const html = sups.map(sn => {
+    const cs = scList.filter(c => c.supplier.toLowerCase() === sn.toLowerCase());
+    return '<div class="vp-bh">' + vpEsc(sn) + '</div>' + (cs.length ? cs.map(c =>
+      '<label class="vp-chk" style="display:flex;gap:8px;align-items:center;padding:4px 2px"><input type="checkbox" style="width:auto" class="bomEmailChk" value="' + vpEsc(c.email) + '" checked> <span><b>' + vpEsc(c.name) + '</b> &middot; ' + vpEsc(c.email) + '</span></label>').join('')
+      : '<div class="vp-hint" style="padding:4px 2px">No contacts for this supplier yet. Add them in Setup &gt; Supplier Contacts.</div>');
+  }).join('');
+  box.innerHTML = html || '<div class="vp-hint">No suppliers on this bill.</div>';
+  openM('mBomEmail');
+}
+function bomEmailBuild(emails) {
+  const j = bomJobOf(bomState.estimateId), co = fpResolveEmailCompany(j && j.company);
+  const tag = bomEstTag(bomState.estimateId, bomState.jobId);
+  const subject = 'Material Order - Job ' + tag + ' - ' + (j.custName || '') + ' - ' + co.name;
+  const addr = [j.jobAddr, j.jobAddr2, [j.jobCity, [j.jobState, j.custZip].filter(Boolean).join(' ')].filter(Boolean).join(', ')].filter(Boolean).join(', ');
+  const body = 'Hello,\n\nPlease see the attached material order for Job ' + tag + '.\nDeliver to: ' + (j.custName || '') + ', ' + addr + '\n\n' +
+    'Please confirm availability and pricing, and let us know the delivery date.\n\nThank you,\n' + co.name + (co.phone ? '\n' + co.phone : '');
+  return 'mailto:' + emails.map(encodeURIComponent).join(',').replace(/%40/g, '@') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+}
+function bomEmailGo() {
+  const emails = [...document.querySelectorAll('.bomEmailChk')].filter(c => c.checked).map(c => c.value);
+  if (!emails.length) { showToast('Tick at least one contact.', 3500); return; }
+  const a = document.createElement('a'); a.href = bomEmailBuild(emails); document.body.appendChild(a); a.click(); a.remove();
+  closeM('mBomEmail');
 }
 function bomNew(silent) {
   if (!silent && bomState.dirty && bomState.lines.length && !confirm('Discard the unsaved changes on this bill?')) return;
