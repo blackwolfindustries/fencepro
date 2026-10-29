@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.34.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.35.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2482,6 +2482,7 @@ function applyTheme(raw) {
           </div>
           <div class="fr" style="margin-top:12px">
             <button class="btn btn-a" onclick="bomSave()">Save Bill</button>
+            <button class="btn" id="bomFormBtn" onclick="bomOpenForm()" title="Preview and print the material order form for the vendor">Order Form</button>
             <button class="btn" id="bomCopyBtn" style="display:none" onclick="bomSave(true)">Save as New Copy</button>
             <button class="btn" onclick="bomNew()">New Bill</button>
             <button class="btn" id="bomRefreshBtn" style="display:none" onclick="bomUpdatePrices()">Update to current catalog prices</button>
@@ -5054,6 +5055,16 @@ function applyTheme(raw) {
 </div>
 
 <!-- Vendor part: add / edit (v3.32.0) -->
+<div class="moverlay hidden" id="mBomForm">
+  <div class="mbox" style="max-width:900px;width:96vw">
+    <div class="mtitle">Material Order Form</div>
+    <iframe id="bomFormFrame" style="width:100%;height:68vh;border:1px solid var(--border);background:#fff;border-radius:6px"></iframe>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn" onclick="closeM('mBomForm')">Close</button>
+      <button class="btn btn-primary" onclick="bomPrintForm()">Print / Save as PDF</button>
+    </div>
+  </div>
+</div>
 <div class="moverlay hidden" id="mVPart">
   <div class="mbox" style="max-width:560px">
     <div class="mtitle" id="vpModalTitle">Add Part</div>
@@ -20222,6 +20233,7 @@ function bomRender() {
   vpEl('bomIdTag').textContent = bomState.bomId ? bomState.bomId + (isTpl ? ' - template' : '') : 'New bill';
   vpEl('bomCopyBtn').style.display = bomState.bomId ? '' : 'none';
   bomLinkRender();
+  { const fb = vpEl('bomFormBtn'); if (fb) fb.style.display = (bomState.status === 'Template') ? 'none' : ''; }
   if (!bomState.lines.length) {
     wrap.innerHTML = '<div class="vp-empty">No parts on this bill yet. Search above and add parts. Each vendor gets its own section.</div>';
   } else {
@@ -20420,6 +20432,61 @@ document.addEventListener('mousedown', function (e) {
   const r = document.getElementById('bomJobResults');
   if (r && r.style.display === 'block' && !(e.target.closest && e.target.closest('#bomLinkPick'))) r.style.display = 'none';
 });
+
+// ---- Material order form (printable, for the vendor) ----
+function bomFormLines() {
+  const out = [];
+  bomGroups().forEach(g => g.idx.forEach(i => {
+    const l = bomState.lines[i], c = bomCalc(l), d = Number(l.unitDivisor) || 1, u = l.unitStd || 'EA';
+    out.push({
+      qty: d > 1 ? c.packs : c.orderUnits,
+      pn: l.partNumber,
+      desc: String(l.description || '') + (l.color && String(l.description || '').toUpperCase().indexOf(String(l.color).toUpperCase()) < 0 ? ' - ' + l.color : ''),
+      unit: d > 1 ? 'PK of ' + d + ' ' + u : u
+    });
+  }));
+  return out;
+}
+function bomFormHtml() {
+  const j = bomJobOf(bomState.estimateId);
+  const co = fpResolveEmailCompany(j && j.company);
+  const logo = (COMPANY_LOGOS[co.code] || {}).src || '';
+  const email = (typeof settings !== 'undefined' && settings.companyEmail) || '';
+  const e = vpEsc;
+  const cityLine = [j.jobCity, [j.jobState, j.custZip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const rows = bomFormLines().map(r =>
+    '<tr><td class="q">' + e(r.qty) + '</td><td class="p">' + e(r.pn) + '</td><td>' + e(r.desc) + '</td><td>' + e(r.unit) + '</td></tr>').join('');
+  const notes = String(bomState.notes || '').trim();
+  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  return '<!doctype html><html><head><meta charset="utf-8"><title>Material Order ' + e(bomEstTag(bomState.estimateId, bomState.jobId)) + '</title><style>' +
+    '@page{size:letter;margin:0.6in}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#000;font-size:12px;margin:0;padding:18px}' +
+    '.top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:14px}' +
+    '.co{display:flex;gap:12px;align-items:flex-start}.co img{max-width:70px;max-height:70px}.co b{font-size:16px}.co div{line-height:1.5}' +
+    '.ttl{text-align:right;line-height:1.6}.ttl h1{font-size:20px;margin:0 0 4px}' +
+    '.box{border:1px solid #000;padding:8px 10px;margin-bottom:14px;line-height:1.5}.box .h{font-size:10px;font-weight:700;letter-spacing:.08em;margin-bottom:2px}' +
+    '.notes{border:2px solid #000;padding:8px 10px;margin-bottom:14px;white-space:pre-wrap;line-height:1.5}.notes .h{font-size:10px;font-weight:700;letter-spacing:.08em;margin-bottom:2px}' +
+    'table{width:100%;border-collapse:collapse}th{text-align:left;border-bottom:2px solid #000;padding:6px 8px;font-size:11px}td{border-bottom:1px solid #bbb;padding:6px 8px;vertical-align:top}' +
+    'td.q{width:60px;font-weight:700;text-align:right}td.p{width:150px;font-family:monospace}th:first-child{text-align:right}tr{page-break-inside:avoid}' +
+    '</style></head><body>' +
+    '<div class="top"><div class="co">' + (logo ? '<img src="' + e(logo) + '">' : '') + '<div><b>' + e(co.name) + '</b><br>' + e(co.addr) + (co.phone ? '<br>' + e(co.phone) : '') + (email ? '<br>' + e(email) : '') + '</div></div>' +
+    '<div class="ttl"><h1>MATERIAL ORDER</h1>Job # <b>' + e(bomEstTag(bomState.estimateId, bomState.jobId)) + '</b><br>' + e(today) + '</div></div>' +
+    '<div class="box"><div class="h">DELIVER TO</div><b>' + e(j.custName) + '</b><br>' + e(j.jobAddr) + (j.jobAddr2 ? '<br>' + e(j.jobAddr2) : '') + (cityLine ? '<br>' + e(cityLine) : '') + '</div>' +
+    (notes ? '<div class="notes"><div class="h">NOTES FOR VENDOR</div>' + e(notes) + '</div>' : '') +
+    '<table><thead><tr><th>QTY</th><th>PART #</th><th>DESCRIPTION</th><th>UNIT</th></tr></thead><tbody>' + rows + '</tbody></table></body></html>';
+}
+function bomOpenForm() {
+  if (bomState.status === 'Template') { showToast('Templates are not linked to a job. Start a bill from it first.', 4000); return; }
+  if (!bomState.lines.length) { showToast('Add parts to the bill first.'); return; }
+  if (!bomState.estimateId) { showToast('Link this bill to a job first, so the delivery address can be filled in.', 4500); return; }
+  if (!bomJobOf(bomState.estimateId)) { showToast('That estimate is not in your list. Refresh the app or relink the bill.', 4500); return; }
+  if (bomState.lines.some(l => !(Number(l.qty) > 0))) { showToast('Every line needs a quantity before the form can print.', 4500); return; }
+  vpEl('bomFormFrame').srcdoc = bomFormHtml();
+  openM('mBomForm');
+}
+function bomPrintForm() {
+  const f = vpEl('bomFormFrame');
+  try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { showToast('Print failed: ' + e.message, 5000); }
+}
 function bomNew(silent) {
   if (!silent && bomState.dirty && bomState.lines.length && !confirm('Discard the unsaved changes on this bill?')) return;
   bomState = { bomId:'', label:'', notes:'', status:'Draft', jobId:'', estimateId:'', customerName:'', lines:[], dirty:false };
