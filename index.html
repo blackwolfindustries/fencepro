@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.36.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.37.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -3211,6 +3211,10 @@ function applyTheme(raw) {
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
       Year/Year
     </button>
+    <button id="atab_zip" class="atab" onclick="showAnalyticsTab('zip')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:5px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      By ZIP
+    </button>
   </div>
 
   <!-- TAB PANELS — only one visible at a time, controlled by showAnalyticsTab() -->
@@ -3453,6 +3457,57 @@ function applyTheme(raw) {
           </table>
         </div>
         <div class="card" style="visibility:hidden"></div>
+      </div>
+    </div>
+
+    <!-- ══ BY ZIP (v3.37.0) ══ -->
+    <div id="atab-zip" style="display:none;flex-direction:column;gap:16px;padding:16px">
+      <div class="card" style="padding:12px 14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div style="font-size:12px;color:var(--text2)">
+          <label for="zipMin" style="font-weight:700">Minimum proposals for a ZIP to be rated:</label>
+          <input id="zipMin" type="number" min="1" step="1" value="3" style="width:60px;margin-left:6px" onchange="zipMinChanged()">
+        </div>
+        <div id="zipMeta" style="font-size:11px;color:var(--text3);margin-left:auto"></div>
+      </div>
+
+      <div id="zipSummary" class="a-2col-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px"></div>
+
+      <div class="a-2col-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="card">
+          <div class="card-title">Best ZIPs (by win rate)</div>
+          <div id="zipBest" style="font-size:12px"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Weakest ZIPs (by win rate)</div>
+          <div id="zipWorst" style="font-size:12px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Performance by ZIP <span style="font-size:11px;font-weight:500;color:var(--text3)">— click a ZIP to see its channels and campaigns</span></div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead id="zipHead"></thead>
+            <tbody id="zipBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span>Wins by ZIP and</span>
+          <select id="zipPairDim" onchange="renderZipAnalysis()" style="font-size:12px">
+            <option value="Channel">Channel</option>
+            <option value="Campaign">Campaign</option>
+          </select>
+          <span style="font-size:11px;font-weight:500;color:var(--text3)">sorted by wins, then proposals (top 150 combinations)</span>
+        </div>
+        <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead id="zipPairHead" style="position:sticky;top:0;background:var(--surface)"></thead>
+            <tbody id="zipPairBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -17684,7 +17739,7 @@ function isClosed(status) {
 
 // ── MAIN RENDER ──────────────────────────────────
 function showAnalyticsTab(tab) {
-  const tabs = ['overview','pipeline','performance','breakdown','booking','dow','pricing','yoy'];
+  const tabs = ['overview','pipeline','performance','breakdown','booking','dow','pricing','yoy','zip'];
   tabs.forEach(t => {
     const btn   = document.getElementById('atab_' + t);
     const panel = document.getElementById('atab-' + t);
@@ -17703,6 +17758,8 @@ function showAnalyticsTab(tab) {
   // Year/Year reads full analytics history directly — render on demand,
   // ignores the global Range filter entirely (see renderYoY() below).
   if (tab === 'yoy' && analyticsData.length) renderYoY();
+  // By ZIP re-renders from the last filtered rows (v3.37.0)
+  if (tab === 'zip') renderZipAnalysis();
 }
 
 function renderAnalytics() {
@@ -17799,6 +17856,7 @@ function renderAnalytics() {
   renderBreakdownFromJobs('analyticsSupplierTable', 'analyticsSupplierHead', 'supplier',    'Supplier');
   renderBreakdownFromJobs('analyticsMaterialTable', 'analyticsMaterialHead', 'material',    'Material');
   renderPerformance(analyticsData, range);
+  renderZipAnalysis(filtered); // v3.37.0 - By ZIP tab, same date-filtered rows as Channel/Campaign
   renderBookingTime(analyticsData, range); // filters internally on Accepted Date
   // DOW renders on tab switch — only pre-render if tab is active
   if (document.getElementById('atab-dow')?.style.display !== 'none') renderDayOfWeek(analyticsData, range);
@@ -18982,6 +19040,268 @@ function showAnalyticsDrill(fieldEnc, keyEnc) {
     `Revenue: <strong style="font-family:var(--mono)">$${Math.round(totalRevenue).toLocaleString()}</strong>`;
 
   document.getElementById('mAnalyticsDrill').classList.remove('hidden');
+}
+
+// ══════════════════════════════════════════════════════════
+// BY ZIP TAB (v3.37.0)
+// Same source and rules as the Channel / Campaign tables: the
+// date-filtered proposals CSV rows (Date/Created, never Sent),
+// win = isClosed(Status), revenue = Value column.
+// ZIP comes from the CSV's ZIP column (column M). It is found by
+// header name first, then falls back to the 13th column.
+// ══════════════════════════════════════════════════════════
+let _zipRows = [];
+const _zipSort = { col: 'total', dir: 'desc' };
+const _zipOpen = {};
+
+function _zipKeyFor(rows) {
+  if (!rows || !rows.length) return null;
+  const keys  = Object.keys(rows[0]);
+  const exact = ['zip', 'zip code', 'zipcode', 'zip_code', 'postal code', 'job zip', 'customer zip'];
+  const byName = keys.find(k => exact.indexOf(k.trim().toLowerCase()) >= 0);
+  if (byName) return byName;
+  if (keys.length >= 13) return keys[12];            // column M
+  return keys.find(k => /zip|postal/i.test(k)) || null;
+}
+
+// First 5 digits of whatever is in the cell; 4-digit values get their
+// leading zero back; anything else counts as "no ZIP".
+function _zipNorm(v) {
+  const s = String(v == null ? '' : v).trim();
+  const m = s.match(/\d{5}/);
+  if (m) return m[0];
+  if (/^\d{4}$/.test(s)) return '0' + s;
+  return '';
+}
+
+function _zipRateColor(rateNum) {
+  return rateNum >= 25 ? 'var(--green)' : rateNum >= 15 ? 'var(--amber)' : 'var(--red)';
+}
+
+function _zipFlag(e, minN) {
+  if (!e.zip)           return { t: 'No ZIP on file', c: 'var(--text3)' };
+  if (e.total < minN)   return { t: 'Low volume',     c: 'var(--text3)' };
+  if (e.wins === 0)     return { t: 'No wins',        c: 'var(--red)' };
+  const r = e.rate;
+  if (r >= 25) return { t: 'Strong',  c: 'var(--green)' };
+  if (r >= 15) return { t: 'Average', c: 'var(--amber)' };
+  return { t: 'Weak', c: 'var(--red)' };
+}
+
+function _zipMoney(n) { return '$' + Math.round(n).toLocaleString(); }
+
+function zipMinChanged() {
+  const el = document.getElementById('zipMin');
+  try { localStorage.setItem('fp_zipMin', String(parseInt(el.value) || 3)); } catch (e) {}
+  renderZipAnalysis();
+}
+
+function sortZip(col) {
+  _zipSort.dir = (_zipSort.col === col && _zipSort.dir === 'desc') ? 'asc' : 'desc';
+  _zipSort.col = col;
+  renderZipAnalysis();
+}
+
+function zipToggle(key) {
+  _zipOpen[key] = !_zipOpen[key];
+  renderZipAnalysis();
+}
+
+// Group rows by one dimension (Channel / Campaign); same "(none)" rule as the Breakdown tab.
+function _zipGroup(rows, field) {
+  const map = {};
+  rows.forEach(r => {
+    const k = (r[field] || '').trim() || '(none)';
+    const o = map[k] || (map[k] = { key: k, total: 0, wins: 0, revenue: 0 });
+    o.total++;
+    if (isClosed(r['Status'])) { o.wins++; o.revenue += parseFloat(r['Value']) || 0; }
+  });
+  return Object.values(map).map(o => ({ ...o, rate: o.total ? o.wins / o.total * 100 : 0 }))
+    .sort((a, b) => b.wins - a.wins || b.total - a.total);
+}
+
+function _zipMiniTable(title, groups) {
+  const body = groups.map(g => {
+    const rn = +g.rate.toFixed(0);
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:5px 8px;color:var(--text)">${escHtml(g.key)}</td>
+      <td style="padding:5px 8px;text-align:right;color:var(--text2)">${g.total}</td>
+      <td style="padding:5px 8px;text-align:right;color:var(--green);font-weight:700">${g.wins}</td>
+      <td style="padding:5px 8px;text-align:right;font-weight:800;color:${_zipRateColor(rn)}">${rn}%</td>
+      <td style="padding:5px 8px;text-align:right;font-family:var(--mono);color:var(--navy)">${_zipMoney(g.revenue)}</td>
+    </tr>`;
+  }).join('');
+  return `<div>
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${title}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:2px solid var(--border)">
+        <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3)">${title}</th>
+        <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3)">Proposals</th>
+        <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3)">Wins</th>
+        <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3)">Win %</th>
+        <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3)">Revenue</th>
+      </tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function renderZipAnalysis(rows) {
+  if (rows) _zipRows = rows;
+  const head = document.getElementById('zipHead');
+  if (!head) return;
+  const body = document.getElementById('zipBody');
+
+  // Restore the saved minimum once
+  const minEl = document.getElementById('zipMin');
+  if (minEl && !minEl.dataset.restored) {
+    minEl.dataset.restored = '1';
+    try { const sv = parseInt(localStorage.getItem('fp_zipMin')); if (sv > 0) minEl.value = sv; } catch (e) {}
+  }
+  const minN = Math.max(1, parseInt(minEl && minEl.value) || 3);
+
+  const summary = document.getElementById('zipSummary');
+  const best    = document.getElementById('zipBest');
+  const worst   = document.getElementById('zipWorst');
+  const meta    = document.getElementById('zipMeta');
+  const pairHead = document.getElementById('zipPairHead');
+  const pairBody = document.getElementById('zipPairBody');
+
+  const zkey = _zipKeyFor(_zipRows);
+  if (!_zipRows.length || !zkey) {
+    summary.innerHTML = '';
+    best.innerHTML = worst.innerHTML = '';
+    head.innerHTML = '';
+    pairHead.innerHTML = '';
+    pairBody.innerHTML = '';
+    body.innerHTML = '<tr><td style="padding:24px;text-align:center;color:var(--text3);font-size:12px">' +
+      (!_zipRows.length ? 'No proposals in this date range' : 'Could not find a ZIP column in the proposals file') + '</td></tr>';
+    if (meta) meta.textContent = '';
+    return;
+  }
+  if (meta) meta.textContent = 'ZIP column: "' + zkey + '"';
+
+  // Aggregate by ZIP
+  const map = {};
+  _zipRows.forEach(r => {
+    const z = _zipNorm(r[zkey]);
+    const k = z || '__none';
+    const o = map[k] || (map[k] = { key: k, zip: z, total: 0, wins: 0, revenue: 0 });
+    o.total++;
+    if (isClosed(r['Status'])) { o.wins++; o.revenue += parseFloat(r['Value']) || 0; }
+  });
+  const entries = Object.values(map).map(o => {
+    const info = (typeof zipLookupTable !== 'undefined' && zipLookupTable && o.zip && zipLookupTable[o.zip]) || {};
+    const e = {
+      ...o,
+      city:   info.city   || '',
+      county: info.county || '',
+      rate:   o.total ? o.wins / o.total * 100 : 0,
+      avg:    o.wins  ? o.revenue / o.wins : 0
+    };
+    e.flag = _zipFlag(e, minN);
+    return e;
+  });
+
+  // Summary
+  const rated   = entries.filter(e => e.zip && e.total >= minN);
+  const noWins  = rated.filter(e => e.wins === 0);
+  const totWins = entries.reduce((s, e) => s + e.wins, 0);
+  const totProp = entries.reduce((s, e) => s + e.total, 0);
+  const overall = totProp ? totWins / totProp * 100 : 0;
+  const noZip   = map['__none'] ? map['__none'].total : 0;
+  const tile = (label, val, sub) => `<div class="card" style="padding:14px;text-align:center">
+      <div style="font-size:22px;font-weight:800;color:var(--navy)">${val}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px">${label}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${sub}</div></div>`;
+  summary.innerHTML =
+    tile('ZIPs with proposals', entries.filter(e => e.zip).length.toLocaleString(), rated.length + ' with ' + minN + '+ proposals') +
+    tile('Overall win rate', overall.toFixed(1) + '%', totWins + ' wins / ' + totProp + ' proposals') +
+    tile('ZIPs with no wins', noWins.length.toLocaleString(), 'among rated ZIPs') +
+    tile('Proposals with no ZIP', noZip.toLocaleString(), noZip ? 'not counted in rankings' : 'all rows have a ZIP');
+
+  // Best / worst lists (rated ZIPs only)
+  const lineFor = e => `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="font-weight:700;color:var(--text)">${escHtml(e.zip)}${e.city ? ' <span style="font-weight:500;color:var(--text3)">' + escHtml(e.city) + '</span>' : ''}</span>
+      <span><span style="font-weight:800;color:${_zipRateColor(+e.rate.toFixed(0))}">${e.rate.toFixed(0)}%</span>
+      <span style="color:var(--text3)"> · ${e.wins}/${e.total} · ${_zipMoney(e.revenue)}</span></span></div>`;
+  const empty = '<div style="padding:10px 0;color:var(--text3)">Not enough ZIPs with ' + minN + '+ proposals</div>';
+  const byBest  = [...rated].sort((a, b) => b.rate - a.rate || b.revenue - a.revenue || b.total - a.total).slice(0, 5);
+  const byWorst = [...rated].sort((a, b) => a.rate - b.rate || b.total - a.total).slice(0, 5);
+  best.innerHTML  = byBest.length  ? byBest.map(lineFor).join('')  : empty;
+  worst.innerHTML = byWorst.length ? byWorst.map(lineFor).join('') : empty;
+
+  // Main table
+  const s = _zipSort;
+  const val = (e, c) => c === 'key' ? (e.zip || '~') : c === 'city' ? (e.city || '~') : c === 'flag' ? e.flag.t : e[c];
+  entries.sort((a, b) => {
+    const av = val(a, s.col), bv = val(b, s.col);
+    if (typeof av === 'string') return s.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    return s.dir === 'asc' ? av - bv : bv - av;
+  });
+  const th = (label, col, align) =>
+    `<th style="${_thStyle(align)}" onclick="sortZip('${col}')">${label}${_arrow(col, s.col, s.dir)}</th>`;
+  head.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
+    ${th('ZIP', 'key', 'left')}${th('City', 'city', 'left')}${th('Proposals', 'total', 'right')}${th('Wins', 'wins', 'right')}
+    ${th('Win %', 'rate', 'right')}${th('Revenue', 'revenue', 'right')}${th('Avg Win', 'avg', 'right')}${th('Rating', 'flag', 'left')}
+  </tr>`;
+
+  body.innerHTML = entries.map((e, i) => {
+    const rn   = +e.rate.toFixed(0);
+    const open = !!_zipOpen[e.key];
+    let out = `<tr onclick="zipToggle('${e.key}')" style="border-bottom:1px solid var(--border);${i % 2 === 0 ? 'background:var(--surface2)' : ''};cursor:pointer">
+      <td style="padding:7px 8px;font-weight:700;color:var(--text)">${e.zip ? escHtml(e.zip) : '(no ZIP)'} <span style="font-size:10px;color:var(--text3)">${open ? '▾' : '▸'}</span></td>
+      <td style="padding:7px 8px;color:var(--text2)">${escHtml(e.city)}${e.county ? ' <span style="color:var(--text3)">· ' + escHtml(e.county) + '</span>' : ''}</td>
+      <td style="padding:7px 8px;text-align:right;color:var(--text2)">${e.total}</td>
+      <td style="padding:7px 8px;text-align:right;color:var(--green);font-weight:700">${e.wins}</td>
+      <td style="padding:7px 8px;text-align:right;font-weight:800;color:${e.total >= minN && e.zip ? _zipRateColor(rn) : 'var(--text3)'}">${rn}%</td>
+      <td style="padding:7px 8px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">${_zipMoney(e.revenue)}</td>
+      <td style="padding:7px 8px;text-align:right;font-family:var(--mono);color:var(--text2)">${e.wins ? _zipMoney(e.avg) : '—'}</td>
+      <td style="padding:7px 8px;font-weight:700;color:${e.flag.c}">${e.flag.t}</td>
+    </tr>`;
+    if (open) {
+      const sub = _zipRows.filter(r => (_zipNorm(r[zkey]) || '__none') === e.key);
+      out += `<tr><td colspan="8" style="padding:10px 14px;background:var(--surface);border-bottom:2px solid var(--border)">
+        <div class="a-2col-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          ${_zipMiniTable('Channel', _zipGroup(sub, 'Channel'))}
+          ${_zipMiniTable('Campaign', _zipGroup(sub, 'Campaign'))}
+        </div></td></tr>`;
+    }
+    return out;
+  }).join('');
+
+  // ZIP x Channel / ZIP x Campaign pair list
+  const dim = (document.getElementById('zipPairDim') || {}).value || 'Channel';
+  const pmap = {};
+  _zipRows.forEach(r => {
+    const z = _zipNorm(r[zkey]);
+    if (!z) return;
+    const d = (r[dim] || '').trim() || '(none)';
+    const k = z + '||' + d;
+    const o = pmap[k] || (pmap[k] = { zip: z, dim: d, total: 0, wins: 0, revenue: 0 });
+    o.total++;
+    if (isClosed(r['Status'])) { o.wins++; o.revenue += parseFloat(r['Value']) || 0; }
+  });
+  const pairs = Object.values(pmap)
+    .sort((a, b) => b.wins - a.wins || b.total - a.total || a.zip.localeCompare(b.zip))
+    .slice(0, 150);
+  pairHead.innerHTML = `<tr style="border-bottom:2px solid var(--border)">
+    <th style="${_thStyle('left')};cursor:default">ZIP</th>
+    <th style="${_thStyle('left')};cursor:default">City</th>
+    <th style="${_thStyle('left')};cursor:default">${dim}</th>
+    <th style="${_thStyle('right')};cursor:default">Proposals</th>
+    <th style="${_thStyle('right')};cursor:default">Wins</th>
+    <th style="${_thStyle('right')};cursor:default">Win %</th>
+    <th style="${_thStyle('right')};cursor:default">Revenue</th></tr>`;
+  pairBody.innerHTML = pairs.length ? pairs.map((p, i) => {
+    const rn = +(p.total ? p.wins / p.total * 100 : 0).toFixed(0);
+    const city = (typeof zipLookupTable !== 'undefined' && zipLookupTable && zipLookupTable[p.zip] && zipLookupTable[p.zip].city) || '';
+    return `<tr style="border-bottom:1px solid var(--border);${i % 2 === 0 ? 'background:var(--surface2)' : ''}">
+      <td style="padding:6px 8px;font-weight:700;color:var(--text)">${escHtml(p.zip)}</td>
+      <td style="padding:6px 8px;color:var(--text2)">${escHtml(city)}</td>
+      <td style="padding:6px 8px;color:var(--text)">${escHtml(p.dim)}</td>
+      <td style="padding:6px 8px;text-align:right;color:var(--text2)">${p.total}</td>
+      <td style="padding:6px 8px;text-align:right;color:var(--green);font-weight:700">${p.wins}</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:800;color:${_zipRateColor(rn)}">${rn}%</td>
+      <td style="padding:6px 8px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--navy)">${_zipMoney(p.revenue)}</td></tr>`;
+  }).join('') : '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--text3)">No data in this date range</td></tr>';
 }
 
 // ── PIPELINE TABLE ────────────────────────────────
