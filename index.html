@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.33.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.34.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2463,6 +2463,14 @@ function applyTheme(raw) {
             <input id="bomLabel" type="text" placeholder="Bill label, e.g. Smith vinyl fence" style="flex:1;min-width:200px" oninput="bomState.label=this.value;bomState.dirty=true">
             <span id="bomIdTag" class="vp-pill" style="margin-left:0"></span>
             <label class="vp-chk" title="Templates are listed separately. Clicking one starts a new bill from it and never changes the template."><input type="checkbox" id="bomIsTpl" onchange="bomTplChange(this.checked)"> Template</label>
+          </div>
+          <div class="vp-addbox" style="margin-bottom:12px" id="bomLinkBox">
+            <div id="bomLinkChip" style="display:none"></div>
+            <div id="bomLinkPick">
+              <input id="bomJobSearch" type="text" placeholder="Link to a job: type job number, customer or address" autocomplete="off" oninput="bomJobRun()" onfocus="bomJobFocus()">
+              <div class="vp-results" id="bomJobResults"></div>
+            </div>
+            <div class="vp-hint" id="bomLinkNote"></div>
           </div>
           <div class="vp-addbox" style="margin-bottom:12px">
             <input id="bomSearch" type="text" placeholder="Type a part number or description, press Enter to add" autocomplete="off" oninput="bomSearchRun()" onkeydown="bomSearchKey(event)" onfocus="bomSearchRun()">
@@ -19700,7 +19708,7 @@ let vpShown = 200;
 let bomList = [], bomListLoaded = false;
 let bomSortState = {};   // vendor -> { key, dir }, only used to show the arrow on the last sort
 let bomDrag = null;
-let bomState = { bomId:'', label:'', notes:'', status:'Draft', jobId:'', lines:[], dirty:false };
+let bomState = { bomId:'', label:'', notes:'', status:'Draft', jobId:'', estimateId:'', customerName:'', lines:[], dirty:false };
 
 function vpEsc(s) {
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -20213,6 +20221,7 @@ function bomRender() {
   vpEl('bomIsTpl').checked = isTpl;
   vpEl('bomIdTag').textContent = bomState.bomId ? bomState.bomId + (isTpl ? ' - template' : '') : 'New bill';
   vpEl('bomCopyBtn').style.display = bomState.bomId ? '' : 'none';
+  bomLinkRender();
   if (!bomState.lines.length) {
     wrap.innerHTML = '<div class="vp-empty">No parts on this bill yet. Search above and add parts. Each vendor gets its own section.</div>';
   } else {
@@ -20346,13 +20355,78 @@ function bomUpdatePrices() {
   if (n) { bomState.dirty = true; bomRender(); showToast('Updated ' + n + ' line' + (n === 1 ? '' : 's') + ' to the current catalog. Save the bill to keep it.'); }
 }
 
+
+let bomJobFilter = '', bomJobFresh = 0;
+function bomFilterKeep() {
+  const pos = (vpEl('bomJobFilter') || {}).selectionStart;
+  bomRenderList();
+  const f = vpEl('bomJobFilter'); if (f) { f.focus(); try { f.setSelectionRange(pos, pos); } catch (e) {} }
+}
+function bomEstTag(estId, jobId) {
+  const parts = String(estId || '').split('-');
+  const no = parts[0] || jobId || '';
+  return parts[2] ? no + '-' + parts[2] : (estId || jobId || '');
+}
+function bomJobOf(estId) { return (typeof jobs !== 'undefined' ? jobs : []).find(j => String(j.id || '') === String(estId || '')); }
+function bomCustOf(b) { const j = bomJobOf(b.estimateId); return (j && j.custName) || b.customerName || ''; }
+const BOM_ST_RANK = {'Accepted':3,'Deposit Received':4,'Scheduled':5,'In Progress':6,'Ready for Invoice':7,'Invoiced':8,'Paid in Full':9};
+async function bomJobFocus() {
+  bomJobRun();
+  if (Date.now() - bomJobFresh < 60000 || !settings.scriptUrl || typeof loadCloud !== 'function') return;
+  bomJobFresh = Date.now();
+  try { await loadCloud(); bomJobRun(); } catch (e) {}
+}
+function bomJobHits(q) {
+  q = String(q || '').toLowerCase().trim();
+  const all = (typeof jobs !== 'undefined' ? jobs : []).filter(j => j && j.id);
+  const hit = all.filter(j => !q || [j.id, j.jobNo, j.custName, j.jobAddr, j.jobCity].join(' ').toLowerCase().indexOf(q) >= 0);
+  const rank = j => (BOM_ST_RANK[j.propStatus] || 0) > 0 ? 1 : 0;
+  hit.sort((a, b) => rank(b) - rank(a) || String(b.id).localeCompare(String(a.id), undefined, {numeric:true}));
+  return hit.slice(0, 40);
+}
+function bomJobRun() {
+  const box = vpEl('bomJobResults'); if (!box) return;
+  const hits = bomJobHits(vpEl('bomJobSearch').value);
+  box.style.display = 'block';
+  box.innerHTML = hits.length ? hits.map(j =>
+    '<div class="vp-res" onmousedown="bomLinkPickJob(\'' + vpEsc(j.id) + '\')"><div><b>' + vpEsc(bomEstTag(j.id, j.jobNo)) + '</b> &middot; ' + vpEsc(j.custName) +
+    '<div class="vp-hint">' + vpEsc([j.jobAddr, j.jobCity].filter(Boolean).join(', ')) + ' &middot; ' + vpEsc(j.propStatus || 'Draft') + '</div></div></div>').join('')
+    : '<div class="vp-hint" style="padding:8px">No estimates match.</div>';
+}
+function bomLinkPickJob(id) {
+  const j = bomJobOf(id); if (!j || bomState.status === 'Template') return;
+  bomState.estimateId = j.id; bomState.jobId = String(j.jobNo || String(j.id).split('-')[0] || ''); bomState.customerName = j.custName || '';
+  bomState.dirty = true;
+  const s = vpEl('bomJobSearch'); if (s) s.value = '';
+  const r = vpEl('bomJobResults'); if (r) r.style.display = 'none';
+  bomLinkRender();
+}
+function bomUnlink() { bomState.estimateId = ''; bomState.jobId = ''; bomState.customerName = ''; bomState.dirty = true; bomLinkRender(); }
+function bomLinkRender() {
+  const chip = vpEl('bomLinkChip'), pick = vpEl('bomLinkPick'), note = vpEl('bomLinkNote'); if (!chip) return;
+  const isTpl = bomState.status === 'Template';
+  if (isTpl) { chip.style.display = 'none'; pick.style.display = 'none'; note.textContent = 'Templates are not linked to a job. Untick Template to link this bill.'; return; }
+  note.textContent = '';
+  if (bomState.estimateId) {
+    const j = bomJobOf(bomState.estimateId), name = (j && j.custName) || bomState.customerName || '';
+    const addr = j ? [j.jobAddr, j.jobCity].filter(Boolean).join(', ') : '';
+    chip.style.display = ''; pick.style.display = 'none';
+    chip.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>Linked job: <b>' + vpEsc(bomEstTag(bomState.estimateId, bomState.jobId)) + '</b> &middot; ' + vpEsc(name) +
+      (addr ? ' <span class="vp-hint">' + vpEsc(addr) + '</span>' : '') + (j ? ' <span class="vp-pill">' + vpEsc(j.propStatus || 'Draft') + '</span>' : ' <span class="vp-warn">estimate not found in your list</span>') +
+      '</span><button class="btn btn-ghost" onclick="bomUnlink()">Unlink</button></div>';
+  } else { chip.style.display = 'none'; pick.style.display = ''; }
+}
+document.addEventListener('mousedown', function (e) {
+  const r = document.getElementById('bomJobResults');
+  if (r && r.style.display === 'block' && !(e.target.closest && e.target.closest('#bomLinkPick'))) r.style.display = 'none';
+});
 function bomNew(silent) {
   if (!silent && bomState.dirty && bomState.lines.length && !confirm('Discard the unsaved changes on this bill?')) return;
-  bomState = { bomId:'', label:'', notes:'', status:'Draft', jobId:'', lines:[], dirty:false };
+  bomState = { bomId:'', label:'', notes:'', status:'Draft', jobId:'', estimateId:'', customerName:'', lines:[], dirty:false };
   bomSortState = {};
   bomRender();
 }
-function bomTplChange(checked) { bomState.status = checked ? 'Template' : 'Draft'; bomState.dirty = true; bomRender(); }
+function bomTplChange(checked) { bomState.status = checked ? 'Template' : 'Draft'; if (checked) { bomState.estimateId = ''; bomState.jobId = ''; bomState.customerName = ''; } bomState.dirty = true; bomRender(); }
 
 async function bomSave(asCopy) {
   if (!bomState.lines.length) { showToast('Add at least one part first.'); return; }
@@ -20361,7 +20435,7 @@ async function bomSave(asCopy) {
   const copy = asCopy === true && !!bomState.bomId;
   const label = copy ? ((bomState.label || bomState.bomId) + ' (copy)') : bomState.label;
   try {
-    const res = await vpCloud('saveBOM', { bomId: copy ? '' : bomState.bomId, label: label, jobId: copy ? '' : bomState.jobId, status: bomState.status, notes: bomState.notes, lines: bomState.lines });
+    const res = await vpCloud('saveBOM', { bomId: copy ? '' : bomState.bomId, label: label, jobId: bomState.status === 'Template' ? '' : bomState.jobId, estimateId: bomState.status === 'Template' ? '' : bomState.estimateId, customerName: bomState.status === 'Template' ? '' : bomState.customerName, status: bomState.status, notes: bomState.notes, lines: bomState.lines });
     const b = res.bom;
     bomState.bomId = b.bomId; bomState.label = b.label; bomState.dirty = false;
     const i = bomList.findIndex(x => x.bomId === b.bomId);
@@ -20387,18 +20461,19 @@ function bomRenderList() {
     '<div style="display:flex;justify-content:space-between;gap:6px"><b>' + vpEsc(b.label) + '</b><span style="white-space:nowrap">' +
     (tpl ? '<button class="btn btn-ghost" style="padding:0 6px" title="Edit this template itself" onclick="event.stopPropagation();bomOpen(\'' + vpEsc(b.bomId) + '\')">Edit</button>' : '') +
     '<button class="btn btn-ghost" style="padding:0 6px" title="Delete" onclick="event.stopPropagation();bomDelete(\'' + vpEsc(b.bomId) + '\')">&#10005;</button></span></div>' +
-    '<div class="vp-hint">' + vpEsc(b.bomId) + ' &middot; ' + vpMoney(b.total) + ' &middot; ' + b.lines.length + ' line' + (b.lines.length === 1 ? '' : 's') +
+    '<div class="vp-hint">' + vpEsc(b.bomId) + (b.estimateId ? ' &middot; <b>' + vpEsc(bomEstTag(b.estimateId, b.jobId)) + '</b> ' + vpEsc(bomCustOf(b)) : '') + ' &middot; ' + vpMoney(b.total) + ' &middot; ' + b.lines.length + ' line' + (b.lines.length === 1 ? '' : 's') +
     (tpl ? ' &middot; click to start a new bill from it' : (b.updatedAt ? ' &middot; ' + vpEsc(String(b.updatedAt).slice(0, 10)) : '')) + '</div></div>';
-  const tpls = bomList.filter(b => b.status === 'Template'), bills = bomList.filter(b => b.status !== 'Template');
+  const q = (bomJobFilter || '').toLowerCase().trim();
+  const tpls = bomList.filter(b => b.status === 'Template'), bills = bomList.filter(b => b.status !== 'Template' && (!q || (b.estimateId + ' ' + b.jobId + ' ' + bomCustOf(b) + ' ' + b.label).toLowerCase().indexOf(q) >= 0));
   el.innerHTML = bomList.length
     ? (tpls.length ? '<div class="vp-bh">Templates</div>' + tpls.map(b => item(b, true)).join('') : '') +
-      (bills.length ? '<div class="vp-bh">Saved bills</div>' + bills.map(b => item(b, false)).join('') : '')
+      '<input type="text" id="bomJobFilter" placeholder="Filter bills by job, customer or label" value="' + vpEsc(bomJobFilter) + '" oninput="bomJobFilter=this.value;bomFilterKeep()" style="margin:6px 0">' + (bills.length ? '<div class="vp-bh">Saved bills</div>' + bills.map(b => item(b, false)).join('') : (bomList.some(b => b.status !== 'Template') ? '<div class="vp-hint" style="padding:6px 4px">No bills match that filter.</div>' : ''))
     : '<div class="vp-hint" style="padding:8px 4px">No saved bills yet. Tick Template on a bill to keep it as a reusable starting point.</div>';
 }
 function bomOpen(id) {
   const b = bomList.find(x => x.bomId === id); if (!b) return;
   if (bomState.dirty && bomState.lines.length && !confirm('Discard the unsaved changes on the current bill?')) return;
-  bomState = { bomId:b.bomId, label:b.label, notes:b.notes, status:b.status, jobId:b.jobId, lines:JSON.parse(JSON.stringify(b.lines)), dirty:false };
+  bomState = { bomId:b.bomId, label:b.label, notes:b.notes, status:b.status, jobId:b.jobId, estimateId:b.estimateId||'', customerName:b.customerName||'', lines:JSON.parse(JSON.stringify(b.lines)), dirty:false };
   bomSortState = {};
   bomRender();
 }
@@ -20407,7 +20482,7 @@ function bomOpen(id) {
 function bomUseTemplate(id) {
   const b = bomList.find(x => x.bomId === id); if (!b) return;
   if (bomState.dirty && bomState.lines.length && !confirm('Discard the unsaved changes on the current bill?')) return;
-  bomState = { bomId:'', label:b.label, notes:b.notes, status:'Draft', jobId:'', lines:JSON.parse(JSON.stringify(b.lines)), dirty:true };
+  bomState = { bomId:'', label:b.label, notes:b.notes, status:'Draft', jobId:'', estimateId:'', customerName:'', lines:JSON.parse(JSON.stringify(b.lines)), dirty:true };
   bomSortState = {};
   bomRender();
   showToast('New bill started from template ' + b.label + '. Set the quantities, rename it and save.', 5000);
