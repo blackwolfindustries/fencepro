@@ -645,6 +645,19 @@
   .vp-bomlist .vp-bi{padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px}
   .vp-bomlist .vp-bi:hover{background:var(--orange-bg)}
   .vp-bomlist .vp-bi.cur{background:var(--orange-bg);border-left:3px solid var(--orange);padding-left:8px}
+  .vp-bomlist .vp-bh{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--orange);text-transform:uppercase;padding:8px 4px 2px}
+  .vp-dragcell{white-space:nowrap;width:58px}
+  .vp-drag{cursor:grab;color:var(--text3);user-select:none;padding:2px 6px 2px 0;font-size:14px;letter-spacing:-3px}
+  .vp-drag:active{cursor:grabbing}
+  .vp-pos{display:inline-block;min-width:16px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3);margin-left:6px}
+  .vp-box tr.vp-dragging td{opacity:.35}
+  .vp-box tr.vp-over-top td{border-top:2px solid var(--orange)}
+  .vp-box tr.vp-over-bot td{border-bottom:2px solid var(--orange)}
+  .vp-box th.vp-sort{cursor:pointer;white-space:nowrap}
+  .vp-box th.vp-sort:hover{color:var(--orange)}
+  .vp-arrows{white-space:nowrap}
+  .vp-arrow{padding:0 4px!important;font-size:10px;line-height:1}
+  .vp-arrow:disabled{opacity:.25;cursor:default}
   @media (max-width:900px){.vp-bomgrid{grid-template-columns:minmax(0,1fr)}}
   @media (max-width:700px){.vp-wrap{padding:12px}.vp-toolbar input,.vp-toolbar select{max-width:none!important;flex:1 1 140px}}
 
@@ -1407,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.32.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.33.0</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2449,6 +2462,7 @@ function applyTheme(raw) {
           <div class="fr" style="margin-bottom:10px">
             <input id="bomLabel" type="text" placeholder="Bill label, e.g. Smith vinyl fence" style="flex:1;min-width:200px" oninput="bomState.label=this.value;bomState.dirty=true">
             <span id="bomIdTag" class="vp-pill" style="margin-left:0"></span>
+            <label class="vp-chk" title="Templates are listed separately. Clicking one starts a new bill from it and never changes the template."><input type="checkbox" id="bomIsTpl" onchange="bomTplChange(this.checked)"> Template</label>
           </div>
           <div class="vp-addbox" style="margin-bottom:12px">
             <input id="bomSearch" type="text" placeholder="Type a part number or description, press Enter to add" autocomplete="off" oninput="bomSearchRun()" onkeydown="bomSearchKey(event)" onfocus="bomSearchRun()">
@@ -2460,6 +2474,7 @@ function applyTheme(raw) {
           </div>
           <div class="fr" style="margin-top:12px">
             <button class="btn btn-a" onclick="bomSave()">Save Bill</button>
+            <button class="btn" id="bomCopyBtn" style="display:none" onclick="bomSave(true)">Save as New Copy</button>
             <button class="btn" onclick="bomNew()">New Bill</button>
             <button class="btn" id="bomRefreshBtn" style="display:none" onclick="bomUpdatePrices()">Update to current catalog prices</button>
             <span class="vp-spacer"></span>
@@ -19683,6 +19698,8 @@ let vpLoaded = false, vpLoading = false, vpLastLoad = 0;
 let vpEditId = '';
 let vpShown = 200;
 let bomList = [], bomListLoaded = false;
+let bomSortState = {};   // vendor -> { key, dir }, only used to show the arrow on the last sort
+let bomDrag = null;
 let bomState = { bomId:'', label:'', notes:'', status:'Draft', jobId:'', lines:[], dirty:false };
 
 function vpEsc(s) {
@@ -20178,38 +20195,130 @@ function bomQtyInput(i, v) {
 }
 function bomRemove(i) { bomState.lines.splice(i, 1); bomState.dirty = true; bomRender(); }
 
+function bomVKey(l) { return l.vendor || '(no vendor)'; }
 function bomGroups() {
   const g = {};
-  bomState.lines.forEach((l, i) => { (g[l.vendor || '(no vendor)'] = g[l.vendor || '(no vendor)'] || []).push(i); });
+  bomState.lines.forEach((l, i) => { (g[bomVKey(l)] = g[bomVKey(l)] || []).push(i); });
   return Object.keys(g).sort().map(v => ({ vendor: v, idx: g[v] }));
+}
+function bomTypeOf(l) {
+  const p = vParts.find(x => x.partId === l.partId);
+  return p ? { type: p.type || '', sub: p.subType || '' } : { type: l.type || '', sub: l.subType || '' };
 }
 
 function bomRender() {
   const wrap = vpEl('bomLines'); if (!wrap) return;
   vpEl('bomLabel').value = bomState.label; vpEl('bomNotes').value = bomState.notes;
-  vpEl('bomIdTag').textContent = bomState.bomId || 'New bill';
+  const isTpl = bomState.status === 'Template';
+  vpEl('bomIsTpl').checked = isTpl;
+  vpEl('bomIdTag').textContent = bomState.bomId ? bomState.bomId + (isTpl ? ' - template' : '') : 'New bill';
+  vpEl('bomCopyBtn').style.display = bomState.bomId ? '' : 'none';
   if (!bomState.lines.length) {
     wrap.innerHTML = '<div class="vp-empty">No parts on this bill yet. Search above and add parts. Each vendor gets its own section.</div>';
   } else {
-    wrap.innerHTML = bomGroups().map((g, gi) =>
-      '<div class="vp-box"><div class="vp-vhead"><span>' + vpEsc(g.vendor) + '</span><span class="vp-total" id="bomSub_' + gi + '"></span></div>' +
-      '<div style="overflow-x:auto"><table><thead><tr><th>Part #</th><th>Description</th><th style="text-align:right">Qty needed</th><th>Order</th><th style="text-align:right">Price</th><th style="text-align:right">Line total</th><th></th></tr></thead><tbody>' +
-      g.idx.map(i => {
-        const l = bomState.lines[i], flag = bomLineFlag(l), d = Number(l.unitDivisor) || 1;
-        return '<tr><td style="font-family:var(--mono);color:var(--orange);font-weight:600">' + vpEsc(l.partNumber) + '</td>' +
+    const ind = (v, k) => { const st = bomSortState[v]; return st && st.key === k ? (st.dir === 1 ? ' &#9650;' : ' &#9660;') : ''; };
+    wrap.innerHTML = bomGroups().map((g, gi) => {
+      const th = (k, label, right) => '<th class="vp-sort"' + (right ? ' style="text-align:right"' : '') + ' title="Sort this section by ' + label + '. Click again to reverse." onclick="bomSortG(' + gi + ',\'' + k + '\')">' + label + ind(g.vendor, k) + '</th>';
+      return '<div class="vp-box"><div class="vp-vhead"><span>' + vpEsc(g.vendor) + '</span><span class="vp-total" id="bomSub_' + gi + '"></span></div>' +
+      '<div style="overflow-x:auto"><table><thead><tr><th></th>' + th('partNumber', 'Part #') + th('description', 'Description') + th('type', 'Type') +
+      th('qty', 'Qty needed', true) + '<th>Order</th>' + th('price', 'Price', true) + th('total', 'Line total', true) + '<th></th></tr></thead><tbody>' +
+      g.idx.map((i, pos) => {
+        const l = bomState.lines[i], flag = bomLineFlag(l), d = Number(l.unitDivisor) || 1, t = bomTypeOf(l);
+        return '<tr id="bomRow_' + i + '" ondragover="bomDragOver(event,' + i + ')" ondragleave="bomDragLeave(this)" ondrop="bomDrop(event,' + i + ')">' +
+          '<td class="vp-dragcell"><span class="vp-drag" draggable="true" title="Drag to reorder" ondragstart="bomDragStart(event,' + i + ')" ondragend="bomDragEnd()">&#8942;&#8942;</span><span class="vp-pos">' + (pos + 1) + '</span></td>' +
+          '<td style="font-family:var(--mono);color:var(--orange);font-weight:600">' + vpEsc(l.partNumber) + '</td>' +
           '<td style="max-width:260px;white-space:normal">' + vpEsc(l.description) + (l.color ? ' <span class="vp-pill">' + vpEsc(l.color) + '</span>' : '') +
           (flag ? '<span class="vp-warn">' + vpEsc(flag) + '</span>' : '') + '</td>' +
+          '<td style="white-space:normal">' + vpEsc(t.type) + (t.sub && t.sub !== t.type ? '<div class="vp-hint">' + vpEsc(t.sub) + '</div>' : '') + '</td>' +
           '<td style="text-align:right"><input class="vp-lq" id="bomQty_' + i + '" type="number" min="0" step="any" value="' + vpEsc(l.qty) + '" oninput="bomQtyInput(' + i + ',this.value)"> <span style="color:var(--text3)">' + vpEsc(l.unitStd) + '</span></td>' +
           '<td id="bomOrd_' + i + '" style="white-space:normal"></td>' +
           '<td style="text-align:right;font-family:var(--mono);white-space:nowrap">' + vpMoney(l.price) + '<div class="vp-hint">' + (d > 1 ? 'per pack of ' + d + ' ' + vpEsc(l.unitStd) : 'per ' + vpEsc(l.unitStd)) + '</div></td>' +
           '<td id="bomTot_' + i + '" class="vp-total" style="text-align:right"></td>' +
-          '<td><button class="btn btn-ghost" title="Remove" onclick="bomRemove(' + i + ')">&#10005;</button></td></tr>';
-      }).join('') + '</tbody></table></div></div>').join('');
+          '<td class="vp-arrows"><button class="btn btn-ghost vp-arrow" title="Move up" onclick="bomStep(' + i + ',-1)"' + (pos === 0 ? ' disabled' : '') + '>&#9650;</button>' +
+          '<button class="btn btn-ghost vp-arrow" title="Move down" onclick="bomStep(' + i + ',1)"' + (pos === g.idx.length - 1 ? ' disabled' : '') + '>&#9660;</button>' +
+          '<button class="btn btn-ghost" title="Remove" onclick="bomRemove(' + i + ')">&#10005;</button></td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+    }).join('');
   }
   bomRecalc();
   const anyOff = bomState.lines.some(l => bomLineFlag(l) && bomLineFlag(l) !== 'Not in catalog' && bomLineFlag(l) !== 'Part is inactive');
   vpEl('bomRefreshBtn').style.display = anyOff ? '' : 'none';
   bomRenderList();
+}
+
+// ── reorder: drag and drop, arrows, column sort ──
+// The order of bomState.lines is the order that is saved and printed. A move or a
+// sort only rearranges lines within one vendor section.
+function bomMove(from, to, after) {
+  const lines = bomState.lines, item = lines[from], target = lines[to];
+  if (!item || !target || from === to || bomVKey(item) !== bomVKey(target)) return false;
+  lines.splice(from, 1);
+  const at = lines.indexOf(target);
+  lines.splice(after ? at + 1 : at, 0, item);
+  delete bomSortState[bomVKey(item)];
+  bomState.dirty = true; bomRender();
+  return true;
+}
+function bomStep(i, dir) {
+  const l = bomState.lines[i]; if (!l) return;
+  const idx = bomGroups().find(g => g.vendor === bomVKey(l)).idx;
+  const nb = idx[idx.indexOf(i) + dir];
+  if (nb !== undefined) bomMove(i, nb, dir > 0);
+}
+function bomDragStart(e, i) {
+  bomDrag = { from: i };
+  try {
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i));
+    const row = vpEl('bomRow_' + i);
+    if (row && e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(row, 12, 12);
+    if (row) setTimeout(() => row.classList.add('vp-dragging'), 0);
+  } catch (x) {}
+}
+function bomDragOver(e, i) {
+  if (!bomDrag) return;
+  const a = bomState.lines[bomDrag.from], b = bomState.lines[i];
+  if (!a || !b || bomDrag.from === i || bomVKey(a) !== bomVKey(b)) return;
+  e.preventDefault();
+  try { e.dataTransfer.dropEffect = 'move'; } catch (x) {}
+  const row = vpEl('bomRow_' + i), r = row.getBoundingClientRect();
+  document.querySelectorAll('#bomLines .vp-over-top, #bomLines .vp-over-bot').forEach(t => t.classList.remove('vp-over-top', 'vp-over-bot'));
+  row.classList.add(e.clientY > r.top + r.height / 2 ? 'vp-over-bot' : 'vp-over-top');
+}
+function bomDragLeave(row) { row.classList.remove('vp-over-top', 'vp-over-bot'); }
+function bomDrop(e, i) {
+  if (!bomDrag) return;
+  e.preventDefault();
+  const from = bomDrag.from, row = vpEl('bomRow_' + i), r = row.getBoundingClientRect();
+  const after = e.clientY > r.top + r.height / 2;
+  bomDragEnd();
+  bomMove(from, i, after);
+}
+function bomDragEnd() {
+  document.querySelectorAll('#bomLines .vp-over-top, #bomLines .vp-over-bot, #bomLines .vp-dragging').forEach(t => t.classList.remove('vp-over-top', 'vp-over-bot', 'vp-dragging'));
+  bomDrag = null;
+}
+
+// One-time reorder of a vendor section. After it the order is just the saved order,
+// so lines can still be dragged. Clicking the same header again reverses it.
+function bomSortG(gi, key) {
+  const g = bomGroups()[gi]; if (!g) return;
+  const nat = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+  const st = bomSortState[g.vendor];
+  const dir = st && st.key === key && st.dir === 1 ? -1 : 1;
+  const primary = {
+    partNumber:  (a, b) => nat(a.partNumber, b.partNumber),
+    description: (a, b) => nat(a.description, b.description),
+    type:        (a, b) => { const x = bomTypeOf(a), y = bomTypeOf(b); return nat(x.type, y.type) || nat(x.sub, y.sub); },
+    qty:         (a, b) => (Number(a.qty) || 0) - (Number(b.qty) || 0),
+    price:       (a, b) => (Number(a.price) || 0) - (Number(b.price) || 0),
+    total:       (a, b) => bomCalc(a).lineTotal - bomCalc(b).lineTotal
+  }[key];
+  if (!primary) return;
+  const items = g.idx.map(i => bomState.lines[i]);
+  items.sort((a, b) => primary(a, b) * dir || nat(a.partNumber, b.partNumber));
+  g.idx.forEach((i, k) => { bomState.lines[i] = items[k]; });
+  bomSortState[g.vendor] = { key: key, dir: dir };
+  bomState.dirty = true; bomRender();
 }
 
 function bomRecalc() {
@@ -20240,21 +20349,25 @@ function bomUpdatePrices() {
 function bomNew(silent) {
   if (!silent && bomState.dirty && bomState.lines.length && !confirm('Discard the unsaved changes on this bill?')) return;
   bomState = { bomId:'', label:'', notes:'', status:'Draft', jobId:'', lines:[], dirty:false };
+  bomSortState = {};
   bomRender();
 }
+function bomTplChange(checked) { bomState.status = checked ? 'Template' : 'Draft'; bomState.dirty = true; bomRender(); }
 
-async function bomSave() {
+async function bomSave(asCopy) {
   if (!bomState.lines.length) { showToast('Add at least one part first.'); return; }
   const noQty = bomState.lines.find(l => !(Number(l.qty) > 0));
   if (noQty) { showToast('Enter a quantity for ' + noQty.partNumber + ' (or remove it).', 4000); return; }
+  const copy = asCopy === true && !!bomState.bomId;
+  const label = copy ? ((bomState.label || bomState.bomId) + ' (copy)') : bomState.label;
   try {
-    const res = await vpCloud('saveBOM', { bomId: bomState.bomId, label: bomState.label, jobId: bomState.jobId, status: bomState.status, notes: bomState.notes, lines: bomState.lines });
+    const res = await vpCloud('saveBOM', { bomId: copy ? '' : bomState.bomId, label: label, jobId: copy ? '' : bomState.jobId, status: bomState.status, notes: bomState.notes, lines: bomState.lines });
     const b = res.bom;
     bomState.bomId = b.bomId; bomState.label = b.label; bomState.dirty = false;
     const i = bomList.findIndex(x => x.bomId === b.bomId);
     if (i >= 0) bomList[i] = b; else bomList.unshift(b);
     bomList.sort((a, c) => String(c.updatedAt).localeCompare(String(a.updatedAt)));
-    bomRender(); showToast('Saved ' + b.bomId + ' (' + vpMoney(b.total) + ')');
+    bomRender(); showToast((copy ? 'Saved a new copy as ' : 'Saved ') + b.bomId + ' (' + vpMoney(b.total) + ')');
   } catch (e) { showToast('Save failed: ' + e.message, 6000); }
 }
 
@@ -20269,19 +20382,35 @@ async function bomLoadList() {
 }
 function bomRenderList() {
   const el = vpEl('bomList'); if (!el) return;
-  el.innerHTML = bomList.length ? bomList.map(b =>
-    '<div class="vp-bi' + (b.bomId === bomState.bomId ? ' cur' : '') + '" onclick="bomOpen(\'' + vpEsc(b.bomId) + '\')">' +
-    '<div style="display:flex;justify-content:space-between;gap:6px"><b>' + vpEsc(b.label) + '</b>' +
-    '<button class="btn btn-ghost" style="padding:0 6px" title="Delete this bill" onclick="event.stopPropagation();bomDelete(\'' + vpEsc(b.bomId) + '\')">&#10005;</button></div>' +
+  const item = (b, tpl) =>
+    '<div class="vp-bi' + (b.bomId === bomState.bomId ? ' cur' : '') + '" onclick="' + (tpl ? 'bomUseTemplate' : 'bomOpen') + '(\'' + vpEsc(b.bomId) + '\')">' +
+    '<div style="display:flex;justify-content:space-between;gap:6px"><b>' + vpEsc(b.label) + '</b><span style="white-space:nowrap">' +
+    (tpl ? '<button class="btn btn-ghost" style="padding:0 6px" title="Edit this template itself" onclick="event.stopPropagation();bomOpen(\'' + vpEsc(b.bomId) + '\')">Edit</button>' : '') +
+    '<button class="btn btn-ghost" style="padding:0 6px" title="Delete" onclick="event.stopPropagation();bomDelete(\'' + vpEsc(b.bomId) + '\')">&#10005;</button></span></div>' +
     '<div class="vp-hint">' + vpEsc(b.bomId) + ' &middot; ' + vpMoney(b.total) + ' &middot; ' + b.lines.length + ' line' + (b.lines.length === 1 ? '' : 's') +
-    (b.updatedAt ? ' &middot; ' + vpEsc(String(b.updatedAt).slice(0, 10)) : '') + '</div></div>').join('')
-    : '<div class="vp-hint" style="padding:8px 4px">No saved bills yet.</div>';
+    (tpl ? ' &middot; click to start a new bill from it' : (b.updatedAt ? ' &middot; ' + vpEsc(String(b.updatedAt).slice(0, 10)) : '')) + '</div></div>';
+  const tpls = bomList.filter(b => b.status === 'Template'), bills = bomList.filter(b => b.status !== 'Template');
+  el.innerHTML = bomList.length
+    ? (tpls.length ? '<div class="vp-bh">Templates</div>' + tpls.map(b => item(b, true)).join('') : '') +
+      (bills.length ? '<div class="vp-bh">Saved bills</div>' + bills.map(b => item(b, false)).join('') : '')
+    : '<div class="vp-hint" style="padding:8px 4px">No saved bills yet. Tick Template on a bill to keep it as a reusable starting point.</div>';
 }
 function bomOpen(id) {
   const b = bomList.find(x => x.bomId === id); if (!b) return;
   if (bomState.dirty && bomState.lines.length && !confirm('Discard the unsaved changes on the current bill?')) return;
   bomState = { bomId:b.bomId, label:b.label, notes:b.notes, status:b.status, jobId:b.jobId, lines:JSON.parse(JSON.stringify(b.lines)), dirty:false };
+  bomSortState = {};
   bomRender();
+}
+// A template is a starting point: this opens an unsaved copy, so saving creates a new bill
+// and the template itself is never overwritten.
+function bomUseTemplate(id) {
+  const b = bomList.find(x => x.bomId === id); if (!b) return;
+  if (bomState.dirty && bomState.lines.length && !confirm('Discard the unsaved changes on the current bill?')) return;
+  bomState = { bomId:'', label:b.label, notes:b.notes, status:'Draft', jobId:'', lines:JSON.parse(JSON.stringify(b.lines)), dirty:true };
+  bomSortState = {};
+  bomRender();
+  showToast('New bill started from template ' + b.label + '. Set the quantities, rename it and save.', 5000);
 }
 async function bomDelete(id) {
   const b = bomList.find(x => x.bomId === id); if (!b) return;
