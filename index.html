@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.38.4</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.38.5</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -7386,10 +7386,10 @@ function importContactsBackup(file) {
 
 // Contacts that were merged into another contact (Sheets column "Merged Into") are hidden everywhere in the app.
 // Their UIDs are remembered so a CSV import can never bring them back.
-let _mergedUidSet = null;
+let _mergedUidSet = null;   // always holds UIDs as text
 function getMergedUidSet() {
   if (!_mergedUidSet) {
-    try { _mergedUidSet = new Set(JSON.parse(localStorage.getItem('fp_mergedUids') || '[]')); } catch (e) { _mergedUidSet = new Set(); }
+    try { _mergedUidSet = new Set(JSON.parse(localStorage.getItem('fp_mergedUids') || '[]').map(String)); } catch (e) { _mergedUidSet = new Set(); }
   }
   return _mergedUidSet;
 }
@@ -7399,7 +7399,7 @@ function dropMergedContacts() {
   contacts.forEach(c => {
     if (c && String(c.mergedInto || '').trim()) {
       removed++;
-      if (c.uid && !set.has(c.uid)) { set.add(c.uid); added = true; }
+      if (c.uid && !set.has(String(c.uid))) { set.add(String(c.uid)); added = true; }
     } else keep.push(c);
   });
   contacts = keep;
@@ -7414,7 +7414,7 @@ async function loadCloudContacts() {
   try {
     const data = await cloudCall({ action: 'getSheetContacts' });
     if (!data.contacts || !Array.isArray(data.contacts)) return false;
-    window._lastSheetUids = new Set(data.contacts.map(c => c && c.uid).filter(Boolean));
+    window._lastSheetUids = new Set(data.contacts.map(c => c && c.uid).filter(Boolean).map(String));
 
     // Merge Sheets contacts into local — Sheets wins on UID conflict
     const existingMap = {};
@@ -7584,6 +7584,20 @@ const CSV_LABEL = { name: 'Name', phone: 'Phone', altPhone: 'Alt Phone', email: 
   addr1: 'Address 1', addr2: 'Address 2', city: 'City', state: 'State', zip: 'Zip', county: 'County', tags: 'Tags', flashMessage: 'Flash Message',
   nickname: 'Nickname', additionalContacts: 'Notes', contactType: 'Contact Type' };
 
+// ServiceMinder filler that should never be offered as a change
+const CSV_JUNK = /^(0+|tbd|n\/?a|na|none|null|unknown|-+|\.+)$/i;
+
+// UIDs that must not be imported: merged earlier, or present in Sheets but hidden here.
+// Sheets returns numeric IDs as numbers, the CSV gives text, so everything is compared as text.
+function _impBlockedSet(localList, sheetUids) {
+  const blocked = new Set([...getMergedUidSet()].map(String));
+  if (sheetUids) {
+    const local = new Set(localList.map(c => c && String(c.uid)));
+    sheetUids.forEach(u => { u = String(u); if (!local.has(u)) blocked.add(u); });
+  }
+  return blocked;
+}
+
 function _impNorm(field, v) {
   v = String(v == null ? '' : v).trim();
   if (field === 'phone' || field === 'altPhone') {
@@ -7632,7 +7646,7 @@ function planContactsImport(text, existingList, mergedSet) {
     if (!name) { plan.skippedNoName++; continue; }
     if (seen[uid]) { plan.repeated++; continue; }
     seen[uid] = true;
-    if (mergedSet && mergedSet.has(uid)) { plan.merged++; continue; }
+    if (mergedSet && mergedSet.has(String(uid))) { plan.merged++; continue; }
 
     const csv = { uid: uid, name: name };
     CSV_FIELD_MAP.forEach(m => { csv[m[0]] = (m[0] in colFor) ? g(colFor[m[0]]) : ''; });
@@ -7642,7 +7656,7 @@ function planContactsImport(text, existingList, mergedSet) {
       const changes = [];
       CSV_COMPARE.forEach(f => {
         const nv = csv[f] == null ? '' : String(csv[f]).trim();
-        if (nv === '') return;                       // a blank in the file never changes anything
+        if (nv === '' || CSV_JUNK.test(nv)) return;   // a blank or filler value in the file never changes anything
         const cv = ex[f] == null ? '' : String(ex[f]).trim();
         if (_impNorm(f, nv) === _impNorm(f, cv)) return;
         changes.push({ field: f, current: cv, incoming: nv, kind: cv === '' ? 'fill' : 'change' });
@@ -7804,12 +7818,7 @@ async function handleContactsFile(file) {
     const ok = await loadCloudContacts();
     if (!ok) { alert('Could not reach Google Sheets, so the import was cancelled. Nothing was changed. Try again when you are online.'); return; }
   }
-  const blocked = new Set(getMergedUidSet());
-  if (window._lastSheetUids) {
-    const local = new Set(contacts.map(c => c && c.uid));
-    window._lastSheetUids.forEach(u => { if (!local.has(u)) blocked.add(u); });   // in Sheets but not shown here = merged away
-  }
-  const plan = planContactsImport(text, contacts, blocked);
+  const plan = planContactsImport(text, contacts, _impBlockedSet(contacts, window._lastSheetUids));
   if (plan.error) { alert(plan.error); return; }
   showContactsImportPreview(plan);
 }
@@ -7822,8 +7831,8 @@ async function syncAllContactsToSheets() {
   try {
     const data = await cloudCall({ action: 'getSheetContacts' });
     if (!data.contacts || !Array.isArray(data.contacts)) throw new Error('no contact list returned');
-    const inSheet = new Set(data.contacts.map(c => c.uid).filter(Boolean));
-    const missing = contacts.filter(c => c && c.uid && !inSheet.has(c.uid) && !getMergedUidSet().has(c.uid));
+    const inSheet = new Set(data.contacts.map(c => c.uid).filter(Boolean).map(String));
+    const missing = contacts.filter(c => c && c.uid && !inSheet.has(String(c.uid)) && !getMergedUidSet().has(String(c.uid)));
     if (!missing.length) { status('Nothing to send. Sheets already has every contact'); alert('Nothing to send. Google Sheets already has every contact on this device.'); return; }
     if (!confirm(missing.length + ' contacts on this device are not in Google Sheets yet. Send them now?\n\nContacts already in Sheets are not touched.')) { status('Cancelled'); return; }
     for (let i = 0; i < missing.length; i += 100) {
