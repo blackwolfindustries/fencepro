@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.38.3</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.38.4</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -7414,6 +7414,7 @@ async function loadCloudContacts() {
   try {
     const data = await cloudCall({ action: 'getSheetContacts' });
     if (!data.contacts || !Array.isArray(data.contacts)) return false;
+    window._lastSheetUids = new Set(data.contacts.map(c => c && c.uid).filter(Boolean));
 
     // Merge Sheets contacts into local — Sheets wins on UID conflict
     const existingMap = {};
@@ -7673,57 +7674,71 @@ function _impUpdateCount() {
   const n = m.querySelectorAll('input.impNew:checked').length;
   const f = m.querySelectorAll('input.impFld:checked').length;
   const el = document.getElementById('impCount');
-  if (el) el.textContent = n + ' new contact' + (n === 1 ? '' : 's') + ' and ' + f + ' field change' + (f === 1 ? '' : 's') + ' selected';
+  if (el) el.textContent = n + ' new, ' + f + ' changes selected';
   const btn = document.getElementById('impGo'); if (btn) btn.disabled = (n + f === 0);
+}
+
+function _impSetAll(cls, on) {
+  document.querySelectorAll('#impModal input.' + cls).forEach(e => { e.checked = on; });
+  _impUpdateCount();
 }
 
 function showContactsImportPreview(plan) {
   _impCloseModal();
-  const clean = plan.newItems.filter(x => !x.flags.length), flagged = plan.newItems.filter(x => x.flags.length);
-  const row = (x, i) => {
+  // The app styles every input as a wide text box, so checkboxes get their own reset
+  const CB = 'all:revert;width:18px;height:18px;margin:2px 0 0 0;flex:none;cursor:pointer';
+  const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n) + '...' : s; };
+  const rowCss = 'display:grid;grid-template-columns:22px 1fr;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;align-items:start';
+  const linkCss = 'background:none;border:none;color:var(--blue);cursor:pointer;font-size:12px;padding:0 10px 0 0';
+
+  const newRows = plan.newItems.map((x, i) => {
     const c = x.contact;
-    return '<label style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer">' +
-      '<input type="checkbox" class="impNew" data-i="' + i + '" ' + (x.flags.length ? '' : 'checked') + ' onchange="_impUpdateCount()" style="margin-top:2px">' +
-      '<span><b>' + _impEsc(c.name) + '</b> <span style="color:var(--text3)">' + _impEsc([c.phone, c.email, c.addr1].filter(Boolean).join(' · ')) + '</span>' +
-      (x.flags.length ? '<br><span style="color:var(--orange);font-weight:600">May already exist: ' + _impEsc(x.flags.join('; ')) + '</span>' : '') + '</span></label>';
-  };
-  const newHtml = plan.newItems.map((x, i) => row(x, i)).join('') || '<div style="font-size:12px;color:var(--text3)">No new contacts in this file.</div>';
-  const diffHtml = plan.diffs.map((d, di) =>
-    '<details style="border-bottom:1px solid var(--border);padding:4px 0"><summary style="cursor:pointer;font-size:12px"><b>' + _impEsc(d.name) + '</b> <span style="color:var(--text3)">' +
-    d.changes.length + ' difference' + (d.changes.length === 1 ? '' : 's') + '</span></summary><div style="padding:4px 0 4px 18px">' +
-    d.changes.map((c, ci) =>
-      '<label style="display:flex;gap:8px;font-size:12px;padding:2px 0;cursor:pointer"><input type="checkbox" class="impFld" data-d="' + di + '" data-c="' + ci + '" data-kind="' + c.kind + '" onchange="_impUpdateCount()">' +
-      '<span><b>' + _impEsc(CSV_LABEL[c.field] || c.field) + '</b>: ' + (c.kind === 'fill' ? '<i style="color:var(--text3)">blank</i>' : '"' + _impEsc(c.current.length > 60 ? c.current.slice(0, 60) + '...' : c.current) + '"') +
-      ' &rarr; "' + _impEsc(c.incoming.length > 60 ? c.incoming.slice(0, 60) + '...' : c.incoming) + '"' + (c.kind === 'change' ? ' <span style="color:var(--orange)">(replaces existing)</span>' : '') + '</span></label>').join('') +
-    '</div></details>').join('') || '<div style="font-size:12px;color:var(--text3)">No differences found.</div>';
+    return '<label style="' + rowCss + '"><input type="checkbox" class="impNew" data-i="' + i + '" ' + (x.flags.length ? '' : 'checked') + ' onchange="_impUpdateCount()" style="' + CB + '">' +
+      '<div><b>' + _impEsc(c.name) + '</b> <span style="color:var(--text3)">' + _impEsc([c.phone, c.addr1].filter(Boolean).join(' · ')) + '</span>' +
+      (x.flags.length ? '<div style="color:var(--orange);font-size:12px">Looks like someone already in FencePro (' + _impEsc(x.flags.join('; ')) + ')</div>' : '') + '</div></label>';
+  }).join('');
+
+  const diffRows = [];
+  plan.diffs.forEach((d, di) => d.changes.forEach((c, ci) => {
+    diffRows.push('<label style="' + rowCss + '"><input type="checkbox" class="impFld" data-d="' + di + '" data-c="' + ci + '" data-kind="' + c.kind + '" onchange="_impUpdateCount()" style="' + CB + '">' +
+      '<div><b>' + _impEsc(d.name) + '</b> <span style="color:var(--text3)">' + _impEsc(CSV_LABEL[c.field] || c.field) + ':</span> ' +
+      (c.kind === 'fill' ? '<i style="color:var(--text3)">(blank)</i>' : _impEsc(clip(c.current, 50))) + ' &rarr; <b>' + _impEsc(clip(c.incoming, 50)) + '</b>' +
+      (c.kind === 'change' ? ' <span style="color:var(--orange);font-size:12px">replaces current</span>' : ' <span style="color:var(--green);font-size:12px">adds missing info</span>') + '</div></label>');
+  }));
+
+  const sec = (title, sub, cls, body, empty) =>
+    '<div style="margin-top:16px"><div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-weight:800;font-size:14px">' + title + '</span>' +
+    '<span style="font-size:12px;color:var(--text3)">' + sub + '</span>' +
+    (body ? '<span style="margin-left:auto"><button style="' + linkCss + '" onclick="_impSetAll(\'' + cls + '\',true)">Select all</button><button style="' + linkCss + '" onclick="_impSetAll(\'' + cls + '\',false)">Clear</button></span>' : '') + '</div>' +
+    (body ? '<div style="max-height:250px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-top:6px;padding:0 8px">' + body + '</div>'
+          : '<div style="font-size:13px;color:var(--text3);padding:8px 0">' + empty + '</div>') + '</div>';
+
+  const nDiffFields = diffRows.length;
+  const foot = [];
+  if (plan.same) foot.push(plan.same + ' already in FencePro and identical');
+  if (plan.merged) foot.push(plan.merged + ' skipped because they were merged earlier');
+  if (plan.skippedNoId + plan.skippedNoName) foot.push((plan.skippedNoId + plan.skippedNoName) + ' skipped (no ID or name)');
+  if (plan.repeated) foot.push(plan.repeated + ' repeated in the file');
+  if (plan.unmapped.length) foot.push('columns not in this file: ' + plan.unmapped.join(', '));
 
   const m = document.createElement('div');
   m.id = 'impModal';
   m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';
   m.innerHTML =
-    '<div style="background:var(--surface);color:var(--text);border-radius:10px;max-width:900px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.4)">' +
-    '<div style="padding:14px 18px;border-bottom:1px solid var(--border)"><div style="font-weight:800;font-size:15px">Contact import preview</div>' +
-    '<div style="font-size:12px;color:var(--text3);margin-top:3px">Nothing has been changed yet. Review, tick what you want, then import.</div></div>' +
-    '<div style="padding:12px 18px;overflow:auto;flex:1">' +
-    '<div style="font-size:12px;line-height:1.7;margin-bottom:10px">' +
-    'Rows in file: <b>' + plan.fileRows + '</b> &nbsp;|&nbsp; New: <b>' + plan.newItems.length + '</b> (' + clean.length + ' clean, ' + flagged.length + ' possible duplicates) &nbsp;|&nbsp; ' +
-    'Already here, identical: <b>' + plan.same + '</b> &nbsp;|&nbsp; Already here, differ: <b>' + plan.diffs.length + '</b><br>' +
-    'Blocked, previously merged: <b>' + plan.merged + '</b> &nbsp;|&nbsp; Skipped, no ID or name: <b>' + (plan.skippedNoId + plan.skippedNoName) + '</b> &nbsp;|&nbsp; Repeated in file: <b>' + plan.repeated + '</b>' +
-    (plan.unmapped.length ? '<br><span style="color:var(--orange)">Columns not found in this file (left blank): ' + _impEsc(plan.unmapped.join(', ')) + '</span>' : '') + '</div>' +
-    '<div style="font-weight:700;font-size:13px;margin:8px 0 4px">New contacts <span style="font-weight:400;color:var(--text3);font-size:11px">(clean ones are ticked, possible duplicates are not)</span></div>' +
-    '<div style="margin-bottom:4px"><button class="btn btn-sm" onclick="document.querySelectorAll(\'#impModal input.impNew\').forEach(e=>e.checked=true);_impUpdateCount()">Tick all</button> ' +
-    '<button class="btn btn-sm" onclick="document.querySelectorAll(\'#impModal input.impNew\').forEach(e=>e.checked=false);_impUpdateCount()">Untick all</button></div>' +
-    '<div style="max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:4px 10px">' + newHtml + '</div>' +
-    '<div style="font-weight:700;font-size:13px;margin:14px 0 4px">Existing contacts that differ <span style="font-weight:400;color:var(--text3);font-size:11px">(nothing ticked by default; a blank in the file never changes anything)</span></div>' +
-    '<div style="margin-bottom:4px"><button class="btn btn-sm" onclick="document.querySelectorAll(\'#impModal input.impFld[data-kind=fill]\').forEach(e=>e.checked=true);_impUpdateCount()">Tick only fields that are blank in FencePro</button> ' +
-    '<button class="btn btn-sm" onclick="document.querySelectorAll(\'#impModal input.impFld\').forEach(e=>e.checked=false);_impUpdateCount()">Untick all</button></div>' +
-    '<div style="max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:4px 10px">' + diffHtml + '</div>' +
+    '<div style="background:var(--surface);color:var(--text);border-radius:10px;max-width:760px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.4)">' +
+    '<div style="padding:14px 18px;border-bottom:1px solid var(--border)"><div style="font-weight:800;font-size:16px">Contact import</div>' +
+    '<div style="font-size:13px;margin-top:4px"><b>' + plan.newItems.length + '</b> new &nbsp;·&nbsp; <b>' + nDiffFields + '</b> possible changes to existing contacts</div>' +
+    '<div style="font-size:12px;color:var(--text3);margin-top:2px">Nothing has been changed yet. Tick what you want, then press Import.</div></div>' +
+    '<div style="padding:4px 18px 12px;overflow:auto;flex:1">' +
+    sec('New contacts', 'ticked unless they look like someone you already have', 'impNew', newRows, 'No new contacts in this file.') +
+    sec('Changes to existing contacts', 'nothing is ticked unless you tick it', 'impFld', diffRows.join(''), 'No differences found.') +
+    (foot.length ? '<div style="margin-top:14px;font-size:11px;color:var(--text3)">' + _impEsc(foot.join(' · ')) + '</div>' : '') +
     '</div>' +
-    '<div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
-    '<label style="font-size:12px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="impBackup" checked> Download a backup of current contacts first</label>' +
+    '<div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
+    '<label style="font-size:12px;display:flex;gap:8px;align-items:center;cursor:pointer;white-space:nowrap"><input type="checkbox" id="impBackup" checked style="' + CB + ';margin:0">Download a backup first</label>' +
     '<span id="impCount" style="font-size:12px;color:var(--text3);margin-left:auto"></span>' +
     '<button class="btn btn-sm" onclick="_impCloseModal()">Cancel</button>' +
-    '<button class="btn btn-sm" id="impGo" style="background:var(--green);color:#fff;border-color:var(--green)" onclick="applyContactsImport()">Import selected</button></div></div>';
+    '<button class="btn btn-sm" id="impGo" style="background:var(--green);color:#fff;border-color:var(--green)" onclick="applyContactsImport()">Import</button></div></div>';
   document.body.appendChild(m);
   window._impPlan = plan;
   _impUpdateCount();
@@ -7789,7 +7804,12 @@ async function handleContactsFile(file) {
     const ok = await loadCloudContacts();
     if (!ok) { alert('Could not reach Google Sheets, so the import was cancelled. Nothing was changed. Try again when you are online.'); return; }
   }
-  const plan = planContactsImport(text, contacts, getMergedUidSet());
+  const blocked = new Set(getMergedUidSet());
+  if (window._lastSheetUids) {
+    const local = new Set(contacts.map(c => c && c.uid));
+    window._lastSheetUids.forEach(u => { if (!local.has(u)) blocked.add(u); });   // in Sheets but not shown here = merged away
+  }
+  const plan = planContactsImport(text, contacts, blocked);
   if (plan.error) { alert(plan.error); return; }
   showContactsImportPreview(plan);
 }
