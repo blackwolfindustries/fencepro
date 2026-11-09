@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.38.5</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.38.6</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -7393,7 +7393,13 @@ function getMergedUidSet() {
   }
   return _mergedUidSet;
 }
+// Google Sheets returns all-digit IDs (like 15813346) as numbers. The CRM buttons look contacts up with a strict
+// match against the text ID in the page, so a numeric ID made Schedule, Edit and + Estimate silently do nothing.
+function normalizeContactUids() {
+  contacts.forEach(c => { if (c && c.uid != null && typeof c.uid !== 'string') c.uid = String(c.uid); });
+}
 function dropMergedContacts() {
+  normalizeContactUids();
   const set = getMergedUidSet(), keep = [];
   let removed = 0, added = false;
   contacts.forEach(c => {
@@ -17191,7 +17197,7 @@ function openManualInvoice(invId) {
     miEl('mi_company').value = code;
     miEl('mi_custName').value = inv['Customer Name'] || '';
     miEl('mi_contactUID').value = inv['Contact UID'] || '';
-    _miContact = contacts.find(c => c.uid === (inv['Contact UID'] || '')) || null;
+    _miContact = contacts.find(c => c.uid === String(inv['Contact UID'] || '')) || null;
     miEl('mi_phone').value = inv['Customer Phone'] || '';
     miEl('mi_email').value = inv['Email'] || '';
     miEl('mi_addr1').value = inv['Job Address'] || '';
