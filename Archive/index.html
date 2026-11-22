@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.38.0</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.38.7</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2861,7 +2861,7 @@ function applyTheme(raw) {
           ⬆ Restore Backup
           <input type="file" accept=".json" style="display:none" onchange="importContactsBackup(this.files[0]);this.value=''">
         </label>
-        <button class="btn btn-sm" onclick="syncAllContactsToSheets()" style="flex:1;justify-content:center;color:var(--blue);border-color:var(--blue)" title="Push all local contacts to Google Sheets for permanent storage">☁ Sync to Sheets</button>
+        <button class="btn btn-sm" onclick="syncAllContactsToSheets()" style="flex:1;justify-content:center;color:var(--blue);border-color:var(--blue)" title="Send contacts that are on this device but missing from Google Sheets. Never overwrites existing ones">☁ Sync to Sheets</button>
       </div>
 
       <!-- Drop zone -->
@@ -2873,7 +2873,7 @@ function applyTheme(raw) {
         ondrop="event.preventDefault();this.style.borderColor='var(--border2)';this.style.background='var(--surface2)';handleContactsFile(event.dataTransfer.files[0])">
         <div style="font-size:24px;margin-bottom:8px">📋</div>
         <div style="font-weight:700;color:var(--navy);font-size:13px;margin-bottom:4px">Drop contacts.csv here or click to browse</div>
-        <div style="font-size:11px;color:var(--text3)">First upload loads all contacts. Subsequent uploads add new contacts and update existing ones using Column A (unique ID) for deduplication.</div>
+        <div style="font-size:11px;color:var(--text3)">Shows a preview first. New contacts are added when you confirm. Existing contacts are only changed for the exact fields you tick.</div>
         <input type="file" id="contactsFileInput" accept=".csv" style="display:none" onchange="handleContactsFile(this.files[0]);this.value=''">
       </div>
 
@@ -6788,6 +6788,12 @@ function fpToggleCRM(btn) {
   btn.textContent = open ? 'Hide ▲' : 'Show ▼';
 }
 
+// v3.38.7 - age in ms of the last successful cloud load (0 = never loaded, so it reads as stale)
+function _cloudDataAge() {
+  const last = parseInt(localStorage.getItem('fp_lastCloudLoad') || '0', 10);
+  return last > 0 ? Date.now() - last : Number.MAX_SAFE_INTEGER;
+}
+
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -7369,6 +7375,7 @@ function importContactsBackup(file) {
         else { contacts.push(c); added++; }
       });
       contacts = [...Object.values(existingMap), ...contacts.filter(c => !c.uid)];
+      dropMergedContacts();
       localStorage.setItem('fp_contacts', JSON.stringify(contacts));
       localStorage.setItem('fp_contacts_meta', JSON.stringify({
         lastUpdated: new Date().toISOString(), total: contacts.length
@@ -7383,13 +7390,43 @@ function importContactsBackup(file) {
   reader.readAsText(file);
 }
 
+// Contacts that were merged into another contact (Sheets column "Merged Into") are hidden everywhere in the app.
+// Their UIDs are remembered so a CSV import can never bring them back.
+let _mergedUidSet = null;   // always holds UIDs as text
+function getMergedUidSet() {
+  if (!_mergedUidSet) {
+    try { _mergedUidSet = new Set(JSON.parse(localStorage.getItem('fp_mergedUids') || '[]').map(String)); } catch (e) { _mergedUidSet = new Set(); }
+  }
+  return _mergedUidSet;
+}
+// Google Sheets returns all-digit IDs (like 15813346) as numbers. The CRM buttons look contacts up with a strict
+// match against the text ID in the page, so a numeric ID made Schedule, Edit and + Estimate silently do nothing.
+function normalizeContactUids() {
+  contacts.forEach(c => { if (c && c.uid != null && typeof c.uid !== 'string') c.uid = String(c.uid); });
+}
+function dropMergedContacts() {
+  normalizeContactUids();
+  const set = getMergedUidSet(), keep = [];
+  let removed = 0, added = false;
+  contacts.forEach(c => {
+    if (c && String(c.mergedInto || '').trim()) {
+      removed++;
+      if (c.uid && !set.has(String(c.uid))) { set.add(String(c.uid)); added = true; }
+    } else keep.push(c);
+  });
+  contacts = keep;
+  if (added) { try { localStorage.setItem('fp_mergedUids', JSON.stringify([...set])); } catch (e) {} }
+  return removed;
+}
+
 // ── LOAD CONTACTS FROM GOOGLE SHEETS ──────────────────────
 async function loadCloudContacts() {
   const url = settings.scriptUrl;
-  if (!url) return;
+  if (!url) return false;
   try {
     const data = await cloudCall({ action: 'getSheetContacts' });
-    if (!data.contacts || !Array.isArray(data.contacts)) return;
+    if (!data.contacts || !Array.isArray(data.contacts)) return false;
+    window._lastSheetUids = new Set(data.contacts.map(c => c && c.uid).filter(Boolean).map(String));
 
     // Merge Sheets contacts into local — Sheets wins on UID conflict
     const existingMap = {};
@@ -7401,6 +7438,7 @@ async function loadCloudContacts() {
     });
 
     contacts = [...Object.values(existingMap), ...contacts.filter(c => !c.uid)];
+    dropMergedContacts();
     contactsLoaded = true;
     localStorage.setItem('fp_contacts', JSON.stringify(contacts));
     localStorage.setItem('fp_contacts_meta', JSON.stringify({
@@ -7408,8 +7446,10 @@ async function loadCloudContacts() {
     }));
     updateContactsStatus();
     console.log('Contacts synced from Sheets:', contacts.length);
+    return true;
   } catch(e) {
     console.log('Cloud contacts sync failed (non-fatal):', e.message);
+    return false;
   }
 }
 
@@ -7476,6 +7516,7 @@ function loadContacts() {
   if (stored) {
     try {
       contacts = JSON.parse(stored);
+      dropMergedContacts();
       contactsLoaded = true;
       updateContactsStatus();
     } catch(e) {
@@ -7497,169 +7538,322 @@ function updateContactsStatus() {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// CONTACT CSV IMPORT  (v3.38.2)
+// Reading a file changes nothing. It builds a preview: new contacts, existing contacts
+// that differ, and possible duplicates. Only what you tick is written, and only the
+// touched contacts are sent to Google Sheets. Existing contacts are never overwritten
+// unless you tick that exact field. Columns are read by header name, not position.
+// ══════════════════════════════════════════════════════════════
+
+// Proper CSV reader: handles quoted commas, doubled quotes and line breaks inside quotes
 function parseContactsCSV(text) {
-  // Parse CSV respecting quoted fields
+  if (text && text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
   const rows = [];
-  const lines = text.split(/\r?\n/);
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    const cols = [];
-    let cur = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') { inQ = !inQ; }
-      else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
-      else { cur += ch; }
-    }
-    cols.push(cur.trim());
-    rows.push(cols);
+  let row = [], cur = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += ch;
+    } else if (ch === '"') { inQ = true; }
+    else if (ch === ',') { row.push(cur.trim()); cur = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur.trim()); cur = '';
+      if (row.some(c => c !== '')) rows.push(row);
+      row = [];
+    } else cur += ch;
   }
+  row.push(cur.trim());
+  if (row.some(c => c !== '')) rows.push(row);
   return rows;
 }
 
-function importContactsCSV(text, isIncremental) {
-  const rows = parseContactsCSV(text);
-  if (rows.length < 2) return { added: 0, updated: 0, total: 0, error: 'No data found in file' };
+// contact field -> accepted CSV header names (matched ignoring case and spacing)
+const CSV_FIELD_MAP = [
+  ['phone', ['Pri Phone']], ['altPhone', ['Alt Phone']], ['email', ['Email']], ['company', ['Company']],
+  ['category', ['Category']], ['channel', ['Channel']], ['campaign', ['Campaign']],
+  ['billAddr1', ['Billing Address1']], ['billAddr2', ['Billing Address2']], ['billCity', ['Billing City']],
+  ['billState', ['Billing State']], ['billZip', ['Billing Zip']],
+  ['addr1', ['Service Address1']], ['addr2', ['Service Address2']], ['city', ['Service City']],
+  ['state', ['Service State']], ['zip', ['Service Zip']], ['community', ['Service Community']], ['county', ['Service County']],
+  ['lastServiceDate', ['Last Service Date']], ['customerSince', ['Customer Since']],
+  ['doNotEmail', ['Do Not Email']], ['cardOnFile', ['Card On File']], ['balanceDue', ['Balance Due']],
+  ['lifetimeValue', ['Lifetime Value']], ['tags', ['Tags']], ['flashMessage', ['Flash Message']],
+  ['createdAt', ['CreatedAt']], ['taxRate', ['Tax Rate']], ['doNotText', ['Do Not Text']],
+  ['nickname', ['Nickname']], ['referredBy', ['Referred By Contact Id']],
+  ['additionalContacts', ['Additional Notes', 'Additional Contacts']], ['contactType', ['Contact Type']],
+  ['projectedLF', ['Customers Approximate Linear Footage?']], ['services', ['Services Offered']],
+  ['fenceKind', ['Materials']], ['autoPay', ['Auto Pay']]
+];
+// Not mapped on purpose (no matching ServiceMinder column): gateCode, projectType, fenceStyle
+// Fields compared when a contact already exists (system numbers and dates are not compared)
+const CSV_COMPARE = ['name', 'phone', 'altPhone', 'email', 'company', 'category', 'billAddr1', 'billAddr2', 'billCity', 'billState', 'billZip',
+  'addr1', 'addr2', 'city', 'state', 'zip', 'county', 'tags', 'flashMessage', 'nickname', 'additionalContacts', 'contactType'];
+const CSV_LABEL = { name: 'Name', phone: 'Phone', altPhone: 'Alt Phone', email: 'Email', company: 'Company', category: 'Category',
+  billAddr1: 'Billing Address 1', billAddr2: 'Billing Address 2', billCity: 'Billing City', billState: 'Billing State', billZip: 'Billing Zip',
+  addr1: 'Address 1', addr2: 'Address 2', city: 'City', state: 'State', zip: 'Zip', county: 'County', tags: 'Tags', flashMessage: 'Flash Message',
+  nickname: 'Nickname', additionalContacts: 'Notes', contactType: 'Contact Type' };
 
-  // Skip header row (row 0)
-  const existing = isIncremental ? [...contacts] : [];
-  const existingMap = {};
-  existing.forEach(c => { if (c.uid) existingMap[c.uid] = c; });
+// ServiceMinder filler that should never be offered as a change
+const CSV_JUNK = /^(0+|tbd|n\/?a|na|none|null|unknown|-+|\.+)$/i;
 
-  let added = 0, updated = 0;
-
-  for (let i = 1; i < rows.length; i++) {
-    const cols = rows[i];
-    if (cols.length < 2) continue;
-
-    const uid  = (cols[0]  || '').trim(); // col A — unique ID
-    const name = (cols[1]  || '').trim(); // col B
-    if (!name) continue;
-
-    const g = (i, def='') => cols.length > i ? (cols[i] || '').trim() : def;
-
-    const contact = {
-      uid,
-      name,
-      phone:              g(2),   // Pri Phone
-      altPhone:           g(3),   // Alt Phone
-      email:              g(4),   // Email
-      company:            g(5),   // Company
-      category:           g(6),   // Category
-      channel:            g(7),   // Channel
-      campaign:           g(8),   // Campaign
-      billAddr1:          g(9),   // Billing Address1
-      billAddr2:          g(10),  // Billing Address2
-      billCity:           g(11),  // Billing City
-      billState:          g(12),  // Billing State
-      billZip:            g(13),  // Billing Zip
-      addr1:              g(14),  // Service Address1
-      addr2:              g(15),  // Service Address2
-      city:               g(16),  // Service City
-      state:              g(17),  // Service State
-      zip:                g(18),  // Service Zip
-      community:          g(19),  // Service Community
-      county:             g(20),  // Service County
-      lastServiceDate:    g(22),  // Last Service Date
-      customerSince:      g(27),  // Customer Since
-      doNotEmail:         g(29),  // Do Not Email
-      cardOnFile:         g(31),  // Card On File
-      balanceDue:         g(34),  // Balance Due
-      lifetimeValue:      g(35),  // Lifetime Value
-      tags:               g(36),  // Tags
-      flashMessage:       g(37),  // Flash Message
-      createdAt:          g(39),  // CreatedAt
-      taxRate:            g(45),  // Tax Rate
-      doNotText:          g(48),  // Do Not Text
-      nickname:           g(50),  // Nickname
-      referredBy:         g(52),  // Referred By Contact Id
-      additionalContacts: g(54),  // Additional Contacts
-      contactType:        g(55),  // Contact Type
-      gateCode:           g(56),  // Gate Code
-      projectType:        g(57),  // Project Type
-      projectedLF:        g(58),  // Projected Linear Feet
-      services:           g(59),  // Services
-      fenceKind:          g(61),  // What kind of fence
-      fenceStyle:         g(62),  // What type/style of fence
-      autoPay:            g(63),  // Auto Pay
-      source:             'CSV',
-      inactive:           false
-    };
-
-    if (uid && existingMap[uid]) {
-      // Update existing contact — preserve createdAt if CSV column AN is blank
-      const prev = existingMap[uid];
-      if (!contact.createdAt && prev.createdAt) contact.createdAt = prev.createdAt;
-      if (prev.properties) contact.properties = prev.properties;   // v3.26.0
-      existingMap[uid] = contact;
-      updated++;
-    } else {
-      // New contact
-      if (uid) existingMap[uid] = contact;
-      else existing.push(contact); // no UID — just append
-      added++;
-    }
+// UIDs that must not be imported: merged earlier, or present in Sheets but hidden here.
+// Sheets returns numeric IDs as numbers, the CSV gives text, so everything is compared as text.
+function _impBlockedSet(localList, sheetUids) {
+  const blocked = new Set([...getMergedUidSet()].map(String));
+  if (sheetUids) {
+    const local = new Set(localList.map(c => c && String(c.uid)));
+    sheetUids.forEach(u => { u = String(u); if (!local.has(u)) blocked.add(u); });
   }
+  return blocked;
+}
 
-  // Rebuild contacts array from map + non-uid entries
-  const withUID    = Object.values(existingMap);
-  const withoutUID = existing.filter(c => !c.uid);
-  contacts = [...withUID, ...withoutUID];
-  contactsLoaded = true;
+function _impNorm(field, v) {
+  v = String(v == null ? '' : v).trim();
+  if (field === 'phone' || field === 'altPhone') {
+    const d = v.replace(/\D/g, '');
+    return d.length >= 10 ? d.slice(-10) : v.toLowerCase();
+  }
+  return v.toLowerCase().replace(/\s+/g, ' ');
+}
+function _impPhone10(v) { const d = String(v == null ? '' : v).replace(/\D/g, ''); return d.length >= 10 ? d.slice(-10) : ''; }
+function _impEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-  // Save to localStorage
-  localStorage.setItem('fp_contacts', JSON.stringify(contacts));
-  localStorage.setItem('fp_contacts_meta', JSON.stringify({
-    lastUpdated: new Date().toISOString(),
-    total: contacts.length
+// Builds the preview. Changes nothing. existingList = current contacts, mergedSet = UIDs that were merged away.
+function planContactsImport(text, existingList, mergedSet) {
+  const rows = parseContactsCSV(text);
+  if (rows.length < 2) return { error: 'No data found in the file.' };
+  const norm = h => String(h || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const idx = {};
+  rows[0].forEach((h, i) => { const k = norm(h); if (k && !(k in idx)) idx[k] = i; });
+  const need = ['id', 'name', 'pri phone', 'email'];
+  const missing = need.filter(k => !(k in idx));
+  if (missing.length) {
+    return { error: 'This does not look like a ServiceMinder contacts export. Missing columns: ' + missing.join(', ') + '. Nothing was imported.' };
+  }
+  const colFor = {}; const unmapped = [];
+  CSV_FIELD_MAP.forEach(m => {
+    const hit = m[1].map(norm).find(k => k in idx);
+    if (hit) colFor[m[0]] = idx[hit]; else unmapped.push(m[1][0]);
+  });
+
+  const byUid = Object.create(null), nameCt = Object.create(null), phoneCt = Object.create(null), emailCt = Object.create(null);
+  existingList.forEach(c => {
+    if (!c) return;
+    if (c.uid) byUid[c.uid] = c;
+    const n = _impNorm('name', c.name); if (n) nameCt[n] = (nameCt[n] || []).concat(c);
+    const p = _impPhone10(c.phone); if (p) phoneCt[p] = (phoneCt[p] || []).concat(c);
+    const e = _impNorm('email', c.email); if (e) emailCt[e] = (emailCt[e] || []).concat(c);
+  });
+
+  const plan = { newItems: [], diffs: [], same: 0, merged: 0, skippedNoId: 0, skippedNoName: 0, repeated: 0, fileRows: rows.length - 1, unmapped: unmapped };
+  const seen = Object.create(null);
+  for (let r = 1; r < rows.length; r++) {
+    const cols = rows[r];
+    const g = i => (i != null && cols.length > i) ? String(cols[i] || '').trim() : '';
+    const uid = g(idx['id']), name = g(idx['name']);
+    if (!uid) { plan.skippedNoId++; continue; }
+    if (!name) { plan.skippedNoName++; continue; }
+    if (seen[uid]) { plan.repeated++; continue; }
+    seen[uid] = true;
+    if (mergedSet && mergedSet.has(String(uid))) { plan.merged++; continue; }
+
+    const csv = { uid: uid, name: name };
+    CSV_FIELD_MAP.forEach(m => { csv[m[0]] = (m[0] in colFor) ? g(colFor[m[0]]) : ''; });
+
+    const ex = byUid[uid];
+    if (ex) {
+      const changes = [];
+      CSV_COMPARE.forEach(f => {
+        const nv = csv[f] == null ? '' : String(csv[f]).trim();
+        if (nv === '' || CSV_JUNK.test(nv)) return;   // a blank or filler value in the file never changes anything
+        const cv = ex[f] == null ? '' : String(ex[f]).trim();
+        if (_impNorm(f, nv) === _impNorm(f, cv)) return;
+        changes.push({ field: f, current: cv, incoming: nv, kind: cv === '' ? 'fill' : 'change' });
+      });
+      if (changes.length) plan.diffs.push({ uid: uid, name: ex.name, changes: changes }); else plan.same++;
+      continue;
+    }
+
+    // New contact: look for someone already in FencePro who may be the same person
+    const reasons = [];
+    const nm = _impNorm('name', name), ph = _impPhone10(csv.phone), em = _impNorm('email', csv.email);
+    const hitNames = nameCt[nm] || [];
+    if (hitNames.length) reasons.push('same name as "' + hitNames[0].name + '"');
+    const hitPh = (ph && phoneCt[ph] && phoneCt[ph].length <= 6) ? phoneCt[ph] : [];
+    if (hitPh.length && !(hitNames.length && hitNames[0] === hitPh[0])) reasons.push('same phone as "' + hitPh[0].name + '"');
+    const hitEm = (em && emailCt[em] && emailCt[em].length <= 6) ? emailCt[em] : [];
+    if (hitEm.length && !(hitNames.length && hitNames[0] === hitEm[0]) && !(hitPh.length && hitPh[0] === hitEm[0])) reasons.push('same email as "' + hitEm[0].name + '"');
+
+    const contact = Object.assign({}, csv, { source: 'CSV', inactive: false });
+    plan.newItems.push({ contact: contact, flags: reasons });
+  }
+  return plan;
+}
+
+function _impCloseModal() { const m = document.getElementById('impModal'); if (m) m.remove(); }
+
+function _impUpdateCount() {
+  const m = document.getElementById('impModal'); if (!m) return;
+  const n = m.querySelectorAll('input.impNew:checked').length;
+  const f = m.querySelectorAll('input.impFld:checked').length;
+  const el = document.getElementById('impCount');
+  if (el) el.textContent = n + ' new, ' + f + ' changes selected';
+  const btn = document.getElementById('impGo'); if (btn) btn.disabled = (n + f === 0);
+}
+
+function _impSetAll(cls, on) {
+  document.querySelectorAll('#impModal input.' + cls).forEach(e => { e.checked = on; });
+  _impUpdateCount();
+}
+
+function showContactsImportPreview(plan) {
+  _impCloseModal();
+  // The app styles every input as a wide text box, so checkboxes get their own reset
+  const CB = 'all:revert;width:18px;height:18px;margin:2px 0 0 0;flex:none;cursor:pointer';
+  const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n) + '...' : s; };
+  const rowCss = 'display:grid;grid-template-columns:22px 1fr;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;align-items:start';
+  const linkCss = 'background:none;border:none;color:var(--blue);cursor:pointer;font-size:12px;padding:0 10px 0 0';
+
+  const newRows = plan.newItems.map((x, i) => {
+    const c = x.contact;
+    return '<label style="' + rowCss + '"><input type="checkbox" class="impNew" data-i="' + i + '" ' + (x.flags.length ? '' : 'checked') + ' onchange="_impUpdateCount()" style="' + CB + '">' +
+      '<div><b>' + _impEsc(c.name) + '</b> <span style="color:var(--text3)">' + _impEsc([c.phone, c.addr1].filter(Boolean).join(' · ')) + '</span>' +
+      (x.flags.length ? '<div style="color:var(--orange);font-size:12px">Looks like someone already in FencePro (' + _impEsc(x.flags.join('; ')) + ')</div>' : '') + '</div></label>';
+  }).join('');
+
+  const diffRows = [];
+  plan.diffs.forEach((d, di) => d.changes.forEach((c, ci) => {
+    diffRows.push('<label style="' + rowCss + '"><input type="checkbox" class="impFld" data-d="' + di + '" data-c="' + ci + '" data-kind="' + c.kind + '" onchange="_impUpdateCount()" style="' + CB + '">' +
+      '<div><b>' + _impEsc(d.name) + '</b> <span style="color:var(--text3)">' + _impEsc(CSV_LABEL[c.field] || c.field) + ':</span> ' +
+      (c.kind === 'fill' ? '<i style="color:var(--text3)">(blank)</i>' : _impEsc(clip(c.current, 50))) + ' &rarr; <b>' + _impEsc(clip(c.incoming, 50)) + '</b>' +
+      (c.kind === 'change' ? ' <span style="color:var(--orange);font-size:12px">replaces current</span>' : ' <span style="color:var(--green);font-size:12px">adds missing info</span>') + '</div></label>');
   }));
 
+  const sec = (title, sub, cls, body, empty) =>
+    '<div style="margin-top:16px"><div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><span style="font-weight:800;font-size:14px">' + title + '</span>' +
+    '<span style="font-size:12px;color:var(--text3)">' + sub + '</span>' +
+    (body ? '<span style="margin-left:auto"><button style="' + linkCss + '" onclick="_impSetAll(\'' + cls + '\',true)">Select all</button><button style="' + linkCss + '" onclick="_impSetAll(\'' + cls + '\',false)">Clear</button></span>' : '') + '</div>' +
+    (body ? '<div style="max-height:250px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-top:6px;padding:0 8px">' + body + '</div>'
+          : '<div style="font-size:13px;color:var(--text3);padding:8px 0">' + empty + '</div>') + '</div>';
+
+  const nDiffFields = diffRows.length;
+  const foot = [];
+  if (plan.same) foot.push(plan.same + ' already in FencePro and identical');
+  if (plan.merged) foot.push(plan.merged + ' skipped because they were merged earlier');
+  if (plan.skippedNoId + plan.skippedNoName) foot.push((plan.skippedNoId + plan.skippedNoName) + ' skipped (no ID or name)');
+  if (plan.repeated) foot.push(plan.repeated + ' repeated in the file');
+  if (plan.unmapped.length) foot.push('columns not in this file: ' + plan.unmapped.join(', '));
+
+  const m = document.createElement('div');
+  m.id = 'impModal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML =
+    '<div style="background:var(--surface);color:var(--text);border-radius:10px;max-width:760px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.4)">' +
+    '<div style="padding:14px 18px;border-bottom:1px solid var(--border)"><div style="font-weight:800;font-size:16px">Contact import</div>' +
+    '<div style="font-size:13px;margin-top:4px"><b>' + plan.newItems.length + '</b> new &nbsp;·&nbsp; <b>' + nDiffFields + '</b> possible changes to existing contacts</div>' +
+    '<div style="font-size:12px;color:var(--text3);margin-top:2px">Nothing has been changed yet. Tick what you want, then press Import.</div></div>' +
+    '<div style="padding:4px 18px 12px;overflow:auto;flex:1">' +
+    sec('New contacts', 'ticked unless they look like someone you already have', 'impNew', newRows, 'No new contacts in this file.') +
+    sec('Changes to existing contacts', 'nothing is ticked unless you tick it', 'impFld', diffRows.join(''), 'No differences found.') +
+    (foot.length ? '<div style="margin-top:14px;font-size:11px;color:var(--text3)">' + _impEsc(foot.join(' · ')) + '</div>' : '') +
+    '</div>' +
+    '<div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
+    '<label style="font-size:12px;display:flex;gap:8px;align-items:center;cursor:pointer;white-space:nowrap"><input type="checkbox" id="impBackup" checked style="' + CB + ';margin:0">Download a backup first</label>' +
+    '<span id="impCount" style="font-size:12px;color:var(--text3);margin-left:auto"></span>' +
+    '<button class="btn btn-sm" onclick="_impCloseModal()">Cancel</button>' +
+    '<button class="btn btn-sm" id="impGo" style="background:var(--green);color:#fff;border-color:var(--green)" onclick="applyContactsImport()">Import</button></div></div>';
+  document.body.appendChild(m);
+  window._impPlan = plan;
+  _impUpdateCount();
+}
+
+async function applyContactsImport() {
+  const plan = window._impPlan, m = document.getElementById('impModal');
+  if (!plan || !m) return;
+  const newIdx = [...m.querySelectorAll('input.impNew:checked')].map(e => +e.dataset.i);
+  const fld = [...m.querySelectorAll('input.impFld:checked')].map(e => ({ d: +e.dataset.d, c: +e.dataset.c }));
+  if (!newIdx.length && !fld.length) return;
+  if (m.querySelector('#impBackup') && m.querySelector('#impBackup').checked && contacts.length) exportContactsBackup();
+  _impCloseModal();
+
+  const touched = {};
+  let added = 0, fieldsChanged = 0, contactsChanged = 0;
+  const byUid = Object.create(null); contacts.forEach(c => { if (c && c.uid) byUid[c.uid] = c; });
+  newIdx.forEach(i => {
+    const c = plan.newItems[i].contact;
+    if (byUid[c.uid]) return;                      // appeared meanwhile; never overwrite
+    contacts.push(c); byUid[c.uid] = c; touched[c.uid] = c; added++;
+  });
+  const perContact = {};
+  fld.forEach(s => {
+    const d = plan.diffs[s.d], ch = d.changes[s.c], c = byUid[d.uid];
+    if (!c) return;
+    c[ch.field] = ch.incoming; touched[c.uid] = c; fieldsChanged++; perContact[c.uid] = true;
+  });
+  contactsChanged = Object.keys(perContact).length;
+  window._impPlan = null;
+
+  contactsLoaded = true;
+  localStorage.setItem('fp_contacts', JSON.stringify(contacts));
+  localStorage.setItem('fp_contacts_meta', JSON.stringify({ lastUpdated: new Date().toISOString(), total: contacts.length }));
   updateContactsStatus();
   renderContactsSetup();
-  return { added, updated, total: contacts.length };
+
+  const list = Object.values(touched);
+  let cloudMsg = '';
+  if (settings.scriptUrl && list.length) {
+    status('Saving ' + list.length + ' contacts to Sheets...');
+    try {
+      for (let i = 0; i < list.length; i += 100) {
+        await cloudCall({ action: 'bulkSaveContacts', data: { contacts: list.slice(i, i + 100) } });
+      }
+      cloudMsg = '\nSaved to Google Sheets: ' + list.length + ' contacts (only the ones you changed).';
+      status('Contacts saved to Sheets');
+    } catch (e) {
+      cloudMsg = '\nSaved on this device only. The cloud save failed (' + e.message + '). Use "Sync to Sheets" to send the missing ones.';
+      status('Contacts saved locally. Cloud save failed');
+    }
+  }
+  alert('Import complete\n\nNew contacts added: ' + added + '\nExisting contacts changed: ' + contactsChanged + ' (' + fieldsChanged + ' fields)\nTotal contacts: ' + contacts.length + cloudMsg);
 }
 
-function handleContactsFile(file) {
+async function handleContactsFile(file) {
   if (!file) return;
-  const isIncremental = contacts.length > 0;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const result = importContactsCSV(e.target.result, isIncremental);
-    if (result.error) {
-      alert('Import failed: ' + result.error);
-      return;
-    }
-    const msg = isIncremental
-      ? `✓ Import complete\n\nAdded: ${result.added} new contacts\nUpdated: ${result.updated} existing\nTotal: ${result.total}`
-      : `✓ Import complete\n\n${result.total} contacts loaded`;
-    alert(msg);
-
-    // Sync all contacts to Google Sheets so they survive file reloads
-    if (settings.scriptUrl) {
-      syncAllContactsToSheets();
-    }
-  };
-  reader.readAsText(file);
+  let text;
+  try { text = await file.text(); } catch (e) { alert('Could not read the file: ' + e.message); return; }
+  // Compare against the latest Sheets copy so the preview is accurate; refuse if that is not possible
+  if (settings.scriptUrl) {
+    status('Checking current contacts in Sheets...');
+    const ok = await loadCloudContacts();
+    if (!ok) { alert('Could not reach Google Sheets, so the import was cancelled. Nothing was changed. Try again when you are online.'); return; }
+  }
+  const plan = planContactsImport(text, contacts, _impBlockedSet(contacts, window._lastSheetUids));
+  if (plan.error) { alert(plan.error); return; }
+  showContactsImportPreview(plan);
 }
 
-// Bulk sync all local contacts to Google Sheets Contacts tab
-// Called after CSV import so contacts survive localStorage wipes
+// Sends to Sheets only the contacts that are on this device but not in the Sheet yet.
+// It never overwrites a contact that already exists in the Sheet.
 async function syncAllContactsToSheets() {
   if (!settings.scriptUrl || contacts.length === 0) return;
-  status('Syncing ' + contacts.length + ' contacts to Sheets...');
+  status('Checking Sheets...');
   try {
-    // Send in batches of 100 to avoid timeout
-    const batchSize = 100;
-    let synced = 0;
-    for (let i = 0; i < contacts.length; i += batchSize) {
-      const batch = contacts.slice(i, i + batchSize);
-      await cloudCall({ action: 'bulkSaveContacts', data: { contacts: batch } });
-      synced += batch.length;
+    const data = await cloudCall({ action: 'getSheetContacts' });
+    if (!data.contacts || !Array.isArray(data.contacts)) throw new Error('no contact list returned');
+    const inSheet = new Set(data.contacts.map(c => c.uid).filter(Boolean).map(String));
+    const missing = contacts.filter(c => c && c.uid && !inSheet.has(String(c.uid)) && !getMergedUidSet().has(String(c.uid)));
+    if (!missing.length) { status('Nothing to send. Sheets already has every contact'); alert('Nothing to send. Google Sheets already has every contact on this device.'); return; }
+    if (!confirm(missing.length + ' contacts on this device are not in Google Sheets yet. Send them now?\n\nContacts already in Sheets are not touched.')) { status('Cancelled'); return; }
+    for (let i = 0; i < missing.length; i += 100) {
+      await cloudCall({ action: 'bulkSaveContacts', data: { contacts: missing.slice(i, i + 100) } });
     }
-    status('✓ ' + synced + ' contacts synced to Sheets — safe from reloads');
-  } catch(e) {
-    console.log('Bulk contact sync failed:', e.message);
-    status('Contacts saved locally — cloud sync failed');
+    status('✓ ' + missing.length + ' contacts sent to Sheets');
+  } catch (e) {
+    console.log('Contact sync failed:', e.message);
+    status('Contact sync failed. Nothing was changed');
   }
 }
 
@@ -17009,7 +17203,7 @@ function openManualInvoice(invId) {
     miEl('mi_company').value = code;
     miEl('mi_custName').value = inv['Customer Name'] || '';
     miEl('mi_contactUID').value = inv['Contact UID'] || '';
-    _miContact = contacts.find(c => c.uid === (inv['Contact UID'] || '')) || null;
+    _miContact = contacts.find(c => c.uid === String(inv['Contact UID'] || '')) || null;
     miEl('mi_phone').value = inv['Customer Phone'] || '';
     miEl('mi_email').value = inv['Email'] || '';
     miEl('mi_addr1').value = inv['Job Address'] || '';

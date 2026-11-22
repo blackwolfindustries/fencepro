@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.38.7</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.39.1</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2259,6 +2259,40 @@ function applyTheme(raw) {
       <button class="btn" onclick="closeM('mAddCost')">Cancel</button>
       <button class="btn btn-a" onclick="saveJobCostEntry()">Save Expense</button>
     </div>
+  </div>
+</div>
+
+<!-- Contact Detail / Timeline Modal (v3.39.0) -->
+<div class="moverlay hidden" id="mContactDetail">
+  <div class="mbox" style="max-width:640px">
+    <div class="mtitle" style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div style="min-width:0">
+        <div id="cdName" style="overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="cdMeta" style="font-size:12px;font-weight:500;color:var(--text3);margin-top:4px;line-height:1.5"></div>
+      </div>
+      <button class="btn btn-sm" onclick="closeM('mContactDetail')">Close</button>
+    </div>
+
+    <div id="cdForm">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Log an activity</div>
+      <div id="cdTypeRow" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn btn-sm btn-a" data-type="note"    onclick="cdPickType('note')">📝 Note</button>
+        <button class="btn btn-sm"       data-type="call"    onclick="cdPickType('call')">📞 Call</button>
+        <button class="btn btn-sm"       data-type="text"    onclick="cdPickType('text')">💬 Text</button>
+        <button class="btn btn-sm"       data-type="email"   onclick="cdPickType('email')">✉️ Email</button>
+        <button class="btn btn-sm"       data-type="meeting" onclick="cdPickType('meeting')">🤝 Meeting</button>
+      </div>
+      <textarea id="cdSummary" rows="3" placeholder="What happened? Example: Called, wants the gate moved to the left side."
+        style="width:100%;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);color:var(--text);resize:vertical;font-family:inherit;box-sizing:border-box"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <select id="cdEstimate" style="flex:1;min-width:160px;padding:7px 10px;font-size:13px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);color:var(--text)"></select>
+        <button class="btn btn-a btn-sm" id="cdAddBtn" onclick="cdAdd()">Add to timeline</button>
+      </div>
+      <div id="cdFormErr" style="font-size:12px;color:var(--red);margin-top:6px;min-height:16px"></div>
+    </div>
+
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:10px 0 2px;padding-top:12px;border-top:1px solid var(--border)">Timeline</div>
+    <div id="cdTimeline"></div>
   </div>
 </div>
 
@@ -9656,9 +9690,11 @@ function openProposal() {
     if (isCC) {
       set(rCC, big('#F26522')); set(rCash, cashSmall);
       rCash.parentNode.insertBefore(rCC, rCash);
+      rCC.style.display = '';
     } else {
       set(rCash, big('#16A34A')); set(rCC, small);
       rCC.parentNode.insertBefore(rCash, rCC);
+      rCC.style.display = 'none';   // v3.39.1 - cash / check estimate: no CC / Finance line
     }
   })();
 
@@ -12450,7 +12486,7 @@ function renderCRM() {
 
     return `<tr style="${rowStyle}" data-uid="${escHtml(c.uid || '')}">
       <td>
-        <div style="font-weight:700;font-size:13px;color:var(--navy)">${escHtml(c.name || '—')}</div>
+        <div style="font-weight:700;font-size:13px;color:var(--navy);cursor:pointer" title="Open timeline" onclick="openContactDetail('${escHtml(c.uid || '')}')">${escHtml(c.name || '—')}</div>
         ${estCount > 0 ? `<div style="font-size:10px;color:var(--text3)">${estCount} estimate${estCount>1?'s':''}</div>` : ''}
         ${propCount > 0 ? `<div style="font-size:10px;color:var(--blue);font-weight:600">🏢 ${propCount + 1} properties</div>` : ''}
         ${apptBadge}
@@ -12501,6 +12537,208 @@ function formatPhone(input) {
     input.value = '(' + digits;
   } else {
     input.value = '';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONTACT DETAIL + ACTIVITY TIMELINE  (v3.39.0)
+// Uses backend actions addActivity / getActivities / deleteActivity.
+// ═══════════════════════════════════════════════════════════════
+let _cd = { uid: '', type: 'note', items: [], count: 0, loading: false, err: '', confirmId: '', saving: false };
+let _cdSeq = 0;   // bumped every time the panel opens, so a slow reply for an earlier contact is ignored
+
+const CD_TYPE_LABEL = { note:'Note', call:'Call', text:'Text', email:'Email', meeting:'Meeting' };
+
+function cdIcon(type) {
+  const t = String(type || '');
+  if (t === 'note')    return '📝';
+  if (t === 'call')    return '📞';
+  if (t === 'text')    return '💬';
+  if (t === 'email' || t === 'email_sent') return '✉️';
+  if (t === 'meeting') return '🤝';
+  if (t === 'contact_created')     return '👤';
+  if (t.indexOf('appointment') === 0) return '📅';
+  if (t.indexOf('payment') === 0)  return '💵';
+  if (t.indexOf('proposal') === 0) return '📄';
+  if (t.indexOf('estimate') === 0) return '🧮';
+  return '🔹';
+}
+
+function cdTypeText(type) {
+  const t = String(type || '');
+  if (CD_TYPE_LABEL[t]) return CD_TYPE_LABEL[t];
+  const s = t.replace(/_/g, ' ').trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Activity';
+}
+
+function cdFmtWhen(raw) {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return String(raw);
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) + ', ' +
+         d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+}
+
+function openContactDetail(uid) {
+  const c = uid ? contacts.find(x => x.uid === uid) : null;
+  if (!c) { showToast('This contact has no ID yet, so its timeline cannot open.'); return; }
+  _cdSeq++;
+  _cd = { uid: c.uid, type: 'note', items: [], count: 0, loading: false, err: '', confirmId: '', saving: false };
+
+  document.getElementById('cdName').textContent = c.name || 'Contact';
+  const estList = jobs.filter(j =>
+    (j.contactUID && j.contactUID === c.uid) ||
+    (!j.contactUID && (j.custName || '').toLowerCase() === (c.name || '').toLowerCase()));
+  const metaBits = [];
+  if (c.phone) metaBits.push(escHtml(c.phone));
+  if (c.email) metaBits.push(escHtml(c.email));
+  const addr = [c.addr1, c.city].filter(Boolean).join(', ');
+  if (addr) metaBits.push(escHtml(addr));
+  metaBits.push(c.inactive ? 'Inactive' : 'Active');
+  if (estList.length) metaBits.push(estList.length + ' estimate' + (estList.length > 1 ? 's' : ''));
+  document.getElementById('cdMeta').innerHTML = metaBits.join(' &middot; ');
+
+  // Estimate dropdown (optional link)
+  const sel = document.getElementById('cdEstimate');
+  sel.innerHTML = '<option value="">Not linked to an estimate</option>' + estList
+    .filter(j => j.id)
+    .map(j => '<option value="' + escHtml(j.id) + '">' + escHtml(j.id) + (j.status ? ' (' + escHtml(j.status) + ')' : '') + '</option>')
+    .join('');
+
+  document.getElementById('cdSummary').value = '';
+  document.getElementById('cdFormErr').textContent = '';
+  cdPickType('note');
+  cdSetFormEnabled(!!settings.scriptUrl);
+
+  cdRenderTimeline();
+  openM('mContactDetail');
+  cdLoad();
+}
+
+function cdSetFormEnabled(on) {
+  ['cdSummary', 'cdEstimate', 'cdAddBtn'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !on; });
+  document.querySelectorAll('#cdTypeRow button').forEach(b => { b.disabled = !on; });
+}
+
+function cdPickType(t) {
+  _cd.type = t;
+  document.querySelectorAll('#cdTypeRow button').forEach(b => {
+    b.classList.toggle('btn-a', b.dataset.type === t);
+  });
+}
+
+async function cdLoad() {
+  const seq = _cdSeq, uid = _cd.uid;
+  if (!settings.scriptUrl) {
+    _cd.err = 'Not connected to the cloud. Set the script URL in Setup to use the timeline.';
+    _cd.loading = false;
+    cdRenderTimeline();
+    return;
+  }
+  _cd.loading = true; _cd.err = '';
+  cdRenderTimeline();
+  try {
+    const res = await cloudCall({ action: 'getActivities', data: { contactUID: uid, limit: 200 } });
+    if (seq !== _cdSeq) return;
+    if (res && res.error) throw new Error(res.error);
+    _cd.items = (res && res.activities) || [];
+    _cd.count = (res && res.count) || _cd.items.length;
+  } catch (e) {
+    if (seq !== _cdSeq) return;
+    _cd.err = 'Could not load the timeline: ' + (e && e.message ? e.message : e);
+  }
+  _cd.loading = false;
+  cdRenderTimeline();
+}
+
+function cdRenderTimeline() {
+  const box = document.getElementById('cdTimeline');
+  if (!box) return;
+  let html = '';
+  if (_cd.err) {
+    html += '<div style="background:var(--red-bg);color:var(--red);font-size:12px;padding:8px 10px;border-radius:var(--r);margin:8px 0">' + escHtml(_cd.err) +
+            (settings.scriptUrl ? ' <button class="btn btn-sm" style="margin-left:6px" onclick="cdLoad()">Retry</button>' : '') + '</div>';
+  }
+  if (_cd.loading && !_cd.items.length) {
+    html += '<div style="padding:18px 0;color:var(--text3);font-size:13px;text-align:center">Loading timeline...</div>';
+  } else if (!_cd.items.length && !_cd.err) {
+    html += '<div style="padding:18px 0;color:var(--text3);font-size:13px;text-align:center">Nothing logged yet. Add a note, call, text, email or meeting above.</div>';
+  }
+  html += _cd.items.map(a => {
+    const id = String(a.activityId || '');
+    const isManual = String(a.source || '').toLowerCase() === 'manual';
+    const srcBadge = isManual
+      ? '<span style="background:var(--blue-bg);color:var(--blue);font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px">You</span>'
+      : '<span style="background:var(--surface2);color:var(--text3);font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px">Auto</span>';
+    const estBadge = a.estimateId
+      ? '<span style="background:var(--orange-bg);color:var(--orange);font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px">' + escHtml(a.estimateId) + '</span>'
+      : '';
+    const action = (_cd.confirmId === id)
+      ? '<div style="font-size:11px;color:var(--text2);white-space:nowrap">Hide this entry?<br>' +
+        '<button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:var(--red);border-color:var(--red)" data-id="' + escHtml(id) + '" onclick="cdHide(this.dataset.id)">Yes, hide</button> ' +
+        '<button class="btn btn-sm" style="padding:2px 8px;font-size:11px" onclick="cdCancelHide()">No</button></div>'
+      : '<button class="btn btn-ghost btn-sm" style="font-size:11px" title="Hide this entry" data-id="' + escHtml(id) + '" onclick="cdAskHide(this.dataset.id)">Hide</button>';
+    return '<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">' +
+      '<div style="font-size:18px;line-height:1.2">' + cdIcon(a.type) + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px;color:var(--text3)">' +
+          '<strong style="color:var(--navy);font-size:12px">' + escHtml(cdTypeText(a.type)) + '</strong>' +
+          '<span>' + escHtml(cdFmtWhen(a.createdAt)) + '</span>' + srcBadge + estBadge +
+        '</div>' +
+        '<div style="font-size:13px;color:var(--text);margin-top:3px;white-space:pre-wrap;word-break:break-word">' + escHtml(a.summary || '') + '</div>' +
+      '</div>' +
+      '<div style="flex-shrink:0">' + action + '</div>' +
+    '</div>';
+  }).join('');
+  if (_cd.count > _cd.items.length) {
+    html += '<div style="padding:10px 0;font-size:11px;color:var(--text3);text-align:center">Showing the latest ' + _cd.items.length + ' of ' + _cd.count + ' entries.</div>';
+  }
+  box.innerHTML = html;
+}
+
+async function cdAdd() {
+  if (_cd.saving) return;
+  const seq = _cdSeq;
+  const ta = document.getElementById('cdSummary');
+  const errEl = document.getElementById('cdFormErr');
+  const btn = document.getElementById('cdAddBtn');
+  const summary = (ta.value || '').trim();
+  errEl.textContent = '';
+  if (!summary) { errEl.textContent = 'Type something first.'; return; }
+  if (!settings.scriptUrl) { errEl.textContent = 'Not connected to the cloud.'; return; }
+  _cd.saving = true;
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    const res = await cloudCall({ action: 'addActivity', data: {
+      contactUID: _cd.uid, type: _cd.type, summary,
+      estimateId: document.getElementById('cdEstimate').value || ''
+    }});
+    if (!res || res.error || !res.success) throw new Error((res && res.error) || 'Unexpected response from the server');
+    if (seq === _cdSeq) {
+      ta.value = '';
+      await cdLoad();
+    }
+    showToast('Added to timeline');
+  } catch (e) {
+    if (seq === _cdSeq) errEl.textContent = 'Not saved: ' + (e && e.message ? e.message : e);   // typed text stays in the box
+  } finally {
+    _cd.saving = false;
+    btn.disabled = !settings.scriptUrl; btn.textContent = 'Add to timeline';
+  }
+}
+
+function cdAskHide(id)  { _cd.confirmId = id; cdRenderTimeline(); }
+function cdCancelHide() { _cd.confirmId = ''; cdRenderTimeline(); }
+
+async function cdHide(id) {
+  const seq = _cdSeq;
+  try {
+    const res = await cloudCall({ action: 'deleteActivity', data: { activityId: id } });
+    if (!res || res.error || !res.success) throw new Error((res && res.error) || 'Unexpected response from the server');
+    if (seq === _cdSeq) { _cd.confirmId = ''; await cdLoad(); }
+  } catch (e) {
+    if (seq === _cdSeq) { _cd.confirmId = ''; cdRenderTimeline(); }
+    showToast('Could not hide entry: ' + (e && e.message ? e.message : e), 4000);
   }
 }
 
@@ -15326,6 +15564,7 @@ function showPropCombinedView() {
   const combCash  = propTabEstimates.reduce((s,e) => s+(e.calc_cash||0),0);
   const combFinalRnd = Math.ceil(combFinal/25)*25;
   const combCashRnd  = Math.ceil(combCash /25)*25;
+  const allCashCombo = propTabEstimates.length > 0 && propTabEstimates.every(_estIsCash);   // v3.39.1
 
   const scopeSections = propTabEstimates.map((est,i) => {
     const letter = (est.id||'').split('-')[2]||String.fromCharCode(65+i);
@@ -15393,14 +15632,17 @@ function showPropCombinedView() {
     <div style="display:flex;justify-content:flex-end;padding:12px 0 24px 0">
       <table style="width:300px;border-collapse:collapse">
         ${subtotals}
-        <tr style="border-top:2px solid #1B2B4B">
+        ${allCashCombo ? `<tr style="border-top:2px solid #1B2B4B">
+          <td style="padding:10px 14px 4px 0;font-size:14px;font-weight:800;color:#1B2B4B;text-align:right">Combined Cash / Check</td>
+          <td style="padding:10px 0 4px 0;font-size:20px;font-weight:900;color:#16A34A;text-align:right">$${Math.round(combCashRnd).toLocaleString()}</td>
+        </tr>` : `<tr style="border-top:2px solid #1B2B4B">
           <td style="padding:10px 14px 4px 0;font-size:14px;font-weight:800;color:#1B2B4B;text-align:right">Combined CC / Finance</td>
           <td style="padding:10px 0 4px 0;font-size:20px;font-weight:900;color:#F26522;text-align:right">$${Math.round(combFinalRnd).toLocaleString()}</td>
         </tr>
         <tr>
           <td style="padding:4px 14px 4px 0;font-size:12px;font-weight:700;color:#16A34A;text-align:right">Combined Cash / Check</td>
           <td style="padding:4px 0;font-size:15px;font-weight:700;color:#16A34A;text-align:right">$${Math.round(combCashRnd).toLocaleString()}</td>
-        </tr>
+        </tr>`}
       </table>
     </div>
     <div id="prop_combined_terms_box" style="background:#F7F8FA;border-left:3px solid #1B2B4B;border-radius:4px;padding:14px 18px;margin-bottom:20px">
@@ -16746,6 +16988,9 @@ function estSiteHtml(est, list, color, margin) {
   return `<div style="font-size:12px;color:#333;margin-bottom:${margin || 14}px"><span style="font-size:9px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.12em">Job Site</span><br><strong>${escHtml(line)}</strong></div>`;
 }
 
+// v3.39.1 - a Cash / Check estimate never prints a CC / Finance price
+function _estIsCash(est) { return String((est && est.payMethod) || 'CC').toUpperCase() === 'CASH'; }
+
 function buildMultiOptionTabs() {
   const tabsEl   = document.getElementById('mo_tabs');
   const panelsEl = document.getElementById('mo_panels');
@@ -16787,19 +17032,22 @@ function buildMultiOptionTabs() {
         <tbody><tr>
           <td style="padding:14px 16px;border-bottom:2px solid #E2E5EA;font-weight:700;color:#1B2B4B;font-size:13px">${escHtml(fence)}</td>
           <td style="padding:14px 16px;border-bottom:2px solid #E2E5EA;font-size:12px;color:#555">See scope of work above for project details. Cash Price requires client to advise prior to acceptance of proposal.</td>
-          <td style="padding:14px 16px;border-bottom:2px solid #E2E5EA;text-align:right;font-size:14px;font-weight:800;color:#1B2B4B">$${Math.round(final).toLocaleString()}</td>
+          <td style="padding:14px 16px;border-bottom:2px solid #E2E5EA;text-align:right;font-size:14px;font-weight:800;color:#1B2B4B">$${Math.round(_estIsCash(est) ? cash : final).toLocaleString()}</td>
         </tr></tbody>
       </table>
       <div style="display:flex;justify-content:flex-end;padding:12px 0 0 0">
         <table style="width:280px;border-collapse:collapse">
-          <tr style="border-top:2px solid #1B2B4B">
+          ${_estIsCash(est) ? `<tr style="border-top:2px solid #1B2B4B">
+            <td style="padding:10px 14px 4px 0;font-size:13px;font-weight:700;color:#1B2B4B;text-align:right">Cash / Check</td>
+            <td style="padding:10px 0 4px 0;font-size:18px;font-weight:900;color:#16A34A;text-align:right">$${Math.round(cash).toLocaleString()}</td>
+          </tr>` : `<tr style="border-top:2px solid #1B2B4B">
             <td style="padding:10px 14px 4px 0;font-size:13px;font-weight:700;color:#1B2B4B;text-align:right">CC / Finance</td>
             <td style="padding:10px 0 4px 0;font-size:18px;font-weight:900;color:#F26522;text-align:right">$${Math.round(final).toLocaleString()}</td>
           </tr>
           <tr>
             <td style="padding:4px 14px 4px 0;font-size:12px;font-weight:700;color:#16A34A;text-align:right">Cash / Check</td>
             <td style="padding:4px 0;font-size:14px;font-weight:700;color:#16A34A;text-align:right">$${Math.round(cash).toLocaleString()}</td>
-          </tr>
+          </tr>`}
 
         </table>
       </div>`;
@@ -16822,6 +17070,7 @@ function buildMultiOptionTabs() {
   const combLF    = moEstimates.reduce((s,e) => s + (e.totalLF||0), 0);
   const combFinalRnd = Math.ceil(combFinal / 25) * 25;
   const combCashRnd  = Math.ceil(combCash  / 25) * 25;
+  const allCashCombo = moEstimates.length > 0 && moEstimates.every(_estIsCash);   // v3.39.1
 
   // Scope sections — one per estimate, labeled
   const scopeSections = moEstimates.map((est, i) => {
@@ -16882,14 +17131,17 @@ function buildMultiOptionTabs() {
           const color  = colors[i]||'#555';
           return `<tr><td style="padding:3px 14px 3px 0;font-size:11px;color:#999;text-align:right">Option ${letter}</td><td style="padding:3px 0;font-size:11px;color:#666;text-align:right;font-weight:600">$${Math.round(final).toLocaleString()}</td></tr>`;
         }).join('')}
-        <tr style="border-top:2px solid #1B2B4B">
+        ${allCashCombo ? `<tr style="border-top:2px solid #1B2B4B">
+          <td style="padding:10px 14px 4px 0;font-size:14px;font-weight:800;color:#1B2B4B;text-align:right">Combined Cash / Check</td>
+          <td style="padding:10px 0 4px 0;font-size:20px;font-weight:900;color:#16A34A;text-align:right">$${Math.round(combCashRnd).toLocaleString()}</td>
+        </tr>` : `<tr style="border-top:2px solid #1B2B4B">
           <td style="padding:10px 14px 4px 0;font-size:14px;font-weight:800;color:#1B2B4B;text-align:right">Combined CC / Finance</td>
           <td style="padding:10px 0 4px 0;font-size:20px;font-weight:900;color:#F26522;text-align:right">$${Math.round(combFinalRnd).toLocaleString()}</td>
         </tr>
         <tr>
           <td style="padding:4px 14px 4px 0;font-size:12px;font-weight:700;color:#16A34A;text-align:right">Combined Cash / Check</td>
           <td style="padding:4px 0;font-size:15px;font-weight:700;color:#16A34A;text-align:right">$${Math.round(combCashRnd).toLocaleString()}</td>
-        </tr>
+        </tr>`}
 
       </table>
     </div>
