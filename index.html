@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.39.1</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.39.2</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -1461,7 +1461,7 @@ function applyTheme(raw) {
       <span id="franchLabel" style="color:var(--accent)">ON</span>
     </div>
     <button class="btn btn-sm" onclick="openAddContact()">👤 + Contact</button>
-    <button class="btn btn-sm" onclick="newEst()">+ New</button>
+    <button class="btn btn-sm" onclick="startNewEstimate()">+ New</button>
     <button class="btn btn-a btn-sm" onclick="saveJob()" id="saveBtn">💾 Save</button>
   </div>
 </header>
@@ -1525,10 +1525,11 @@ function applyTheme(raw) {
         <div style="font-size:9px;font-weight:700;color:var(--panel-ink-50);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Job # ★</div>
         <div style="display:flex;align-items:center;gap:10px">
           <input class="jobnum-input" id="jobPrefix" maxlength="6" placeholder="298"
-            oninput="assembleId()" type="text" inputmode="numeric" style="width:80px;font-size:20px;font-weight:700">
+            oninput="assembleId();jobNumCheck()" type="text" inputmode="numeric" style="width:80px;font-size:20px;font-weight:700">
           <div>
             <div style="font-size:13px;font-weight:600;color:var(--panel-ink);font-family:var(--mono)" id="estId">Enter job #</div>
             <div style="font-size:10px;color:var(--panel-ink-50);font-family:var(--mono);margin-top:1px" id="idAssembled"></div>
+            <div id="jobNumCheck" style="display:none;margin-top:4px;line-height:1.9"></div>
             <div id="estStamps" style="font-size:11px;color:var(--panel-ink-50);font-family:var(--mono);margin-top:3px;line-height:1.5"></div>
             <input type="hidden" id="jobNo">
             <input type="hidden" id="estContactUID">
@@ -2089,7 +2090,7 @@ function applyTheme(raw) {
   <div class="screen-header">
     <span class="screen-title">📋 Job Board</span>
     <span style="font-size:12px;color:var(--text3);font-weight:500" id="boardSum"></span>
-    <button class="btn btn-a btn-sm" style="margin-left:auto" onclick="newEst();show('est')">+ New Estimate</button>
+    <button class="btn btn-a btn-sm" style="margin-left:auto" onclick="show('est');startNewEstimate()">+ New Estimate</button>
     <button class="btn btn-sm" onclick="loadCloud()">↻ Refresh</button>
   </div>
   <div class="board-wrap" id="boardWrap"></div>
@@ -2259,6 +2260,25 @@ function applyTheme(raw) {
       <button class="btn" onclick="closeM('mAddCost')">Cancel</button>
       <button class="btn btn-a" onclick="saveJobCostEntry()">Save Expense</button>
     </div>
+  </div>
+</div>
+
+<!-- New Estimate: which job number series? (v3.39.2) -->
+<div class="moverlay hidden" id="mJobSource">
+  <div class="mbox" style="max-width:420px">
+    <div class="mtitle">New Estimate</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Where is this job coming from?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <button onclick="_jsChoose('lead')" style="padding:16px 10px;border:2px solid var(--border);border-radius:var(--r);background:var(--surface);cursor:pointer;text-align:center;font-family:inherit">
+        <div style="font-size:14px;font-weight:800;color:var(--navy)">My lead</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5">1000 series<br>next number is filled in</div>
+      </button>
+      <button onclick="_jsChoose('fc')" style="padding:16px 10px;border:2px solid var(--border);border-radius:var(--r);background:var(--surface);cursor:pointer;text-align:center;font-family:inherit">
+        <div style="font-size:14px;font-weight:800;color:var(--navy)">FenceCloud job</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5">3-digit number<br>you enter it</div>
+      </button>
+    </div>
+    <div style="text-align:right"><button class="btn btn-sm" onclick="_jsCancel()">Cancel</button></div>
   </div>
 </div>
 
@@ -8073,18 +8093,10 @@ function assembleId() {
 
       // Only auto-fill if this is a brand new estimate (not recalling an existing one)
       if (curIdx < 0) {
-        if (_autoFillPrefix !== prefix) {   // v3.26.2 - once per job number, not on every call
-          _autoFillPrefix = prefix;
-          const fields = ['custName','custPhone','custEmail','jobAddr','custZip',
-                          'custCity','custCounty','custChannel','custCampaign'];
-          fields.forEach(f => {
-            const el = document.getElementById(f);
-            if (el && latest[f]) el.value = latest[f];
-          });
-          if (latest.custZip) onZip();
-          if (latest.contactUID) document.getElementById('estContactUID').value = latest.contactUID;
-          refreshPropPicker();   // v3.26.0
-        }
+        // v3.39.2 - a NEW estimate can no longer take over an existing job number, so the old
+        // copy of the first estimate's customer and address fields is gone. Extra options are
+        // made with Duplicate / Add option (see jobNumAddOption), which copy the estimate itself.
+        _autoFillPrefix = prefix;
         // NOTE: do NOT set propStatus here — assembleId() only builds the ID string,
         // status is set by newEst() for new estimates and loadJobLocal() for existing ones
   const dpEl = document.getElementById('depositPct');
@@ -8095,10 +8107,10 @@ function assembleId() {
         // Show existing estimates for this job number
         const letters = existing.map(j => (j.id||'').split('-')[2] || '?').filter(Boolean).join(', ');
         const nextLetter = String.fromCharCode(65 + existing.length);
-        status('⚠ Job #' + prefix + ' already has ' + existing.length + ' estimate(s): ' + letters + ' — this will be Estimate ' + nextLetter);
+        status('⛔ Job #' + prefix + ' already exists (' + letters + ') — open it, add an option, or pick another number');
       }
     } else if (curIdx < 0) {
-      status('✓ Job #' + prefix + ' is new — will be Estimate A');
+      status('Job #' + prefix + ' has no estimates on this device yet — check the badge under the Job # box');
     }
 
     const updatedName = (val('custName') || '[Name]').split(' ')[0];
@@ -8842,6 +8854,15 @@ async function _saveJobCore(isQueuedRerun) {
     return;
   }
 
+  // v3.39.2 - a brand-new job may not reuse a job number that already exists.
+  // Checked here, before anything is written (no contact created, no local save).
+  const isNewJobSave = (curIdx < 0) && !data.id;
+  if (isNewJobSave) {
+    const okToSave = await _guardNewJobNumber((data.jobPrefix || '').trim());
+    if (!okToSave) return;
+  }
+  data.newJob = isNewJobSave;   // tells the backend to refuse an existing number
+
   // ── Demo LF confirm — warn on 0 or mismatch vs totalLF, but ONLY while
   // still Draft/Committed. Once a job is Accepted, the LF numbers are
   // locked in and saveJob() gets called internally from all over the app
@@ -9020,6 +9041,18 @@ async function _saveJobCore(isQueuedRerun) {
         ? '✓ Saved — Estimate ' + res.assignedLetter + ' · ' + newEstimateId
         : '✓ Synced to Sheets';
       showToast(saveMsg);
+    } else if (res && res.code === 'JOB_EXISTS' && data.newJob === true) {
+      // v3.39.2 - the cloud refused: the job number is already taken. Take back the local copy
+      // that was just added so nothing phantom is left behind, and keep the form for editing.
+      if (curIdx >= 0 && jobs[curIdx] && !jobs[curIdx].id) {
+        jobs.splice(curIdx, 1);
+        curIdx = -1;
+        persistJobs();
+        renderBoard(); renderEstList(); renderJobsList(); updateBadge(); renderSiblingPills();
+      }
+      setCloud('', '⛔ Not saved — job # already exists');
+      _jobNumBlockedAlert((data.jobPrefix || '').trim(), res.estimates || [], res.customers || []);
+      jobNumCheck();
     } else {
       const errMsg = res.error || 'Unknown error';
       setCloud('', '✗ Sync failed — saved locally');
@@ -12742,6 +12775,190 @@ async function cdHide(id) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// JOB NUMBER GUARD + NEW ESTIMATE PROMPT  (v3.39.2)
+// 1000 series = your own leads (next number is filled in).
+// 3 digits   = FenceCloud jobs (you enter the number).
+// A new job can never reuse an existing number; extra options come from Duplicate / Add option.
+// ═══════════════════════════════════════════════════════════════
+let _jobNumSeq = 0, _jobNumTimer = null;
+let _jobNumState = { prefix: '', status: '' };
+let _jsAfter = null;
+
+function _jobsUsing(prefix) {
+  prefix = String(prefix || '').trim();
+  if (!prefix) return [];
+  return jobs.filter(j => {
+    const jp  = String(j.jobPrefix || '').trim();
+    const idp = String(j.id        || '').split('-')[0].trim();
+    return jp === prefix || idp === prefix;
+  });
+}
+
+function _jobNames(list) {
+  const out = [];
+  list.forEach(j => { const n = String(j.custName || '').trim(); if (n && out.indexOf(n) < 0) out.push(n); });
+  return out;
+}
+
+// Highest 4-digit job number on this device + 1 (used only when the cloud cannot answer)
+function _localNextLeadNumber() {
+  let max = 999;
+  jobs.forEach(j => {
+    [j.jobPrefix, String(j.id || '').split('-')[0]].forEach(v => {
+      const m = String(v || '').trim().match(/^(\d+)/);
+      if (m && m[1].length === 4) { const n = parseInt(m[1], 10); if (n > max) max = n; }
+    });
+  });
+  return String(max + 1);
+}
+
+// ── Prompt shown when a NEW estimate is started on purpose ───────
+function startNewEstimate(after) {
+  _jsAfter = (typeof after === 'function') ? after : null;
+  openM('mJobSource');
+}
+function _jsCancel() { closeM('mJobSource'); _jsAfter = null; }
+
+async function _jsChoose(kind) {
+  closeM('mJobSource');
+  const after = _jsAfter; _jsAfter = null;
+  newEst();
+  if (after) after();
+  const el = document.getElementById('jobPrefix');
+  if (!el) return;
+  if (kind === 'fc') {
+    el.value = '';
+    assembleId(); jobNumCheck();
+    el.focus();
+    if (!after) status('FenceCloud job: enter the 3-digit job number');
+    return;
+  }
+  // My lead: ask the cloud for the next free 1000-series number, fall back to this device's list
+  let next = '';
+  if (settings.scriptUrl) {
+    if (!after) status('Getting the next job number...');
+    try {
+      const r = await cloudCall({ action: 'getNextJobNumber', data: {} });
+      if (r && r.next) next = String(r.next);
+    } catch (e) { /* fall back below */ }
+  }
+  if (!next) next = _localNextLeadNumber();
+  if (curIdx < 0 && !el.value.trim()) {   // the user may already have typed something while we waited
+    el.value = next;
+    assembleId(); jobNumCheck();
+    if (!after) status('Job #' + next + ' filled in. You can type over it.');
+  }
+}
+
+// ── Live check under the Job # box (new estimates only) ──────────
+function _jobNumBanner(text, bg, extraHtml) {
+  const el = document.getElementById('jobNumCheck');
+  if (!el) return;
+  if (!text) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+  el.innerHTML = '<span style="display:inline-block;background:' + bg + ';color:#fff;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700">' + text + '</span>' + (extraHtml || '');
+}
+
+function _jobNumTaken(prefix, ids, names) {
+  _jobNumState = { prefix: prefix, status: 'taken' };
+  const who = (names && names.length) ? ' by ' + escHtml(names.join(', ')) : '';
+  _jobNumBanner('⛔ Job # ' + escHtml(prefix) + ' is already used' + who, '#B91C1C',
+    ' <button class="btn btn-sm" style="padding:2px 9px;font-size:11px" onclick="jobNumOpen()">Open it</button>' +
+    ' <button class="btn btn-sm" style="padding:2px 9px;font-size:11px" onclick="jobNumAddOption()">Add option</button>');
+}
+
+function jobNumCheck() {
+  clearTimeout(_jobNumTimer);
+  const seq = ++_jobNumSeq;
+  const el = document.getElementById('jobPrefix');
+  if (!el) return;
+  const prefix = el.value.trim();
+  _jobNumState = { prefix: prefix, status: '' };
+  if (curIdx >= 0 || prefix.length < 3) { _jobNumBanner(''); return; }   // new estimates only
+
+  const local = _jobsUsing(prefix);
+  if (local.length) { _jobNumTaken(prefix, local.map(j => j.id), _jobNames(local)); return; }
+
+  if (!settings.scriptUrl) {
+    _jobNumState.status = 'free-local';
+    _jobNumBanner('Job # ' + escHtml(prefix) + ' is not used on this device (cloud not connected)', '#B45309');
+    return;
+  }
+  _jobNumBanner('Checking Job # ' + escHtml(prefix) + '...', '#6B7280');
+  _jobNumTimer = setTimeout(async () => {
+    try {
+      const r = await cloudCall({ action: 'checkJobNumber', data: { jobPrefix: prefix } });
+      if (seq !== _jobNumSeq || curIdx >= 0) return;
+      if (r && r.error) throw new Error(r.error);
+      if (r && r.available) {
+        _jobNumState.status = 'free';
+        _jobNumBanner('✓ Job # ' + escHtml(prefix) + ' is available', '#16A34A');
+      } else {
+        _jobNumTaken(prefix, (r && r.estimates) || [], (r && r.customers) || []);
+      }
+    } catch (e) {
+      if (seq !== _jobNumSeq) return;
+      _jobNumState.status = 'unknown';
+      _jobNumBanner('Could not confirm Job # ' + escHtml(prefix) + ' is free (offline or backend not updated)', '#B45309');
+    }
+  }, 350);
+}
+
+function _jobNumLatestIdx(prefix) {
+  const list = _jobsUsing(prefix);
+  if (!list.length) return -1;
+  list.sort((a, b) => new Date(b.savedAt || 0) - new Date(a.savedAt || 0));
+  return jobs.indexOf(list[0]);
+}
+
+function jobNumOpen() {
+  const idx = _jobNumLatestIdx(_jobNumState.prefix);
+  if (idx < 0) { alert('That job is not loaded on this device yet. Refresh your data from the cloud, then try again.'); return; }
+  curIdx = -1;
+  loadJobLocal(idx);
+}
+
+function jobNumAddOption() {
+  const idx = _jobNumLatestIdx(_jobNumState.prefix);
+  if (idx < 0) { alert('That job is not loaded on this device yet. Refresh your data from the cloud, then try again.'); return; }
+  curIdx = -1;
+  loadJobLocal(idx);
+  duplicateEstimate();   // same Duplicate button: next letter, fresh pricing copy
+}
+
+function _jobNumBlockedAlert(prefix, ids, names) {
+  alert('Job # ' + prefix + ' already exists' + (names && names.length ? ' (' + names.join(', ') + ')' : '') +
+    (ids && ids.length ? '\nEstimates: ' + ids.join(', ') : '') +
+    '\n\nNothing was saved. A new job cannot reuse a job number.\n' +
+    'To add another option to that job, open it and use Duplicate (or the Add option button next to the Job # box).\n' +
+    'Otherwise pick a different job number.');
+}
+
+// Runs at the start of every save of a brand-new job. true = OK to save.
+async function _guardNewJobNumber(prefix) {
+  const local = _jobsUsing(prefix);
+  if (local.length) {
+    _jobNumBlockedAlert(prefix, local.map(j => j.id), _jobNames(local));
+    jobNumCheck();
+    return false;
+  }
+  if (!settings.scriptUrl) return true;   // cloud not connected: this device is all we can check
+  try {
+    const r = await cloudCall({ action: 'checkJobNumber', data: { jobPrefix: prefix } });
+    if (r && r.error) throw new Error(r.error);
+    if (r && r.available === false) {
+      _jobNumBlockedAlert(prefix, r.estimates || [], r.customers || []);
+      jobNumCheck();
+      return false;
+    }
+    return true;
+  } catch (e) {
+    return confirm('⚠ Could not reach the cloud to confirm Job # ' + prefix + ' is not already in use.\n\n' +
+      'OK = Save on this device anyway\nCancel = Do not save yet');
+  }
+}
+
 function openAddContact() {
   document.getElementById('contactModalTitle').textContent = 'Add New Contact';
   document.getElementById('con_uid').value      = '';
@@ -13196,8 +13413,8 @@ function crmStartEstimate(uid) {
   const c = contacts.find(x => x.uid === uid);
   if (!c) return;
 
-  // Switch to estimator and pre-fill
-  newEst();
+  // v3.39.2 - ask which job number series first, then reset the form and pre-fill
+  startNewEstimate(function () {
   show('est');
 
   // Fill all contact fields
@@ -13227,7 +13444,8 @@ function crmStartEstimate(uid) {
 
   assembleId();
   refreshPropPicker();   // v3.26.0
-  status('Pre-filled from CRM: ' + c.name + ' — enter job # to begin');
+  status('Pre-filled from CRM: ' + c.name);
+  });   // end startNewEstimate callback
 }
 
 // v3.21.0 — Schedule an estimate (site visit) appointment straight from a
