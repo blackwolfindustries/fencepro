@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.39.2</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.39.3</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -16307,7 +16307,7 @@ function clientProceedText(job) {
   return `Once accepted, a payment link will be sent to collect the ${lbl}. Balance is due upon job completion.`;
 }
 function buildProposalEmailHtml(opts) {
-  // opts: { custFirst, custName, ccPrice, cashPrice, proposalUrl, company, phone, fenceType, jobAddr, scopeNotes }
+  // opts: { custFirst, custName, ccPrice, cashPrice, proposalUrl, company, phone, fenceType, jobAddr, scopeNotes }  (fenceType, jobAddr and scopeNotes are no longer printed, v3.39.3)
   const tokens = {
     firstName: opts.custFirst || '',
     fullName:  opts.custName  || '',
@@ -16319,7 +16319,6 @@ function buildProposalEmailHtml(opts) {
   const greeting  = resolveTokens(emailTmplVal('email_greeting'),  tokens).replace(/\n/g,'<br>');
   const closing   = resolveTokens(emailTmplVal('email_closing'),   tokens).replace(/\n/g,'<br>');
   const signature = resolveTokens(emailTmplVal('email_signature'), tokens).replace(/\n/g,'<br>');
-  const scopeLine = opts.scopeNotes ? `<p style="margin:0 0 16px;font-size:13px;color:#555;line-height:1.7;white-space:pre-wrap">${escHtml(opts.scopeNotes)}</p>` : '';
 
   // v3.31.4 - Customer email, patriotic theme (navy, red, white). No logo image:
   // the brand shows as the company name, address and phone in the header. The
@@ -16327,13 +16326,8 @@ function buildProposalEmailHtml(opts) {
   // address never shows. Table layout with inline styles only, so it holds up in
   // Gmail and Outlook.
   const addrPhone = [opts.companyAddr, opts.phone].filter(Boolean).map(escHtml).join(' &nbsp;|&nbsp; ');
-  const projectBlock = opts.fenceType
-    ? `<p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#0a2342">Project</p>
-    <p style="margin:0 0 22px;font-size:15px;font-weight:700;line-height:1.5;color:#222222">${escHtml(opts.fenceType)}${opts.jobAddr ? ' &nbsp;|&nbsp; ' + escHtml(opts.jobAddr) : ''}</p>`
-    : '';
-  const scopeBlock = opts.scopeNotes
-    ? `<p style="margin:0 0 22px;font-size:14px;line-height:1.6;color:#444444;white-space:pre-wrap">${escHtml(opts.scopeNotes)}</p>`
-    : '';
+  // v3.39.3 - the email no longer shows the Project line or the scope of work.
+  // The description is controlled on the proposal itself, not in the email.
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Your Fence Estimate</title></head>
@@ -16359,9 +16353,6 @@ function buildProposalEmailHtml(opts) {
   <!-- Body -->
   <tr><td style="padding:32px 36px 12px">
     <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#222222">${greeting}</p>
-
-    ${projectBlock}
-    ${scopeBlock}
 
     <!-- Prices -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;background:#f6f7fa;border:1px solid #c9ced8">
