@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.39.3</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.39.4</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -2681,7 +2681,7 @@ function applyTheme(raw) {
       <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
         <button class="btn btn-g" style="flex:1;justify-content:center" onclick="openMultiOptionProposal()">📄 Multi-Option Proposal</button>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;font-size:12px;color:var(--text2);white-space:nowrap;user-select:none"
-          title="Uncheck to hide the Combined tab from the multi-option proposal">
+          title="Uncheck to leave the Combined total section off the multi-option proposal">
           <input type="checkbox" id="showCombinedTab" checked onchange="onCombinedToggle()"
             style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)">
           Show Combined
@@ -4527,7 +4527,7 @@ function applyTheme(raw) {
         </div>
 
         <!-- Option Tabs -->
-        <div id="mo_tabs" style="display:flex;gap:0;margin-bottom:0;border-bottom:2px solid #1B2B4B"></div>
+        <div id="mo_tabs" style="display:none"></div>   <!-- v3.39.4 - no tabs: every option is shown one after another -->
         <div id="mo_panels"></div>
 
         <!-- How to Proceed -->
@@ -17200,6 +17200,9 @@ function estSiteHtml(est, list, color, margin) {
 // v3.39.1 - a Cash / Check estimate never prints a CC / Finance price
 function _estIsCash(est) { return String((est && est.payMethod) || 'CC').toUpperCase() === 'CASH'; }
 
+// v3.39.4 - the multi-option proposal is one document: every option one after
+// another (A, then B, then C), then the Combined total at the bottom when
+// Show Combined is on. No tabs, so the screen and the saved PDF match.
 function buildMultiOptionTabs() {
   const tabsEl   = document.getElementById('mo_tabs');
   const panelsEl = document.getElementById('mo_panels');
@@ -17217,17 +17220,14 @@ function buildMultiOptionTabs() {
     const scope  = est.scopeNotes || '';
     const fence  = est.fenceType || 'Fence Installation';
 
-    const tab       = document.createElement('button');
-    tab.id          = 'mo_tab_' + i;
-    tab.textContent = 'Option ' + letter;
-    tab.onclick     = () => switchMultiTab(i);
-    tab.style.cssText = `padding:10px 24px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;border:none;border-bottom:3px solid ${i===0?color:'transparent'};background:transparent;color:${i===0?color:'var(--text3)'};transition:all .15s`;
-    tabsEl.appendChild(tab);
-
     const panel     = document.createElement('div');
     panel.id        = 'mo_panel_' + i;
-    panel.style.cssText = 'display:' + (i===0?'block':'none') + ';padding:20px 0';
+    panel.style.cssText = 'display:block;padding:' + (i===0 ? '24px' : '30px') + ' 0 6px';
     panel.innerHTML = `
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:2px solid ${color};padding-bottom:6px;margin-bottom:14px">
+        <span style="font-size:15px;font-weight:900;color:${color};text-transform:uppercase;letter-spacing:.06em">Option ${letter}</span>
+        <span style="font-size:12px;font-weight:700;color:#1B2B4B;text-align:right">${escHtml(fence)}</span>
+      </div>
       ${estSiteHtml(est, moEstimates, color)}<div style="margin-bottom:20px;background:#F7F8FA;border-radius:4px;padding:16px 18px;border-left:3px solid ${color}">
         <div style="font-size:9px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px">Scope of Work — Option ${letter}</div>
         <div style="font-size:12px;color:#333;line-height:1.7;white-space:pre-wrap">${escHtml(scope) || 'See attached for scope details.'}</div>
@@ -17263,15 +17263,9 @@ function buildMultiOptionTabs() {
     panelsEl.appendChild(panel);
   });
 
-  // ── COMBINED TAB — only if toggle is on ─────────────────────
+  // ── COMBINED TOTAL — last section, only if Show Combined is on ──
   if (showCombinedTab()) {
   const combColor  = '#6D28D9'; // purple — distinct from option colors
-  const combTab    = document.createElement('button');
-  combTab.id       = 'mo_tab_combined';
-  combTab.innerHTML = '⊕ Combined';
-  combTab.onclick  = () => switchMultiTab('combined');
-  combTab.style.cssText = `padding:10px 24px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;border:none;border-bottom:3px solid transparent;background:transparent;color:var(--text3);transition:all .15s;margin-left:auto`;
-  tabsEl.appendChild(combTab);
 
   // Build combined panel content
   const combFinal = moEstimates.reduce((s,e) => s + (e.calc_final||0), 0);
@@ -17281,23 +17275,11 @@ function buildMultiOptionTabs() {
   const combCashRnd  = Math.ceil(combCash  / 25) * 25;
   const allCashCombo = moEstimates.length > 0 && moEstimates.every(_estIsCash);   // v3.39.1
 
-  // Scope sections — one per estimate, labeled
-  const scopeSections = moEstimates.map((est, i) => {
-    const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
-    const color  = colors[i] || '#555';
-    const scope  = est.scopeNotes || '';
-    return `
-      <div style="margin-bottom:12px;background:#F7F8FA;border-radius:4px;padding:14px 18px;border-left:3px solid ${color}">
-        <div style="font-size:9px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Option ${letter} — ${escHtml(est.fenceType||'')}</div>${estSiteHtml(est, moEstimates, color, 8)}
-        <div style="font-size:12px;color:#333;line-height:1.7;white-space:pre-wrap">${escHtml(scope)||'See scope details.'}</div>
-      </div>`;
-  }).join('');
-
   // Line items — one row per estimate
   const lineRows = moEstimates.map((est, i) => {
     const letter = (est.id||'').split('-')[2] || String.fromCharCode(65+i);
     const color  = colors[i] || '#555';
-    const final  = est.calc_final||0;
+    const final  = allCashCombo ? (est.calc_cash||0) : (est.calc_final||0);   // v3.39.4
     const fence  = est.fenceType||'Fence Installation';
     return `<tr>
       <td style="padding:12px 16px;border-bottom:1px solid #E2E5EA;vertical-align:top">
@@ -17311,12 +17293,11 @@ function buildMultiOptionTabs() {
 
   const combPanel     = document.createElement('div');
   combPanel.id        = 'mo_panel_combined';
-  combPanel.style.cssText = 'display:none;padding:20px 0';
+  combPanel.style.cssText = 'display:block;padding:26px 0 8px;margin-top:26px;border-top:3px solid #1B2B4B';
   combPanel.innerHTML = `
-    <!-- Combined scope sections -->
-    <div style="margin-bottom:20px">
-      <div style="font-size:9px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px">Scope of Work</div>
-      ${scopeSections}
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:2px solid ${combColor};padding-bottom:6px;margin-bottom:14px">
+      <span style="font-size:15px;font-weight:900;color:${combColor};text-transform:uppercase;letter-spacing:.06em">Combined Total</span>
+      <span style="font-size:12px;font-weight:700;color:#1B2B4B">All options together</span>
     </div>
 
     <!-- Line items table — one row per estimate -->
@@ -17336,7 +17317,7 @@ function buildMultiOptionTabs() {
       <table style="width:300px;border-collapse:collapse">
         ${moEstimates.map((est,i) => {
           const letter = (est.id||'').split('-')[2]||String.fromCharCode(65+i);
-          const final  = est.calc_final||0;
+          const final  = allCashCombo ? (est.calc_cash||0) : (est.calc_final||0);   // v3.39.4
           const color  = colors[i]||'#555';
           return `<tr><td style="padding:3px 14px 3px 0;font-size:11px;color:#999;text-align:right">Option ${letter}</td><td style="padding:3px 0;font-size:11px;color:#666;text-align:right;font-weight:600">$${Math.round(final).toLocaleString()}</td></tr>`;
         }).join('')}
@@ -17356,51 +17337,27 @@ function buildMultiOptionTabs() {
     </div>
 
     <div style="margin-top:16px;padding:10px 14px;background:#F3F0FF;border-radius:4px;border-left:3px solid ${combColor};font-size:11px;color:#555">
-      Combined price reflects both scopes of work performed together. Individual option pricing available on the Option A / Option B tabs.
+      Combined price reflects all of the selected options performed together. Individual option pricing is shown above.
     </div>`;
   panelsEl.appendChild(combPanel);
   } // end if showCombinedTab
 }
 
-function switchMultiTab(activeIdx) {
-  const colors   = ['#F26522','#1B2B4B','#16A34A'];
-  const combColor = '#6D28D9';
-
-  // Individual tabs
-  moEstimates.forEach((_, i) => {
-    const tab   = document.getElementById('mo_tab_'   + i);
-    const panel = document.getElementById('mo_panel_' + i);
-    const color = colors[i] || '#555';
-    if (tab) {
-      tab.style.color             = i===activeIdx ? color : 'var(--text3)';
-      tab.style.borderBottomColor = i===activeIdx ? color : 'transparent';
-    }
-    if (panel) panel.style.display = i===activeIdx ? 'block' : 'none';
-  });
-
-  // Combined tab
-  const combTab   = document.getElementById('mo_tab_combined');
-  const combPanel = document.getElementById('mo_panel_combined');
-  if (combTab) {
-    combTab.style.color             = activeIdx==='combined' ? combColor : 'var(--text3)';
-    combTab.style.borderBottomColor = activeIdx==='combined' ? combColor : 'transparent';
-  }
-  if (combPanel) combPanel.style.display = activeIdx==='combined' ? 'block' : 'none';
+// v3.39.4 - there are no tabs any more. Kept so the Proposal picker's
+// "Combined Total" preview still works: it just scrolls down to that section.
+function switchMultiTab(which) {
+  const el = which === 'combined' ? document.getElementById('mo_panel_combined') : document.getElementById('mo_panel_' + which);
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
 }
 
-// Multi-option proposal: prints the option (or the Combined tab) that is showing
+// Multi-option proposal: prints the whole document, every option and the Combined total (v3.39.4)
 async function saveMultiProposalPDF() {
   const srcEl = document.getElementById('multiProposalDoc');
   if (!srcEl) { alert('No proposal visible to save.'); return; }
   const first = moEstimates?.[0] || {};
   const jobId = (first.id || '').split('-')[0] || 'Proposal';
   const name  = (first.custName || 'Customer').split(' ')[0];
-  const combPanel  = document.getElementById('mo_panel_combined');
-  const isCombined = !!(combPanel && combPanel.style.display !== 'none');
-  const title = isCombined ? `${jobId}-${name}-Combined-Proposal` : `${jobId}-${name}-Multi-Option-Proposal`;
-  await printDocument(srcEl, { title, prepare: clone => {
-    const tabs = clone.querySelector('#mo_tabs'); if (tabs) tabs.remove();
-  } });
+  await printDocument(srcEl, { title: `${jobId}-${name}-Multi-Option-Proposal` });
 }
 
 // The estimator screen's Print button. It used to print the internal working
