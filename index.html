@@ -1420,7 +1420,7 @@ function applyTheme(raw) {
         <rect x="5" y="4" width="2" height="16" rx="1"/><rect x="17" y="4" width="2" height="16" rx="1"/>
       </svg>
     </div>
-    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.39.4</span>
+    FencePro <span id="appVersionStamp" style="font-size:14px;font-weight:700;color:#fff;opacity:1;letter-spacing:.04em;vertical-align:middle;margin-left:8px;text-shadow:0 0 1px rgba(0,0,0,.4)">v3.39.6</span>
   </div>
   <nav class="nav-tabs">
     <button class="nav-tab active" onclick="show('est')">Estimator</button>
@@ -5226,6 +5226,19 @@ function applyTheme(raw) {
       <button class="btn" onclick="closeM('mBomForm')">Close</button>
       <button class="btn" onclick="bomEmailOpen()">Email Supplier</button>
       <button class="btn btn-primary" onclick="bomPrintForm()">Print / Save as PDF</button>
+    </div>
+  </div>
+</div>
+<div class="moverlay hidden" id="mBomPrice">
+  <div class="mbox" style="max-width:460px">
+    <div class="mtitle">Update the catalog price?</div>
+    <div id="bpMsgTop" style="font-size:13px;line-height:1.6;margin-bottom:6px"></div>
+    <div class="vp-hint" style="margin-bottom:12px">"This bill only" keeps the catalog as it is. Bills you already saved are never changed by a catalog update.</div>
+    <div id="bpErr" style="display:none;color:var(--red);font-weight:700;font-size:12px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn" id="bpUndo" onclick="bomPriceChoose('undo')">Undo change</button>
+      <button class="btn" id="bpBill" onclick="bomPriceChoose('bill')">This bill only</button>
+      <button class="btn btn-primary" id="bpCat" onclick="bomPriceChoose('catalog')">Update catalog and bill</button>
     </div>
   </div>
 </div>
@@ -20811,6 +20824,7 @@ function renderPerfTable(months, byMonth) {
 let vParts = [];
 let vpLoaded = false, vpLoading = false, vpLastLoad = 0;
 let vpEditId = '';
+let vpAfterSaveToBom = false;   // v3.39.6 - set when Add Part was opened from the Bill of Materials search
 let vpShown = 200;
 let bomList = [], bomListLoaded = false;
 let bomSortState = {};   // vendor -> { key, dir }, only used to show the arrow on the last sort
@@ -20965,7 +20979,7 @@ function vpReadForm() {
 }
 
 function vpOpenAdd(prefill) {
-  vpEditId = ''; vpClearErr();
+  vpEditId = ''; vpAfterSaveToBom = false; vpClearErr();
   vpEl('vpModalTitle').textContent = 'Add Part';
   vpFillForm(prefill || null);
   vpEl('vp_toggle').style.display = 'none';
@@ -20975,7 +20989,7 @@ function vpOpenAdd(prefill) {
 }
 function vpOpenEdit(id) {
   const p = vParts.find(x => x.partId === id); if (!p) return;
-  vpEditId = id; vpClearErr();
+  vpEditId = id; vpAfterSaveToBom = false; vpClearErr();
   vpEl('vpModalTitle').textContent = 'Edit Part ' + p.partId;
   vpFillForm(p);
   const t = vpEl('vp_toggle'); t.style.display = '';
@@ -21029,6 +21043,7 @@ async function vpSave(addAnother) {
       showToast('Saved ' + res.part.partNumber + '. Ready for the next part.');
     } else {
       closeM('mVPart'); showToast('Saved ' + res.part.partNumber);
+      if (vpAfterSaveToBom && !vpEditId) { vpAfterSaveToBom = false; bomAddPart(res.part.partId); }
     }
   } catch (e) {
     vpShowErr(e.message, e.res && e.res.duplicate ? ['vp_pn'] : []);
@@ -21250,6 +21265,8 @@ function bomLineFlag(l) {
   if (!vParts.length) return '';
   if (!p) return 'Not in catalog';
   if (!p.active) return 'Part is inactive';
+  // v3.39.5 - a price you set on purpose for this bill only is not a catalog mismatch
+  if (l.priceOverride && p.unitDivisor === l.unitDivisor && p.roundingQty === l.roundingQty) return Math.abs(p.price - l.price) > 1e-9 ? 'Price set on this bill (catalog ' + vpMoney(p.price) + ')' : '';
   if (Math.abs(p.price - l.price) > 1e-9 || p.unitDivisor !== l.unitDivisor || p.roundingQty !== l.roundingQty) return 'Catalog now ' + vpMoney(p.price);
   return '';
 }
@@ -21282,12 +21299,26 @@ function bomSearchHits() {
 function bomSearchRun() {
   const box = vpEl('bomResults'); const hits = bomSearchHits();
   if (!val('bomSearch').trim()) { box.style.display = 'none'; return; }
-  if (!hits.length) { box.innerHTML = '<div class="vp-res" style="cursor:default"><span class="vp-rd">No active parts match.</span></div>'; box.style.display = 'block'; return; }
+  // v3.39.6 - a part that is not in the catalog can be added right here
+  const qq = val('bomSearch').trim();
+  const addRow = '<div class="vp-res" onclick="bomAddNewPart()"><b>+ Add &ldquo;' + vpEsc(qq) + '&rdquo; as a new part</b><span class="vp-rd">Opens the Add Part form. It is saved to the catalog and put on this bill.</span></div>';
+  if (!hits.length) { box.innerHTML = '<div class="vp-res" style="cursor:default"><span class="vp-rd">No active parts match.</span></div>' + addRow; box.style.display = 'block'; return; }
   box.innerHTML = hits.slice(0, 8).map(p =>
     '<div class="vp-res" onclick="bomAddPart(\'' + vpEsc(p.partId) + '\')"><b>' + vpEsc(p.partNumber) + '</b><span class="vp-rd">' + vpEsc(p.description) +
     (p.color ? ' (' + vpEsc(p.color) + ')' : '') + '</span><span class="vp-rv">' + vpEsc(p.vendor) + ' &middot; ' + vpMoney(p.price) + '</span></div>').join('') +
-    (hits.length > 8 ? '<div class="vp-res" style="cursor:default;color:var(--text3)">' + (hits.length - 8) + ' more. Keep typing to narrow.</div>' : '');
+    (hits.length > 8 ? '<div class="vp-res" style="cursor:default;color:var(--text3)">' + (hits.length - 8) + ' more. Keep typing to narrow.</div>' : '') +
+    (hits.some(p => p.partNumber.toLowerCase() === qq.toLowerCase()) ? '' : addRow);
   box.style.display = 'block';
+}
+// v3.39.6 - open the normal Add Part form from the bill, with what you typed as the part number.
+// After it saves, the new part goes on this bill with a quantity of 1.
+function bomAddNewPart() {
+  const text = val('bomSearch').trim(); if (!text) return;
+  vpEl('bomResults').style.display = 'none';
+  vpOpenAdd({ partNumber: text });
+  vpAfterSaveToBom = true;                       // set after vpOpenAdd, which clears it
+  vpEl('vp_addAnother').style.display = 'none';
+  vpEl('vpModalTitle').textContent = 'Add Part (it will be put on this bill)';
 }
 function bomSearchKey(e) {
   if (e.key === 'Escape') { vpEl('bomResults').style.display = 'none'; return; }
@@ -21297,7 +21328,7 @@ function bomSearchKey(e) {
   const exact = hits.filter(p => p.partNumber.toLowerCase() === q);
   if (exact.length === 1) bomAddPart(exact[0].partId);
   else if (hits.length === 1) bomAddPart(hits[0].partId);
-  else if (!hits.length) showToast('No active part matches that.');
+  else if (!hits.length) bomAddNewPart();
   else showToast('Several parts match. Click the one you want.');
 }
 document.addEventListener('click', (e) => {
@@ -21307,6 +21338,64 @@ document.addEventListener('click', (e) => {
 function bomQtyInput(i, v) {
   const l = bomState.lines[i]; if (!l) return;
   l.qty = parseFloat(v) || 0; bomState.dirty = true; bomRecalc();
+}
+// v3.39.5 - edit a line's price right on the bill.
+// The totals follow as you type. When you finish, a box asks whether the catalog
+// (the Vendor_Parts database) should get the new price too.
+let bomPriceOld = null;      // { i, price, flag } captured when the field gets focus
+let bomPricePending = null;  // { i, oldPrice, oldFlag, newPrice } while the question box is open
+function bomPriceFocus(i) { const l = bomState.lines[i]; if (l) bomPriceOld = { i: i, price: l.price, flag: !!l.priceOverride }; }
+function bomPriceInput(i, v) {
+  const l = bomState.lines[i]; if (!l) return;
+  const n = parseFloat(v); if (isNaN(n) || n < 0) return;
+  l.price = n; bomState.dirty = true; bomRecalc();
+}
+function bomPriceCommit(i, inp) {
+  const l = bomState.lines[i]; if (!l) return;
+  const old = (bomPriceOld && bomPriceOld.i === i) ? bomPriceOld : { i: i, price: l.price, flag: !!l.priceOverride };
+  bomPriceOld = null;
+  const n = parseFloat(inp.value);
+  if (isNaN(n) || n < 0) { l.price = old.price; bomRender(); showToast('Enter a price of 0 or more.'); return; }
+  l.price = n;
+  if (Math.abs(n - old.price) < 1e-9) { bomRender(); return; }          // nothing really changed
+  bomState.dirty = true;
+  const p = vParts.find(x => x.partId === l.partId);
+  if (p && p.active && Math.abs(p.price - n) < 1e-9) { delete l.priceOverride; bomRender(); return; }   // same as the catalog
+  if (!p || !p.active) { l.priceOverride = true; bomRender(); showToast('Price changed on this bill. This part is not active in the catalog, so there is nothing to update there.', 5000); return; }
+  bomPricePending = { i: i, oldPrice: old.price, oldFlag: old.flag, newPrice: n };
+  vpEl('bpMsgTop').innerHTML = '<b>' + vpEsc(p.partNumber) + '</b> &middot; ' + vpEsc(p.vendor) + '<br>Catalog price: <b>' + vpMoney(p.price) + '</b><br>Price you entered: <b>' + vpMoney(n) + '</b>';
+  vpEl('bpErr').style.display = 'none';
+  openM('mBomPrice');
+  bomRecalc();
+}
+async function bomPriceChoose(which) {
+  const pd = bomPricePending;
+  const done = () => { bomPricePending = null; closeM('mBomPrice'); };
+  if (!pd) { closeM('mBomPrice'); return; }
+  const l = bomState.lines[pd.i];
+  if (!l) { done(); return; }
+  if (which === 'undo') {
+    l.price = pd.oldPrice; if (pd.oldFlag) l.priceOverride = true; else delete l.priceOverride;
+    done(); bomRender(); return;
+  }
+  if (which === 'bill') {
+    l.price = pd.newPrice; l.priceOverride = true; bomState.dirty = true;
+    done(); bomRender(); showToast('Price changed on this bill only. Save the bill to keep it.', 4500); return;
+  }
+  const p = vParts.find(x => x.partId === l.partId);
+  if (!p) { vpEl('bpErr').textContent = 'That part is no longer in the catalog. Use "This bill only".'; vpEl('bpErr').style.display = 'block'; return; }
+  const btns = ['bpUndo', 'bpBill', 'bpCat'].map(id => vpEl(id));
+  btns.forEach(b => b.disabled = true);
+  try {
+    const res = await vpCloud('saveVendorPart', Object.assign({}, p, { price: pd.newPrice }));
+    const k = vParts.findIndex(x => x.partId === res.part.partId); if (k >= 0) vParts[k] = res.part;
+    vpCache(); vpRefreshLists(); vpRender();
+    l.price = pd.newPrice; delete l.priceOverride; bomState.dirty = true;
+    done(); bomRender();
+    showToast('Catalog price for ' + res.part.partNumber + ' is now ' + vpMoney(res.part.price) + '. Save the bill to keep it.', 5000);
+  } catch (e) {
+    vpEl('bpErr').textContent = 'Catalog not updated: ' + e.message; vpEl('bpErr').style.display = 'block';
+  } finally { btns.forEach(b => b.disabled = false); }
 }
 function bomRemove(i) { bomState.lines.splice(i, 1); bomState.dirty = true; bomRender(); }
 
@@ -21349,7 +21438,7 @@ function bomRender() {
           '<td style="white-space:normal">' + vpEsc(t.type) + (t.sub && t.sub !== t.type ? '<div class="vp-hint">' + vpEsc(t.sub) + '</div>' : '') + '</td>' +
           '<td style="text-align:right"><input class="vp-lq" id="bomQty_' + i + '" type="number" min="0" step="any" value="' + vpEsc(l.qty) + '" oninput="bomQtyInput(' + i + ',this.value)"> <span style="color:var(--text3)">' + vpEsc(l.unitStd) + '</span></td>' +
           '<td id="bomOrd_' + i + '" style="white-space:normal"></td>' +
-          '<td style="text-align:right;font-family:var(--mono);white-space:nowrap">' + vpMoney(l.price) + '<div class="vp-hint">' + (d > 1 ? 'per pack of ' + d + ' ' + vpEsc(l.unitStd) : 'per ' + vpEsc(l.unitStd)) + '</div></td>' +
+          '<td style="text-align:right;white-space:nowrap"><span style="color:var(--text3)">$</span><input class="vp-lq" style="width:92px!important;font-family:var(--mono)" id="bomPrice_' + i + '" type="number" min="0" step="any" value="' + vpEsc(l.price) + '" title="Edit the price. You will be asked whether to update the catalog too." onfocus="bomPriceFocus(' + i + ')" oninput="bomPriceInput(' + i + ',this.value)" onchange="bomPriceCommit(' + i + ',this)"><div class="vp-hint">' + (d > 1 ? 'per pack of ' + d + ' ' + vpEsc(l.unitStd) : 'per ' + vpEsc(l.unitStd)) + '</div></td>' +
           '<td id="bomTot_' + i + '" class="vp-total" style="text-align:right"></td>' +
           '<td class="vp-arrows"><button class="btn btn-ghost vp-arrow" title="Move up" onclick="bomStep(' + i + ',-1)"' + (pos === 0 ? ' disabled' : '') + '>&#9650;</button>' +
           '<button class="btn btn-ghost vp-arrow" title="Move down" onclick="bomStep(' + i + ',1)"' + (pos === g.idx.length - 1 ? ' disabled' : '') + '>&#9660;</button>' +
@@ -21358,7 +21447,7 @@ function bomRender() {
     }).join('');
   }
   bomRecalc();
-  const anyOff = bomState.lines.some(l => bomLineFlag(l) && bomLineFlag(l) !== 'Not in catalog' && bomLineFlag(l) !== 'Part is inactive');
+  const anyOff = bomState.lines.some(l => { const f = bomLineFlag(l); return f && f !== 'Not in catalog' && f !== 'Part is inactive' && f.indexOf('Price set on this bill') !== 0; });
   vpEl('bomRefreshBtn').style.display = anyOff ? '' : 'none';
   bomRenderList();
 }
@@ -21458,7 +21547,9 @@ function bomUpdatePrices() {
   let n = 0;
   bomState.lines.forEach(l => {
     const p = vParts.find(x => x.partId === l.partId);
-    if (p && p.active && bomLineFlag(l)) { Object.assign(l, bomLineFromPart(p), { qty: l.qty }); n++; }
+    const f = bomLineFlag(l);
+    // v3.39.5 - a price set on purpose for this bill is left alone
+    if (p && p.active && f && f.indexOf('Price set on this bill') !== 0) { Object.assign(l, bomLineFromPart(p), { qty: l.qty }); delete l.priceOverride; n++; }
   });
   if (n) { bomState.dirty = true; bomRender(); showToast('Updated ' + n + ' line' + (n === 1 ? '' : 's') + ' to the current catalog. Save the bill to keep it.'); }
 }
